@@ -1,0 +1,41 @@
+import { NextResponse } from 'next/server';
+import { getOrderbookData, isValidAddress } from '@/lib/orderbook';
+import { getClientIp, rateLimit } from '@/lib/rateLimit';
+
+export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const { allowed, retryAfter } = await rateLimit(`orderbook:${ip}`, 60, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded' },
+      { status: 429, headers: { 'Retry-After': Math.ceil(retryAfter / 1000).toString() } }
+    );
+  }
+
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get('token');
+  const depthParam = Number(searchParams.get('depth') ?? '10');
+  const chainIdParam = searchParams.get('chainId');
+  const chainId = chainIdParam ? parseInt(chainIdParam, 10) : undefined;
+
+  if (!isValidAddress(token)) {
+    return NextResponse.json({ error: 'Invalid token address' }, { status: 400 });
+  }
+
+  const depth = Number.isFinite(depthParam) ? Math.min(Math.max(depthParam, 1), 50) : 10;
+  try {
+    const timeoutMs = 8000;
+    const data = await Promise.race([
+      getOrderbookData(token, depth, 3000, chainId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Orderbook timeout')), timeoutMs)),
+    ]);
+    const response = NextResponse.json(data);
+    response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
+    return response;
+  } catch (error) {
+    console.error('Orderbook API error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to load orderbook';
+    const status = message.includes('timeout') ? 504 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}

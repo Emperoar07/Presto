@@ -1,0 +1,17 @@
+node_modules
+.next
+dist
+build
+coverage
+artifacts
+cache
+devserver.log
+devserver.err.log
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env
+.env.*
+!.env.example

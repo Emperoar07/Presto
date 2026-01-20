@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run compile:*)",
+      "Bash(npx hardhat test:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx hardhat compile:*)"
+    ]
+  }
+}

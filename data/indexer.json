@@ -1,0 +1,30 @@
+{
+  "chainId": 42431,
+  "updatedAt": 1768480495188,
+  "tokens": {
+    "0x20c0000000000000000000000000000000000000": {
+      "bids": [],
+      "asks": [],
+      "recentTrades": [],
+      "cancelledOrders": []
+    },
+    "0x20c0000000000000000000000000000000000001": {
+      "bids": [],
+      "asks": [],
+      "recentTrades": [],
+      "cancelledOrders": []
+    },
+    "0x20c0000000000000000000000000000000000002": {
+      "bids": [],
+      "asks": [],
+      "recentTrades": [],
+      "cancelledOrders": []
+    },
+    "0x20c0000000000000000000000000000000000003": {
+      "bids": [],
+      "asks": [],
+      "recentTrades": [],
+      "cancelledOrders": []
+    }
+  }
+}
