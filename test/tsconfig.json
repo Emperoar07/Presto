@@ -1,7 +1,3 @@
 {
-  "extends": "../tsconfig.hardhat.json",
-  "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node"
-  }
+  "extends": "../tsconfig.hardhat.json"
 }

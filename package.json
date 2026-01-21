@@ -7,6 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "node -e \"process.exit(require('child_process').spawnSync('npx', ['eslint', '.'], { stdio: 'inherit', env: { ...process.env, ESLINT_USE_FLAT_CONFIG: 'false' } }).status)\"",
+    "test": "npx hardhat test --config hardhat.config.cjs test/TempoHubAMM.test.ts test/TempoHubAMM.security.test.ts",
+    "test:coverage": "npx hardhat coverage --config hardhat.config.cjs",
     "deploy:local": "npx hardhat run scripts/deploy.ts --network localhost",
     "deploy:hub": "npx hardhat run scripts/deploy_hub.ts --network localhost",
     "deploy:base-sepolia": "npx hardhat run scripts/deploy-base-sepolia.ts --network baseSepolia",
@@ -57,6 +59,7 @@
     "solidity-coverage": "^0.8.17",
     "tailwindcss": "^3.4.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typechain": "^8.3.2",
     "typescript": "^5.5.0"
   },

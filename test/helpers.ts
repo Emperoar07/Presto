@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Contract } from "ethers";
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers.js";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 export interface TestTokens {
   pathUSD: Contract;

@@ -6,7 +6,12 @@
       "Bash(npm run build:*)",
       "Bash(npx hardhat compile:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nOptimize UI performance and enhance security\n\n- Add GPU-accelerated background with radial gradients \\(no blur filters\\)\n- Implement smooth CSS animations \\(fadeIn, slideUp, skeleton\\)\n- Add mobile-responsive navigation with hamburger menu\n- Create loading skeletons for better UX\n- Use exact token approvals instead of maxUint256 for security\n- Center swap card and improve page layouts\n- Add dynamic imports for heavy components \\(recharts\\)\n- Support reduced motion preference for accessibility\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nOptimize UI performance and enhance security\n\n- Add GPU-accelerated background with radial gradients \\(no blur filters\\)\n- Implement smooth CSS animations \\(fadeIn, slideUp, skeleton\\)\n- Add mobile-responsive navigation with hamburger menu\n- Create loading skeletons for better UX\n- Use exact token approvals instead of maxUint256 for security\n- Center swap card and improve page layouts\n- Add dynamic imports for heavy components \\(recharts\\)\n- Support reduced motion preference for accessibility\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(test:*)",
+      "Bash(npm test)",
+      "Bash(npx hardhat:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix test suite ESM/CommonJS configuration\n\n- Configure tsx for TypeScript test execution in ESM environment\n- Fix import extensions in test files \\(.ts -> .js for ESM compatibility\\)\n- Update test assertions to query actual shares from contract\n- Fix event assertions for LiquidityAdded \\(uses minted, not user shares\\)\n- Update slippage test to check high price impact instead of revert\n- Add explicit test file paths for Windows compatibility\n\nAll 74 tests now passing \\(44 unit + 30 security tests\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

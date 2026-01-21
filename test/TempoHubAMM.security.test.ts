@@ -118,7 +118,7 @@ describe("TempoHubAMM - Security Tests", function () {
 
       // Add liquidity first
       const amount = parseTokens("10000", 18);
-      const shares = await addLiquidityHelper(amm, tokens.alphaUSD, tokens.pathUSD, user1, amount, amount);
+      await addLiquidityHelper(amm, tokens.alphaUSD, tokens.pathUSD, user1, amount, amount);
 
       // Pause
       await amm.connect(owner).pause();
@@ -127,6 +127,9 @@ describe("TempoHubAMM - Security Tests", function () {
       const alphaAddress = await tokens.alphaUSD.getAddress();
       const pathAddress = await tokens.pathUSD.getAddress();
       const deadline = BigInt(await getCurrentTimestamp()) + 1800n;
+
+      // Get actual shares from contract
+      const shares = await amm.shares(alphaAddress, user1.address);
 
       await expect(
         amm.connect(user1).removeLiquidity(alphaAddress, pathAddress, shares, 0, 0, deadline)
@@ -397,11 +400,14 @@ describe("TempoHubAMM - Security Tests", function () {
       const { amm, tokens, user1 } = await loadFixture(deployFixture);
 
       const amount = parseTokens("10000", 18);
-      const shares = await addLiquidityHelper(amm, tokens.alphaUSD, tokens.pathUSD, user1, amount, amount);
+      await addLiquidityHelper(amm, tokens.alphaUSD, tokens.pathUSD, user1, amount, amount);
 
       const alphaAddress = await tokens.alphaUSD.getAddress();
       const pathAddress = await tokens.pathUSD.getAddress();
       const deadline = BigInt(await getCurrentTimestamp()) + 1800n;
+
+      // Get actual shares from contract
+      const shares = await amm.shares(alphaAddress, user1.address);
 
       // Try to remove with unrealistic minimums
       await expect(

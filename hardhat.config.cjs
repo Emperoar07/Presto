@@ -1,6 +1,9 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
+// Register tsx for TypeScript support in ESM mode
+require("tsx/cjs");
+
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
