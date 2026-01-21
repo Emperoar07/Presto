@@ -4,7 +4,11 @@ import { useState, useCallback, memo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
+
+// Network badge configuration
+const MAINNET_CHAIN_IDS = [42431]; // Add production chain IDs here
+const isProductionMode = process.env.NEXT_PUBLIC_PRODUCTION_MODE === 'true';
 
 const NavLink = memo(function NavLink({
   href,
@@ -29,6 +33,26 @@ const NavLink = memo(function NavLink({
     >
       {children}
     </Link>
+  );
+});
+
+const NetworkBadge = memo(function NetworkBadge() {
+  const chainId = useChainId();
+  const isMainnet = isProductionMode || MAINNET_CHAIN_IDS.includes(chainId);
+
+  if (isMainnet) {
+    return (
+      <span className="hidden lg:inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
+        Live
+      </span>
+    );
+  }
+
+  return (
+    <span className="hidden lg:inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+      Testnet
+    </span>
   );
 });
 
@@ -66,10 +90,8 @@ export const Header = memo(function Header() {
               <NavLink href="/analytics" isActive={isActive('/analytics')}>Analytics</NavLink>
             </nav>
 
-            {/* Testnet Badge */}
-            <span className="hidden lg:inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
-              Testnet
-            </span>
+            {/* Network Badge - Shows Testnet or Live based on environment/chain */}
+            <NetworkBadge />
           </div>
 
           {/* Right side */}
