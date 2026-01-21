@@ -136,6 +136,9 @@ export function SwapCardEnhanced() {
         args: [outputTokenAddress],
       },
     ],
+    query: {
+      enabled: !!hubAmmAddress && !!inputTokenAddress && !!outputTokenAddress,
+    },
   });
 
   const inputReserves = reservesData?.[0]?.result as bigint | undefined;

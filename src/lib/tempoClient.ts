@@ -83,20 +83,47 @@ export async function getTokenBalancesBatch(
   tokens: { address: string; decimals: number }[]
 ): Promise<Record<string, string>> {
   if (!client || !account || tokens.length === 0) return {};
-  const contracts = tokens.map((token) => ({
-    address: token.address as `0x${string}`,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [account as `0x${string}`],
-  }));
-  const results = await client.readContracts({
-    contracts,
-    allowFailure: true,
-  });
   const next: Record<string, string> = {};
-  results.forEach((result, index) => {
-    const token = tokens[index];
-    const value = result.status === 'success' ? (result.result as bigint) : 0n;
+  const readContracts = (client as PublicClient & { readContracts?: PublicClient['readContracts'] }).readContracts;
+
+  if (readContracts) {
+    const contracts = tokens.map((token) => ({
+      address: token.address as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [account as `0x${string}`],
+    }));
+    const results = await readContracts({
+      contracts,
+      allowFailure: true,
+    });
+    results.forEach((result, index) => {
+      const token = tokens[index];
+      const value = result.status === 'success' ? (result.result as bigint) : 0n;
+      const formatted = formatUnits(value, token.decimals);
+      const key = `wallet:${account.toLowerCase()}:${token.address.toLowerCase()}`;
+      balanceCache.set(key, { ts: Date.now(), value: formatted });
+      next[token.address] = formatted;
+    });
+    return next;
+  }
+
+  const results = await Promise.all(
+    tokens.map(async (token) => {
+      try {
+        const value = (await client.readContract({
+          address: token.address as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [account as `0x${string}`],
+        })) as bigint;
+        return { token, value };
+      } catch {
+        return { token, value: 0n };
+      }
+    })
+  );
+  results.forEach(({ token, value }) => {
     const formatted = formatUnits(value, token.decimals);
     const key = `wallet:${account.toLowerCase()}:${token.address.toLowerCase()}`;
     balanceCache.set(key, { ts: Date.now(), value: formatted });
@@ -114,20 +141,48 @@ export async function getDexBalancesBatch(
   if (!client || !account || tokens.length === 0) return {};
   const resolvedChainId = resolveChainId(chainId, client);
   const dexAddress = getDexAddressForChain(resolvedChainId);
-  const contracts = tokens.map((token) => ({
-    address: dexAddress,
-    abi: DEX_ABI,
-    functionName: 'balanceOf',
-    args: [account as `0x${string}`, token.address as `0x${string}`],
-  }));
-  const results = await client.readContracts({
-    contracts,
-    allowFailure: true,
-  });
   const next: Record<string, { formatted: string; raw: bigint }> = {};
-  results.forEach((result, index) => {
-    const token = tokens[index];
-    const value = result.status === 'success' ? (result.result as bigint) : 0n;
+  const readContracts = (client as PublicClient & { readContracts?: PublicClient['readContracts'] }).readContracts;
+
+  if (readContracts) {
+    const contracts = tokens.map((token) => ({
+      address: dexAddress,
+      abi: DEX_ABI,
+      functionName: 'balanceOf',
+      args: [account as `0x${string}`, token.address as `0x${string}`],
+    }));
+    const results = await readContracts({
+      contracts,
+      allowFailure: true,
+    });
+    results.forEach((result, index) => {
+      const token = tokens[index];
+      const value = result.status === 'success' ? (result.result as bigint) : 0n;
+      const formatted = formatUnits(value, token.decimals);
+      const key = `dex:${account.toLowerCase()}:${token.address.toLowerCase()}:${resolvedChainId ?? 'unknown'}`;
+      balanceCache.set(key, { ts: Date.now(), value: formatted });
+      balanceRawCache.set(key, { ts: Date.now(), value });
+      next[token.address] = { formatted, raw: value };
+    });
+    return next;
+  }
+
+  const results = await Promise.all(
+    tokens.map(async (token) => {
+      try {
+        const value = (await client.readContract({
+          address: dexAddress,
+          abi: DEX_ABI,
+          functionName: 'balanceOf',
+          args: [account as `0x${string}`, token.address as `0x${string}`],
+        })) as bigint;
+        return { token, value };
+      } catch {
+        return { token, value: 0n };
+      }
+    })
+  );
+  results.forEach(({ token, value }) => {
     const formatted = formatUnits(value, token.decimals);
     const key = `dex:${account.toLowerCase()}:${token.address.toLowerCase()}:${resolvedChainId ?? 'unknown'}`;
     balanceCache.set(key, { ts: Date.now(), value: formatted });

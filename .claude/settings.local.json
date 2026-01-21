@@ -4,7 +4,9 @@
       "Bash(npm run compile:*)",
       "Bash(npx hardhat test:*)",
       "Bash(npm run build:*)",
-      "Bash(npx hardhat compile:*)"
+      "Bash(npx hardhat compile:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nOptimize UI performance and enhance security\n\n- Add GPU-accelerated background with radial gradients \\(no blur filters\\)\n- Implement smooth CSS animations \\(fadeIn, slideUp, skeleton\\)\n- Add mobile-responsive navigation with hamburger menu\n- Create loading skeletons for better UX\n- Use exact token approvals instead of maxUint256 for security\n- Center swap card and improve page layouts\n- Add dynamic imports for heavy components \\(recharts\\)\n- Support reduced motion preference for accessibility\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

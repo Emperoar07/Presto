@@ -1,17 +1,51 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 
-export function Background() {
+/**
+ * Optimized Background Component
+ * - Uses GPU-accelerated transforms instead of expensive blur filters
+ * - Reduces paint operations with will-change hints
+ * - Simplified gradient for better performance
+ */
+export const Background = memo(function Background() {
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden bg-black">
-      {/* Deep Space Aurora Blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#2E0249] rounded-full mix-blend-screen filter blur-[100px] opacity-70 animate-blob"></div>
-      <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] bg-[#00F3FF] rounded-full mix-blend-screen filter blur-[100px] opacity-50 animate-blob animation-delay-2000"></div>
-      <div className="absolute bottom-[-20%] left-[20%] w-[600px] h-[600px] bg-[#2E0249] rounded-full mix-blend-screen filter blur-[100px] opacity-70 animate-blob animation-delay-4000"></div>
-      
-      {/* Technical Grid Pattern */}
-      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
+      {/* Optimized gradient orbs - using opacity and gradients instead of blur */}
+      <div
+        className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-30"
+        style={{
+          background: 'radial-gradient(circle, #2E0249 0%, transparent 70%)',
+          willChange: 'transform',
+          transform: 'translateZ(0)',
+        }}
+      />
+      <div
+        className="absolute top-1/4 -right-32 w-80 h-80 rounded-full opacity-20"
+        style={{
+          background: 'radial-gradient(circle, #00F3FF 0%, transparent 70%)',
+          willChange: 'transform',
+          transform: 'translateZ(0)',
+        }}
+      />
+      <div
+        className="absolute -bottom-32 left-1/4 w-[28rem] h-[28rem] rounded-full opacity-25"
+        style={{
+          background: 'radial-gradient(circle, #2E0249 0%, transparent 70%)',
+          willChange: 'transform',
+          transform: 'translateZ(0)',
+        }}
+      />
+
+      {/* Subtle grid overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '50px 50px',
+        }}
+      />
     </div>
   );
-}
+});
