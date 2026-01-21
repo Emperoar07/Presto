@@ -1,4 +1,4 @@
-# Tempo Mini DEX (PrestoDEX)
+# PrestoDEX (Tempo Mini Dex)
 
 A high-performance decentralized exchange built on the Tempo blockchain featuring a Hub-and-Spoke AMM model with pathUSD as the central routing token.
 
@@ -189,4 +189,4 @@ MIT
 
 ---
 
-Built with [Tempo](https://tempo.xyz) | Powered by [Claude Code](https://claude.ai/claude-code)
+Built on [Tempo](https://tempo.xyz) by | [emperoar007()XB)](https://x.com/emperoar007)
