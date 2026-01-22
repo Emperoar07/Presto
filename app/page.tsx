@@ -5,10 +5,11 @@ import Link from 'next/link';
 
 export default function Home() {
   const bpmStrings = [
-    'BPM 96 · 102 · 108 · 114',
-    'BPM 120 · 124 · 128 · 132',
-    'BPM 136 · 140 · 144 · 148',
-    'BPM 152 · 156 · 160 · 164',
+    'BPM 72 · 88 · 96 · 108',
+    'BPM 118 · 124 · 128 · 132',
+    'BPM 140 · 148 · 156 · 162',
+    'BPM 90 · 110 · 130 · 150',
+    'BPM 100 · 112 · 126 · 138',
   ];
   const [showLoader, setShowLoader] = useState(true);
   const [bpmIndex, setBpmIndex] = useState(0);
@@ -16,10 +17,10 @@ export default function Home() {
   useEffect(() => {
     const interval = setInterval(() => {
       setBpmIndex((prev) => (prev + 1) % bpmStrings.length);
-    }, 350);
+    }, 280);
     const timeout = setTimeout(() => {
       setShowLoader(false);
-    }, 2600);
+    }, 5200);
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
@@ -30,19 +31,37 @@ export default function Home() {
     <main className="flex flex-col items-center justify-center min-h-[80vh] gap-8 px-6">
       {showLoader && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-black/70 px-8 py-10 text-center shadow-2xl">
-            <div className="text-xs uppercase tracking-[0.3em] text-zinc-500">PrestoDEX Tempo</div>
-            <div className="mt-4 text-3xl font-bold text-white">
-              Loading the beat
+          <div className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-black/70 px-10 py-12 text-center shadow-2xl">
+            <div className="absolute inset-0 opacity-40">
+              <div className="absolute -left-20 top-10 h-20 w-[140%] rounded-full bg-gradient-to-r from-[#00F3FF]/30 via-[#2E0249]/20 to-[#BC13FE]/30 blur-[8px]" />
+              <div className="absolute -right-16 top-24 h-16 w-[140%] rounded-full bg-gradient-to-r from-[#BC13FE]/30 via-[#00F3FF]/20 to-[#2E0249]/30 blur-[8px]" />
+              <div className="absolute left-1/2 top-1/2 h-24 w-[120%] -translate-x-1/2 rounded-full bg-gradient-to-r from-white/10 to-transparent blur-[12px]" />
             </div>
-            <div className="mt-3 text-sm text-zinc-400">
-              syncing tempo engine
-            </div>
-            <div className="mt-6 font-mono text-sm text-[#00F3FF]">
-              {bpmStrings[bpmIndex]}
-            </div>
-            <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-white/10">
-              <div className="h-full w-2/3 animate-pulse bg-gradient-to-r from-[#00F3FF] to-[#BC13FE]" />
+            <div className="relative">
+              <div className="text-[11px] uppercase tracking-[0.4em] text-zinc-400">PrestoDEX Tempo</div>
+              <div className="mt-5 text-3xl font-bold text-white">
+                Warming the soundstage
+              </div>
+              <div className="mt-2 text-sm text-zinc-400">
+                calibrating liquidity pulses
+              </div>
+              <div className="mt-6 font-mono text-sm text-[#00F3FF]">
+                {bpmStrings[bpmIndex]}
+              </div>
+              <div className="mt-6 flex items-center justify-center gap-1">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <span
+                    key={i}
+                    className="h-2 w-8 rounded-full bg-gradient-to-r from-[#00F3FF] via-[#BC13FE] to-[#2E0249] opacity-70"
+                    style={{
+                      animation: `pulse ${0.9 + i * 0.12}s ease-in-out ${i * 0.1}s infinite`,
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-2/3 animate-pulse bg-gradient-to-r from-[#00F3FF] to-[#BC13FE]" />
+              </div>
             </div>
           </div>
         </div>
