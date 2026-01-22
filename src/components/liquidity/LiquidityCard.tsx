@@ -176,6 +176,14 @@ export function LiquidityCard() {
 
   const handlePlaceOrder = async () => {
       if (!orderAmount || !walletClient || !publicClient || !address) return;
+      if (chainId !== 42431) {
+          toast.error('Orderbook is only supported on Tempo testnet');
+          return;
+      }
+      if (selectedToken.symbol === 'pathUSD') {
+          toast.error('pathUSD cannot be used as the base token for limit orders');
+          return;
+      }
       if (walletChainId && walletChainId !== chainId) {
           toast.error('Wrong network selected');
           return;
@@ -226,45 +234,88 @@ export function LiquidityCard() {
               }
           }
           const flipTick = isFlip ? (isBid ? tickVal + 10 : tickVal - 10) : undefined;
-          try {
-              if (isFlip) {
-                  if (typeof flipTick !== 'number' || flipTick < -2000 || flipTick > 2000) {
-                      toast.error('Flip tick is out of bounds');
-                      return;
+          if (showOrderDebug) {
+              try {
+                  if (tokenToSpend !== ZERO_ADDRESS) {
+                      const allowance = (await publicClient.readContract({
+                          address: tokenToSpend as `0x${string}`,
+                          abi: ERC20_ALLOWANCE_ABI,
+                          functionName: 'allowance',
+                          args: [address as `0x${string}`, getDexAddressForChain(chainId)],
+                      })) as bigint;
+                      if (allowance < spendAmount) {
+                          const params = {
+                              token: selectedToken.address,
+                              amount: amount.toString(),
+                              isBid,
+                              tick: tickVal,
+                              flipTick,
+                              spendToken: tokenToSpend,
+                              spendAmount: spendAmount.toString(),
+                              dex: getDexAddressForChain(chainId),
+                              allowance: allowance.toString(),
+                          };
+                          setOrderDebug({ message: 'Approval required; skipping simulation', params });
+                      } else if (isFlip) {
+                          if (typeof flipTick !== 'number' || flipTick < -2000 || flipTick > 2000) {
+                              toast.error('Flip tick is out of bounds');
+                              return;
+                          }
+                          await publicClient.simulateContract({
+                              address: getDexAddressForChain(chainId),
+                              abi: DEX_PLACE_FLIP_ABI,
+                              functionName: 'placeFlip',
+                              args: [selectedToken.address, toUint128(amount), isBid, tickVal, flipTick],
+                              account: address as `0x${string}`
+                          });
+                      } else {
+                          await publicClient.simulateContract({
+                              address: getDexAddressForChain(chainId),
+                              abi: DEX_PLACE_ABI,
+                              functionName: 'place',
+                              args: [selectedToken.address, toUint128(amount), isBid, tickVal],
+                              account: address as `0x${string}`
+                          });
+                      }
+                  } else if (isFlip) {
+                      if (typeof flipTick !== 'number' || flipTick < -2000 || flipTick > 2000) {
+                          toast.error('Flip tick is out of bounds');
+                          return;
+                      }
+                      await publicClient.simulateContract({
+                          address: getDexAddressForChain(chainId),
+                          abi: DEX_PLACE_FLIP_ABI,
+                          functionName: 'placeFlip',
+                          args: [selectedToken.address, toUint128(amount), isBid, tickVal, flipTick],
+                          account: address as `0x${string}`
+                      });
+                  } else {
+                      await publicClient.simulateContract({
+                          address: getDexAddressForChain(chainId),
+                          abi: DEX_PLACE_ABI,
+                          functionName: 'place',
+                          args: [selectedToken.address, toUint128(amount), isBid, tickVal],
+                          account: address as `0x${string}`
+                      });
                   }
-                  await publicClient.simulateContract({
-                      address: getDexAddressForChain(chainId),
-                      abi: DEX_PLACE_FLIP_ABI,
-                      functionName: 'placeFlip',
-                      args: [selectedToken.address, toUint128(amount), isBid, tickVal, flipTick],
-                      account: address as `0x${string}`
-                  });
-              } else {
-                  await publicClient.simulateContract({
-                      address: getDexAddressForChain(chainId),
-                      abi: DEX_PLACE_ABI,
-                      functionName: 'place',
-                      args: [selectedToken.address, toUint128(amount), isBid, tickVal],
-                      account: address as `0x${string}`
-                  });
+              } catch (e) {
+                  const reason = getRevertReason(e);
+                  const data = getRevertData(e);
+                  const params = {
+                      token: selectedToken.address,
+                      amount: amount.toString(),
+                      isBid,
+                      tick: tickVal,
+                      flipTick,
+                      spendToken: tokenToSpend,
+                      spendAmount: spendAmount.toString(),
+                      dex: getDexAddressForChain(chainId),
+                  };
+                  setOrderDebug({ message: reason, data, params });
+                  console.error('Order simulation failed', { reason, data, params, error: e });
+                  toast.error(`Order simulation failed: ${reason}${data ? ` (data: ${data})` : ''}`);
+                  return;
               }
-          } catch (e) {
-              const reason = getRevertReason(e);
-              const data = getRevertData(e);
-              const params = {
-                  token: selectedToken.address,
-                  amount: amount.toString(),
-                  isBid,
-                  tick: tickVal,
-                  flipTick,
-                  spendToken: tokenToSpend,
-                  spendAmount: spendAmount.toString(),
-                  dex: getDexAddressForChain(chainId),
-              };
-              setOrderDebug({ message: reason, data, params });
-              console.error('Order simulation failed', { reason, data, params, error: e });
-              toast.error(`Order simulation failed: ${reason}${data ? ` (data: ${data})` : ''}`);
-              return;
           }
           const hash = await placeOrder(
             walletClient,
@@ -544,6 +595,7 @@ export function LiquidityCard() {
         onClose={() => setIsTokenModalOpen(false)}
         onSelect={setSelectedToken}
         selectedToken={selectedToken}
+        filterTokens={(token) => token.symbol !== 'pathUSD'}
       />
       </div>
     </div>

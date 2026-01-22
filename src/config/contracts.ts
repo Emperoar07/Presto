@@ -75,7 +75,7 @@ export const HUB_AMM_ABI = parseAbi([
 export const TEMPO_DEX_ABI = parseAbi([
   // Swapping
   "function swapExactAmountIn(address tokenIn, address tokenOut, uint128 amountIn, uint128 minAmountOut) external returns (uint128 amountOut)",
-  "function quoteSwapExactAmountIn(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256)",
+  "function quoteSwapExactAmountIn(address tokenIn, address tokenOut, uint128 amountIn) external view returns (uint128)",
   // Liquidity (Fee AMM)
   "function addLiquidity(address userToken, address validatorToken, uint128 validatorTokenAmount) external",
   "function removeLiquidity(address userToken, address validatorToken, uint256 liquidityAmount) external",

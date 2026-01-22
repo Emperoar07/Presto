@@ -12,7 +12,10 @@
       "Bash(npm test)",
       "Bash(npx hardhat:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix test suite ESM/CommonJS configuration\n\n- Configure tsx for TypeScript test execution in ESM environment\n- Fix import extensions in test files \\(.ts -> .js for ESM compatibility\\)\n- Update test assertions to query actual shares from contract\n- Fix event assertions for LiquidityAdded \\(uses minted, not user shares\\)\n- Update slippage test to check high price impact instead of revert\n- Add explicit test file paths for Windows compatibility\n\nAll 74 tests now passing \\(44 unit + 30 security tests\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm run lint:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)"
     ]
   }
 }

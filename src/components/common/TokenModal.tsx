@@ -10,14 +10,16 @@ interface TokenModalProps {
   onClose: () => void;
   onSelect: (token: Token) => void;
   selectedToken?: Token;
+  filterTokens?: (token: Token) => boolean;
 }
 
-export function TokenModal({ isOpen, onClose, onSelect, selectedToken }: TokenModalProps) {
+export function TokenModal({ isOpen, onClose, onSelect, selectedToken, filterTokens }: TokenModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const chainId = useChainId();
   const tokens = getTokens(chainId);
 
-  const filteredTokens = tokens.filter((token) =>
+  const nextTokens = filterTokens ? tokens.filter(filterTokens) : tokens;
+  const filteredTokens = nextTokens.filter((token) =>
     token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
     token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     token.address.toLowerCase().includes(searchQuery.toLowerCase())

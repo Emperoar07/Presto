@@ -5,7 +5,7 @@ import { getTokens } from '@/config/tokens';
 import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContracts } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { formatUnits, parseUnits } from 'viem';
-import { getTokenBalancesBatch } from '@/lib/tempoClient';
+import { getTokenBalancesBatch, toUint128 } from '@/lib/tempoClient';
 import toast from 'react-hot-toast';
 import { useFeeToken } from '@/context/FeeTokenContext';
 import { TxToast } from '@/components/common/TxToast';
@@ -169,6 +169,7 @@ export function SwapCardEnhanced() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<Error | null>(null);
   const [priceImpact, setPriceImpact] = useState<number>(0);
+  const [tempoLiquidityStatus, setTempoLiquidityStatus] = useState<'unknown' | 'available' | 'empty' | 'error'>('unknown');
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -196,7 +197,7 @@ export function SwapCardEnhanced() {
               address: dexAddress as `0x${string}`,
               abi: TEMPO_DEX_ABI,
               functionName: 'quoteSwapExactAmountIn',
-              args: [inputToken.address, outputToken.address, amount],
+              args: [inputToken.address, outputToken.address, toUint128(amount)],
             });
           } else {
             // HubAMM uses getQuote
@@ -246,6 +247,43 @@ export function SwapCardEnhanced() {
     return () => clearTimeout(timer);
   }, [inputAmount, inputToken, outputToken, exactField, publicClient, dexAddress, isTempoChain, inputReserves, outputReserves]);
 
+  useEffect(() => {
+    if (!isTempoChain) {
+      setTempoLiquidityStatus('available');
+      return;
+    }
+    if (!inputToken.address || !outputToken.address) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const baseToken = outputToken.symbol === 'pathUSD' ? inputToken.address : outputToken.address;
+
+    const checkLiquidity = async () => {
+      try {
+        const response = await fetch(`/api/orderbook?token=${baseToken}&depth=1&chainId=${chainId}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (!response.ok) {
+          setTempoLiquidityStatus('error');
+          return;
+        }
+        const result = await response.json();
+        const bids = Array.isArray(result?.bids) ? result.bids : [];
+        const asks = Array.isArray(result?.asks) ? result.asks : [];
+        setTempoLiquidityStatus(bids.length + asks.length > 0 ? 'available' : 'empty');
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        setTempoLiquidityStatus('error');
+      }
+    };
+
+    checkLiquidity();
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [chainId, inputToken.address, outputToken.address, outputToken.symbol, inputToken.symbol, isTempoChain]);
+
   // Swap execution
   const handleSwap = async () => {
     if (!walletClient || !address || !inputAmount || !publicClient) return;
@@ -276,8 +314,8 @@ export function SwapCardEnhanced() {
             args: [
               inputToken.address,
               outputToken.address,
-              amount,
-              minOut,
+              toUint128(amount),
+              toUint128(minOut),
             ],
             account: address,
             chain: null,
@@ -525,11 +563,13 @@ export function SwapCardEnhanced() {
           )}
 
           {/* Error Message */}
-          {quoteError && (
+          {(quoteError || (isTempoChain && tempoLiquidityStatus === 'empty')) && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
-              {(quoteError.message?.includes('InsufficientLiquidity') || quoteError.message?.includes('reverted'))
-                ? 'Not enough liquidity available.'
-                : 'Error fetching quote.'}
+              {isTempoChain && tempoLiquidityStatus === 'empty'
+                ? 'No orderbook liquidity available for this pair on Tempo testnet.'
+                : (quoteError?.message?.includes('InsufficientLiquidity') || quoteError?.message?.includes('reverted'))
+                  ? 'Not enough liquidity available.'
+                  : 'Error fetching quote.'}
             </div>
           )}
 
@@ -541,7 +581,7 @@ export function SwapCardEnhanced() {
           ) : (
             <button
               onClick={handleSwap}
-              disabled={isSwapping || !inputAmount || !!quoteError || (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))}
+              disabled={isSwapping || !inputAmount || !!quoteError || (isTempoChain && tempoLiquidityStatus === 'empty') || (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))}
               className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-black hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,243,255,0.3)]"
             >
               {isSwapping ? 'Swapping...' : needsConfirmation ? 'Swap Anyway (High Impact)' : 'Swap'}

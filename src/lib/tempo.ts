@@ -252,6 +252,12 @@ export const Hooks = {
 
              useEffect(() => {
                  if (!token) return;
+                 if (chainId !== 42431) {
+                     setError('Orderbook is only available on Tempo testnet');
+                     setStatus('retrying');
+                     setIsLoading(false);
+                     return;
+                 }
                  let mounted = true;
                  let timer: ReturnType<typeof setTimeout> | null = null;
                  const safeDepth = Math.max(1, Math.min(depth, 50));
@@ -330,6 +336,14 @@ export const Hooks = {
                          fetchOrderbook(nextPoll);
                      } catch (e) {
                          if (!mounted) return;
+                         if (e instanceof DOMException && e.name === 'AbortError') {
+                             // Abort is expected on slow networks; don't spam console.
+                             const nextPoll = Math.min(maxPollMs, Math.max(pollingMs * 2, idlePollMs));
+                             setPollingMs(nextPoll);
+                             setStatus('retrying');
+                             fetchOrderbook(nextPoll);
+                             return;
+                         }
                          const message = e instanceof Error ? e.message : 'Failed to fetch orderbook';
                          console.error('Error fetching orderbook:', e);
                          setError(message);
