@@ -79,9 +79,9 @@ export const Header = memo(function Header() {
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center group">
               <PrestoDexMotionStaffLogo
-                width={200}
-                height={58}
-                withWordmark={false}
+                width={220}
+                height={65}
+                withWordmark={true}
                 className="text-white"
               />
             </Link>
