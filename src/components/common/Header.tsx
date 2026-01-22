@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId } from 'wagmi';
+import { PrestoDexMotionStaffLogo } from './PrestoDexMotionStaffLogo';
 
 // Network badge configuration
 // Note: 42431 is Tempo Moderato TESTNET, not mainnet
@@ -76,13 +77,13 @@ export const Header = memo(function Header() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex flex-col group">
-              <span className="text-xl font-bold tracking-tight leading-none text-white group-hover:text-[#00F3FF] transition-colors">
-                PrestoDEX
-              </span>
-              <span className="text-[10px] text-zinc-500 font-medium tracking-wide">
-                Instant swaps on Tempo
-              </span>
+            <Link href="/" className="flex items-center group">
+              <PrestoDexMotionStaffLogo
+                width={200}
+                height={58}
+                withWordmark={false}
+                className="text-white"
+              />
             </Link>
 
             {/* Desktop Navigation */}
