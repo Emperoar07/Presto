@@ -102,13 +102,13 @@ export const Header = memo(function Header() {
           <div className="pointer-events-auto">
             <Link
               href="/"
-              className="flex items-center group rounded-2xl bg-black/30 backdrop-blur-xl border border-white/10 px-3 py-2 transition-all duration-300 hover:bg-black/40 hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,243,255,0.15)]"
+              className="flex items-center group transition-all duration-300 hover:opacity-80"
             >
               <PrestoDexMotionStaffLogo
-                width={140}
-                height={50}
+                width={160}
+                height={55}
                 withWordmark={false}
-                className="text-white"
+                className="text-white drop-shadow-[0_0_15px_rgba(0,243,255,0.3)]"
               />
             </Link>
           </div>

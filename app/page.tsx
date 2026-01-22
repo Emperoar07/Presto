@@ -224,9 +224,7 @@ export default function Home() {
         <div className="relative z-10 text-center animate-fade-in max-w-3xl">
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <div className="p-4 rounded-3xl bg-black/30 backdrop-blur-xl border border-white/10">
-              <PrestoDexMotionStaffLogo width={280} height={100} withWordmark />
-            </div>
+            <PrestoDexMotionStaffLogo width={320} height={110} withWordmark />
           </div>
 
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
