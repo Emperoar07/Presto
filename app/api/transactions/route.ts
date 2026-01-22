@@ -81,6 +81,7 @@ export async function GET(request: Request) {
     const data = await withFallback(async (client) => {
       const latestBlock = await client.getBlockNumber();
       const fromBlock = latestBlock > (MAX_SCAN_BLOCKS - 1n) ? latestBlock - (MAX_SCAN_BLOCKS - 1n) : 0n;
+      const deadline = Date.now() + 12000;
 
       const items: TxItem[] = [];
       const dexAddress = TEMPO_DEX_ADDRESS.toLowerCase();
@@ -88,6 +89,7 @@ export async function GET(request: Request) {
       const batchSize = 10n;
 
       for (let start = latestBlock; start >= fromBlock && items.length < limit; start -= batchSize) {
+        if (Date.now() > deadline) break;
         const end = start;
         const begin = start >= (batchSize - 1n) ? start - (batchSize - 1n) : 0n;
         const blocks: bigint[] = [];
@@ -95,11 +97,14 @@ export async function GET(request: Request) {
           blocks.push(b);
         }
 
-        const blockData = await Promise.all(
+        const blockResults = await Promise.allSettled(
           blocks.map((blockNumber) =>
             client.getBlock({ blockNumber, includeTransactions: true })
           )
         );
+        const blockData = blockResults
+          .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getBlock>>> => result.status === 'fulfilled')
+          .map((result) => result.value);
 
         for (const block of blockData) {
           for (const tx of block.transactions) {
@@ -166,11 +171,15 @@ export async function GET(request: Request) {
         if (begin === 0n) break;
       }
 
-      const receipts = await Promise.all(
+      const receiptResults = await Promise.allSettled(
         items.map((item) => client.getTransactionReceipt({ hash: item.hash }))
       );
-      receipts.forEach((receipt, index) => {
-        items[index].status = receipt.status === 'success' ? 'Confirmed' : 'Failed';
+      receiptResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          items[index].status = result.value.status === 'success' ? 'Confirmed' : 'Failed';
+        } else {
+          items[index].status = 'Unknown';
+        }
       });
 
       return {
@@ -178,6 +187,7 @@ export async function GET(request: Request) {
           ...item,
           block: item.block.toString(),
         })),
+        partial: items.length < limit,
       };
     });
 
