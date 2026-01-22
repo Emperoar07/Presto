@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PrestoDexMotionStaffLogo } from '@/components/common/PrestoDexMotionStaffLogo';
 
 const LandingLoader = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
@@ -27,41 +28,14 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
           }}
         />
 
-        <div className="relative z-10 w-full max-w-3xl h-64 flex items-center justify-center overflow-hidden">
-          <svg viewBox="0 0 1000 200" className="w-full h-full drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">
-            <defs>
-              <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="rgba(34, 211, 238, 0)" />
-                <stop offset="50%" stopColor="rgba(168, 85, 247, 0.5)" />
-                <stop offset="90%" stopColor="#22d3ee" />
-                <stop offset="100%" stopColor="#fff" />
-              </linearGradient>
-
-              <mask id="lineMask">
-                <rect x="0" y="0" width="1000" height="200" fill="black" />
-                <rect x="-1000" y="0" width="1000" height="200" fill="white" className="animate-scan" />
-              </mask>
-            </defs>
-
-            <path
-              d="M0,100 L200,100 L230,40 L260,160 L290,100 L500,100 L530,20 L560,180 L590,100 L800,100 L830,50 L860,150 L890,100 L1000,100"
-              fill="none"
-              stroke="url(#pulseGradient)"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="animate-dash"
-            />
-
-            <circle cx="0" cy="100" r="4" fill="#fff" className="animate-dot drop-shadow-[0_0_10px_white]" />
-          </svg>
+        <div className="relative z-10 w-full max-w-3xl h-64 flex items-center justify-center">
+          <div className="logo-sheen">
+            <PrestoDexMotionStaffLogo width={520} height={160} withWordmark />
+          </div>
         </div>
 
-        <div className="z-10 mt-4 text-center">
-          <h1 className="text-3xl font-bold tracking-[0.3em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
-            PRESTO<span className="text-white font-light">DEX</span>
-          </h1>
-          <div className="flex items-center justify-center gap-2 mt-2">
+        <div className="z-10 mt-3 text-center">
+          <div className="flex items-center justify-center gap-2">
             <span className="block w-2 h-2 rounded-full bg-green-500 animate-ping" />
             <p className="text-xs text-gray-500 tracking-widest uppercase">System Tempo: 128 BPM</p>
           </div>
@@ -73,53 +47,23 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
       </div>
 
       <style jsx>{`
-        .animate-dash {
-          stroke-dasharray: 1000;
-          stroke-dashoffset: 1000;
-          animation: dash 2.5s linear infinite;
+        .logo-sheen {
+          animation: logoFloat 3.4s ease-in-out infinite;
+          filter: drop-shadow(0 0 18px rgba(124, 58, 237, 0.35));
         }
 
-        .animate-dot {
-          offset-path: path("M0,100 L200,100 L230,40 L260,160 L290,100 L500,100 L530,20 L560,180 L590,100 L800,100 L830,50 L860,150 L890,100 L1000,100");
-          animation: moveDot 2.5s linear infinite;
-        }
-
-        .animate-scan {
-          animation: scan 2.5s linear infinite;
-        }
-
-        @keyframes dash {
+        @keyframes logoFloat {
           0% {
-            stroke-dashoffset: 1000;
+            transform: translateY(0) scale(0.98);
+            opacity: 0.9;
           }
-          100% {
-            stroke-dashoffset: 0;
-          }
-        }
-
-        @keyframes moveDot {
-          0% {
-            offset-distance: 0%;
-            opacity: 0;
-          }
-          5% {
-            opacity: 1;
-          }
-          90% {
+          50% {
+            transform: translateY(-6px) scale(1.02);
             opacity: 1;
           }
           100% {
-            offset-distance: 100%;
-            opacity: 0;
-          }
-        }
-
-        @keyframes scan {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(2000px);
+            transform: translateY(0) scale(0.98);
+            opacity: 0.92;
           }
         }
       `}</style>
