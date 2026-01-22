@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId } from 'wagmi';
 import { PrestoDexMotionStaffLogo } from './PrestoDexMotionStaffLogo';
+import { FaucetModal } from './FaucetModal';
 
 // Network badge configuration
 const MAINNET_CHAIN_IDS: number[] = [];
@@ -62,15 +63,16 @@ const NetworkBadge = memo(function NetworkBadge() {
 
 export const Header = memo(function Header() {
   const pathname = usePathname();
-  const { address, isConnected } = useAccount();
+  useAccount(); // Keep hook for wallet state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const faucetUrl = isConnected && address
-    ? `https://docs.tempo.xyz/quickstart/faucet?address=${address}`
-    : 'https://docs.tempo.xyz/quickstart/faucet';
+  const [faucetModalOpen, setFaucetModalOpen] = useState(false);
 
   const isActive = useCallback((path: string) => pathname === path, [pathname]);
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+  const openFaucetModal = useCallback(() => {
+    setFaucetModalOpen(true);
+    setMobileMenuOpen(false);
+  }, []);
 
   // Navigation icons
   const swapIcon = (
@@ -139,17 +141,15 @@ export const Header = memo(function Header() {
             </div>
 
             {/* Faucet Button - Glass style */}
-            <a
-              href={faucetUrl}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={openFaucetModal}
               className="hidden sm:inline-flex items-center gap-2 rounded-2xl border border-[#00F3FF]/30 bg-[#00F3FF]/5 backdrop-blur-xl px-4 py-2.5 text-xs font-medium text-[#00F3FF] hover:bg-[#00F3FF]/15 hover:border-[#00F3FF]/50 transition-all duration-300 shadow-[0_0_15px_rgba(0,243,255,0.1)] hover:shadow-[0_0_25px_rgba(0,243,255,0.25)]"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Faucet
-            </a>
+            </button>
 
             {/* Connect Button - Glass wrapper */}
             <div className="rounded-2xl bg-black/30 backdrop-blur-xl border border-white/10 p-1 transition-all duration-300 hover:border-white/20 [&_button]:!rounded-xl [&_button]:!font-medium [&_button]:!text-sm [&_button]:!h-9 [&_button]:!px-4 [&_button]:transition-all [&_button]:duration-200">
@@ -212,24 +212,24 @@ export const Header = memo(function Header() {
               {transactionsIcon}
               Transactions
             </MobileNavLink>
-            <a
-              href={faucetUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={closeMobileMenu}
+            <button
+              onClick={openFaucetModal}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#00F3FF] bg-[#00F3FF]/5 border border-[#00F3FF]/20 hover:bg-[#00F3FF]/10 transition-all duration-300"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Claim Faucet
-            </a>
+            </button>
             <div className="flex items-center justify-center pt-2">
               <NetworkBadge />
             </div>
           </nav>
         </div>
       )}
+
+      {/* Faucet Modal */}
+      <FaucetModal isOpen={faucetModalOpen} onClose={() => setFaucetModalOpen(false)} />
     </>
   );
 });
