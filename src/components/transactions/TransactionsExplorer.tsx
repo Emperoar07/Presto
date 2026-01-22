@@ -21,6 +21,7 @@ export function TransactionsExplorer() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<TxItem[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   useEffect(() => {
     if (address && queryAddress.length === 0) {
@@ -42,6 +43,7 @@ export function TransactionsExplorer() {
       }
       const result = await response.json();
       setItems(result.items ?? []);
+      setLastUpdated(Date.now());
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to fetch transactions';
       setError(message);
@@ -62,7 +64,10 @@ export function TransactionsExplorer() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-white">Transactions</h2>
-          <p className="text-sm text-zinc-400">Explore wallet activity on Tempo.</p>
+          <p className="text-sm text-zinc-400">
+            Explore wallet activity on Tempo.
+            {lastUpdated ? ` Updated ${Math.max(0, Math.floor((Date.now() - lastUpdated) / 1000))}s ago.` : ''}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <input

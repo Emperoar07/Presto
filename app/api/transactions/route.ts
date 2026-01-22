@@ -13,7 +13,7 @@ type TxItem = {
   functionName?: string;
 };
 
-const MAX_RANGE = 5000n;
+const MAX_RANGE = 600n;
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
 const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000' as const;
@@ -81,73 +81,95 @@ export async function GET(request: Request) {
       const fromBlock = latestBlock > (MAX_RANGE - 1n) ? latestBlock - (MAX_RANGE - 1n) : 0n;
 
       const items: TxItem[] = [];
-      let block = latestBlock;
-      while (block >= fromBlock && items.length < limit) {
-        const blockData = await client.getBlock({ blockNumber: block, includeTransactions: true });
-        for (const tx of blockData.transactions) {
-          if (!tx.to) continue;
-          if (tx.to.toLowerCase() !== TEMPO_DEX_ADDRESS.toLowerCase()) continue;
-          if (tx.from?.toLowerCase() !== address!.toLowerCase()) continue;
+      const dexAddress = TEMPO_DEX_ADDRESS.toLowerCase();
+      const fromAddress = address!.toLowerCase();
+      const batchSize = 20n;
 
-          let functionName = 'unknown';
-          let type = 'DEX Call';
-          let amount = '0';
+      for (let start = latestBlock; start >= fromBlock && items.length < limit; start -= batchSize) {
+        const end = start;
+        const begin = start >= (batchSize - 1n) ? start - (batchSize - 1n) : 0n;
+        const blocks: bigint[] = [];
+        for (let b = end; b >= begin; b -= 1n) {
+          blocks.push(b);
+        }
 
-          try {
-            const decoded = decodeFunctionData({ abi: DEX_ABI, data: tx.input });
-            functionName = decoded.functionName;
-            switch (decoded.functionName) {
-              case 'swapExactAmountIn':
-                type = 'Swap';
-                amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
-                break;
-              case 'place':
-                type = 'Order Placed';
-                amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
-                break;
-              case 'placeFlip':
-                type = 'Order Placed (Flip)';
-                amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
-                break;
-              case 'addLiquidity':
-                type = 'Add Liquidity';
-                amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
-                break;
-              case 'removeLiquidity':
-                type = 'Remove Liquidity';
-                amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
-                break;
-              case 'withdraw':
-                type = 'Withdraw';
-                amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
-                break;
-              case 'cancel':
-                type = 'Order Cancelled';
-                amount = '0';
-                break;
-              default:
-                type = 'DEX Call';
+        const blockData = await Promise.all(
+          blocks.map((blockNumber) =>
+            client.getBlock({ blockNumber, includeTransactions: true })
+          )
+        );
+
+        for (const block of blockData) {
+          for (const tx of block.transactions) {
+            if (!tx.to) continue;
+            if (tx.to.toLowerCase() !== dexAddress) continue;
+            if (tx.from?.toLowerCase() !== fromAddress) continue;
+
+            let functionName = 'unknown';
+            let type = 'DEX Call';
+            let amount = '0';
+
+            try {
+              const decoded = decodeFunctionData({ abi: DEX_ABI, data: tx.input });
+              functionName = decoded.functionName;
+              switch (decoded.functionName) {
+                case 'swapExactAmountIn':
+                  type = 'Swap';
+                  amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
+                  break;
+                case 'place':
+                  type = 'Order Placed';
+                  amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
+                  break;
+                case 'placeFlip':
+                  type = 'Order Placed (Flip)';
+                  amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
+                  break;
+                case 'addLiquidity':
+                  type = 'Add Liquidity';
+                  amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
+                  break;
+                case 'removeLiquidity':
+                  type = 'Remove Liquidity';
+                  amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
+                  break;
+                case 'withdraw':
+                  type = 'Withdraw';
+                  amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
+                  break;
+                case 'cancel':
+                  type = 'Order Cancelled';
+                  amount = '0';
+                  break;
+                default:
+                  type = 'DEX Call';
+              }
+            } catch {
+              // Leave as generic DEX Call if we cannot decode input.
             }
-          } catch {
-            // Leave as generic DEX Call if we cannot decode input.
+
+            items.push({
+              hash: tx.hash,
+              block: tx.blockNumber ?? block.number,
+              type,
+              status: 'Pending',
+              amount,
+              functionName,
+            });
+            if (items.length >= limit) break;
           }
-
-          const receipt = await client.getTransactionReceipt({ hash: tx.hash });
-          const status = receipt.status === 'success' ? 'Confirmed' : 'Failed';
-
-          items.push({
-            hash: tx.hash,
-            block: tx.blockNumber ?? blockData.number,
-            type,
-            status,
-            amount,
-            functionName,
-          });
           if (items.length >= limit) break;
         }
-        if (block === 0n) break;
-        block -= 1n;
+
+        if (begin === 0n) break;
       }
+
+      const receipts = await Promise.all(
+        items.map((item) => client.getTransactionReceipt({ hash: item.hash }))
+      );
+      receipts.forEach((receipt, index) => {
+        items[index].status = receipt.status === 'success' ? 'Confirmed' : 'Failed';
+      });
 
       return {
         items: items.map((item) => ({
