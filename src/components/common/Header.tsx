@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId } from 'wagmi';
-import { PrestoDexMotionStaffLogo } from './PrestoDexMotionStaffLogo';
+import { PrestoDexLogo } from './PrestoDexLogo';
 
 // Network badge configuration
 const MAINNET_CHAIN_IDS: number[] = [];
@@ -101,12 +101,9 @@ export const Header = memo(function Header() {
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 pt-4">
           <div className="pointer-events-auto">
             <Link href="/" className="flex items-center group">
-              <PrestoDexMotionStaffLogo
-                width={180}
-                height={55}
-                withWordmark={true}
-                className="text-white"
-              />
+              <div className="w-[180px] h-[55px] text-white">
+                <PrestoDexLogo />
+              </div>
             </Link>
           </div>
 
