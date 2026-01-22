@@ -22,133 +22,101 @@ export function PrestoDexMotionStaffLogo({
         width="100%"
         height="100%"
         role="img"
-        aria-label="PrestoDEX Motion Staff logo"
+        aria-label="PrestoDEX Motion Staff Logo"
       >
         <defs>
-          <linearGradient id="pdGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="var(--pd-primary, #7c3aed)" />
-            <stop offset="60%" stopColor="var(--pd-secondary, #06b6d4)" />
-            <stop offset="100%" stopColor="var(--pd-primary, #7c3aed)" />
+          <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="var(--accent-primary, #7c3aed)" />
+            <stop offset="60%" stopColor="var(--accent-secondary, #22d3ee)" />
+            <stop offset="100%" stopColor="var(--accent-primary, #7c3aed)" />
           </linearGradient>
 
-          <filter id="pdGlow" x="-40%" y="-80%" width="180%" height="260%">
-            <feGaussianBlur stdDeviation="3.5" result="blur" />
-            <feColorMatrix
-              in="blur"
-              type="matrix"
-              values="
-                1 0 0 0 0
-                0 1 0 0 0
-                0 0 1 0 0
-                0 0 0 .35 0
-              "
-              result="glow"
-            />
+          <filter id="softGlow" x="-40%" y="-80%" width="180%" height="260%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
-              <feMergeNode in="glow" />
+              <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
 
-          <mask id="pdSweepMask">
-            <rect width="900" height="260" fill="black" />
-            <rect x="-220" y="0" width="220" height="260" fill="white">
-              <animate
-                attributeName="x"
-                from="-220"
-                to="900"
-                dur="2.6s"
-                repeatCount="indefinite"
-              />
-            </rect>
-          </mask>
-
           <path
-            id="pdCurve"
+            id="staffCurve"
             d="M 90 90
-               C 210 58, 320 58, 435 90
-               S 660 132, 810 86"
+               C 220 55, 340 55, 460 90
+               S 700 135, 830 85"
           />
+
           <style>{`
-            .pd-staff {
+            .staff {
               fill: none;
-              stroke: url(#pdGrad);
+              stroke: url(#flowGrad);
               stroke-width: 8;
               stroke-linecap: round;
-              stroke-linejoin: round;
-              filter: url(#pdGlow);
-              opacity: .95;
+              opacity: 0.9;
+              filter: url(#softGlow);
             }
-            .pd-staff--muted {
-              opacity: .55;
+
+            .staff.muted {
+              opacity: 0.45;
               stroke-width: 7;
             }
-            .pd-flowDash {
-              stroke-dasharray: 18 22;
-              animation: pdDash 1.35s linear infinite;
-            }
-            @keyframes pdDash {
-              to { stroke-dashoffset: -80; }
+
+            .flow {
+              stroke-dasharray: 20 26;
+              animation: dash 1.4s linear infinite;
             }
 
-            .pd-node {
-              filter: url(#pdGlow);
-              transform-origin: center;
-              animation: pdPulse 1.25s ease-in-out infinite;
-            }
-            @keyframes pdPulse {
-              0%, 100% { transform: scale(1); opacity: .95; }
-              50% { transform: scale(1.12); opacity: 1; }
+            @keyframes dash {
+              to { stroke-dashoffset: -92; }
             }
 
-            .pd-wordmark {
-              font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+            .node {
+              filter: url(#softGlow);
+              animation: pulse 1.3s ease-in-out infinite;
+            }
+
+            @keyframes pulse {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.15); }
+            }
+
+            .wordmark {
+              font-family: ui-sans-serif, system-ui;
               font-weight: 800;
+              fill: var(--text-primary, #e5e7eb);
               letter-spacing: -0.02em;
-              fill: var(--pd-text, #0b1220);
             }
-            .pd-wordmark .dex {
-              fill: var(--pd-primary, #7c3aed);
+
+            .dex {
+              fill: var(--accent-primary, #7c3aed);
             }
           `}</style>
         </defs>
 
-        <g>
-          <use href="#pdCurve" className="pd-staff pd-staff--muted" transform="translate(0, 0)" />
-          <use href="#pdCurve" className="pd-staff pd-staff--muted" transform="translate(0, 18)" />
-          <use href="#pdCurve" className="pd-staff" transform="translate(0, 36)" />
-          <use href="#pdCurve" className="pd-staff pd-staff--muted" transform="translate(0, 54)" />
-          <use href="#pdCurve" className="pd-staff pd-staff--muted" transform="translate(0, 72)" />
-        </g>
+        <use href="#staffCurve" className="staff muted" />
+        <use href="#staffCurve" className="staff muted" transform="translate(0, 18)" />
+        <use href="#staffCurve" className="staff" transform="translate(0, 36)" />
+        <use href="#staffCurve" className="staff muted" transform="translate(0, 54)" />
+        <use href="#staffCurve" className="staff muted" transform="translate(0, 72)" />
 
-        <g opacity="0.95">
-          <use
-            href="#pdCurve"
-            className="pd-staff pd-flowDash"
-            transform="translate(0, 36)"
-            mask="url(#pdSweepMask)"
-          />
-        </g>
+        <use href="#staffCurve" className="staff flow" transform="translate(0, 36)" />
 
-        <g className="pd-node">
-          <circle cx="470" cy="126" r="16" fill="url(#pdGrad)" />
-          <circle cx="512" cy="112" r="7" fill="var(--pd-secondary, #06b6d4)" opacity="0.95" />
+        <g className="node">
+          <circle cx="470" cy="126" r="16" fill="url(#flowGrad)" />
+          <circle cx="510" cy="112" r="7" fill="var(--accent-secondary, #22d3ee)" />
           <path
             d="M 483 121 Q 498 114 507 113"
-            stroke="var(--pd-secondary, #06b6d4)"
+            stroke="var(--accent-secondary, #22d3ee)"
             strokeWidth="5"
             strokeLinecap="round"
             fill="none"
-            opacity="0.9"
           />
         </g>
 
         {withWordmark && (
-          <g transform="translate(90, 210)">
-            <text className="pd-wordmark" fontSize="64">
-              Presto<tspan className="dex">DEX</tspan>
-            </text>
-          </g>
+          <text x="90" y="220" fontSize="64" className="wordmark">
+            Presto<tspan className="dex">DEX</tspan>
+          </text>
         )}
       </svg>
     </div>

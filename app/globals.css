@@ -6,6 +6,12 @@
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 0, 0, 0;
   --background-end-rgb: 10, 5, 20;
+  --bg-main: #0b0f1a;
+  --bg-surface: #111827;
+  --accent-primary: #7c3aed;
+  --accent-secondary: #22d3ee;
+  --text-primary: #e5e7eb;
+  --text-muted: #9ca3af;
 }
 
 @media (prefers-color-scheme: dark) {
