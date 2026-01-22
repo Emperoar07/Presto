@@ -86,12 +86,14 @@ export const Header = memo(function Header() {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-6">
-              <NavLink href="/swap" isActive={isActive('/swap')}>Swap</NavLink>
-              <NavLink href="/liquidity" isActive={isActive('/liquidity')}>Liquidity</NavLink>
-              <NavLink href="/analytics" isActive={isActive('/analytics')}>Analytics</NavLink>
-              <NavLink href="/transactions" isActive={isActive('/transactions')}>Transactions</NavLink>
-            </nav>
+            {pathname !== '/' && (
+              <nav className="hidden md:flex items-center gap-6">
+                <NavLink href="/swap" isActive={isActive('/swap')}>Swap</NavLink>
+                <NavLink href="/liquidity" isActive={isActive('/liquidity')}>Liquidity</NavLink>
+                <NavLink href="/analytics" isActive={isActive('/analytics')}>Analytics</NavLink>
+                <NavLink href="/transactions" isActive={isActive('/transactions')}>Transactions</NavLink>
+              </nav>
+            )}
 
             {/* Network Badge - Shows Testnet or Live based on environment/chain */}
             <NetworkBadge />
@@ -118,27 +120,29 @@ export const Header = memo(function Header() {
             </div>
 
             {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
-              aria-label="Toggle menu"
-            >
-              {mobileMenuOpen ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
-            </button>
+            {pathname !== '/' && (
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
+      {pathname !== '/' && mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
           onClick={closeMobileMenu}
@@ -146,52 +150,54 @@ export const Header = memo(function Header() {
       )}
 
       {/* Mobile Menu Panel */}
-      <div
-        className={`fixed top-16 left-0 right-0 z-40 bg-black/95 border-b border-white/5 md:hidden transform transition-all duration-300 ease-out ${
-          mobileMenuOpen
-            ? 'translate-y-0 opacity-100'
-            : '-translate-y-4 opacity-0 pointer-events-none'
-        }`}
-      >
-        <nav className="flex flex-col p-4 gap-1">
-          <MobileNavLink href="/swap" isActive={isActive('/swap')} onClick={closeMobileMenu}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            Swap
-          </MobileNavLink>
-          <MobileNavLink href="/liquidity" isActive={isActive('/liquidity')} onClick={closeMobileMenu}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-            </svg>
-            Liquidity
-          </MobileNavLink>
-          <MobileNavLink href="/analytics" isActive={isActive('/analytics')} onClick={closeMobileMenu}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Analytics
-          </MobileNavLink>
-          <MobileNavLink href="/transactions" isActive={isActive('/transactions')} onClick={closeMobileMenu}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Transactions
-          </MobileNavLink>
-          <a
-            href={faucetUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={closeMobileMenu}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#00F3FF] hover:bg-[#00F3FF]/10 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Claim Faucet
-          </a>
-        </nav>
-      </div>
+      {pathname !== '/' && (
+        <div
+          className={`fixed top-16 left-0 right-0 z-40 bg-black/95 border-b border-white/5 md:hidden transform transition-all duration-300 ease-out ${
+            mobileMenuOpen
+              ? 'translate-y-0 opacity-100'
+              : '-translate-y-4 opacity-0 pointer-events-none'
+          }`}
+        >
+          <nav className="flex flex-col p-4 gap-1">
+            <MobileNavLink href="/swap" isActive={isActive('/swap')} onClick={closeMobileMenu}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              Swap
+            </MobileNavLink>
+            <MobileNavLink href="/liquidity" isActive={isActive('/liquidity')} onClick={closeMobileMenu}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+              Liquidity
+            </MobileNavLink>
+            <MobileNavLink href="/analytics" isActive={isActive('/analytics')} onClick={closeMobileMenu}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Analytics
+            </MobileNavLink>
+            <MobileNavLink href="/transactions" isActive={isActive('/transactions')} onClick={closeMobileMenu}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Transactions
+            </MobileNavLink>
+            <a
+              href={faucetUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={closeMobileMenu}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#00F3FF] hover:bg-[#00F3FF]/10 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Claim Faucet
+            </a>
+          </nav>
+        </div>
+      )}
     </>
   );
 });
