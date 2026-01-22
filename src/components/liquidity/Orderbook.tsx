@@ -16,7 +16,6 @@ type OrderbookData = { bids: OrderbookEntry[]; asks: OrderbookEntry[]; recentTra
 interface OrderbookProps {
   baseToken: Token;
   quoteToken: Token;
-  initialView?: 'book' | 'trades' | 'transactions' | 'cancelled';
   prefetched?: {
     data: OrderbookData | null;
     isLoading: boolean;
@@ -27,9 +26,9 @@ interface OrderbookProps {
   };
 }
 
-export function Orderbook({ baseToken, quoteToken, prefetched, initialView }: OrderbookProps) {
+export function Orderbook({ baseToken, quoteToken, prefetched }: OrderbookProps) {
 
-  const [view, setView] = useState<'book' | 'trades' | 'transactions' | 'cancelled'>(initialView ?? 'book');
+  const [view, setView] = useState<'book' | 'trades' | 'cancelled'>('book');
   const [depth, setDepth] = useState(10);
   const chainId = useChainId();
   const hookResult = (Hooks.dex.useOrderbook
@@ -81,15 +80,6 @@ export function Orderbook({ baseToken, quoteToken, prefetched, initialView }: Or
       })) ?? [],
     [recentTrades, baseToken.decimals]
   );
-  const transactionsDisplay = useMemo(
-    () =>
-      recentTrades?.map((trade) => ({
-        ...trade,
-        amountDisplay: formatUnitsFixed(trade.amount, baseToken.decimals),
-        status: 'Confirmed',
-      })) ?? [],
-    [recentTrades, baseToken.decimals]
-  );
   const cancelledDisplay = useMemo(
     () =>
       cancelledOrders?.map((order) => ({
@@ -126,12 +116,6 @@ export function Orderbook({ baseToken, quoteToken, prefetched, initialView }: Or
             className={`${view === 'trades' ? 'text-[#BC13FE] underline decoration-[#BC13FE]/50 underline-offset-4' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             Recent Trades
-          </button>
-          <button 
-            onClick={() => setView('transactions')}
-            className={`${view === 'transactions' ? 'text-[#F3C969] underline decoration-[#F3C969]/50 underline-offset-4' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            Past Transactions
           </button>
           <button 
             onClick={() => setView('cancelled')}
@@ -207,30 +191,6 @@ export function Orderbook({ baseToken, quoteToken, prefetched, initialView }: Or
                         <span className="font-mono">{trade.price}</span>
                         <span className="font-mono">{trade.amountDisplay}</span>
                         <span className={trade.side === 'buy' ? 'text-green-400' : 'text-red-400'}>{trade.side === 'buy' ? 'Buy' : 'Sell'}</span>
-                        <a href={getExplorerTxUrl(chainId, trade.hash)} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 truncate">
-                            {trade.hash.slice(0, 6)}...
-                        </a>
-                   </div>
-              ))}
-          </div>
-      )}
-
-      {view === 'transactions' && (
-          <div className="space-y-2">
-              <div className="grid grid-cols-4 text-xs font-medium text-zinc-500 mb-2">
-                  <span>Type</span>
-                  <span>Amount</span>
-                  <span>Status</span>
-                  <span>Tx</span>
-              </div>
-              {transactionsDisplay.length === 0 && <div className="text-xs text-zinc-600 text-center py-2">No transactions</div>}
-              {transactionsDisplay.map((trade, i) => (
-                   <div key={i} className="grid grid-cols-4 text-xs py-1 border-b border-white/5 last:border-0 text-zinc-300">
-                        <span className={trade.side === 'buy' ? 'text-green-400' : 'text-red-400'}>
-                          {trade.side === 'buy' ? 'Buy' : 'Sell'}
-                        </span>
-                        <span className="font-mono">{trade.amountDisplay}</span>
-                        <span className="text-green-400">{trade.status}</span>
                         <a href={getExplorerTxUrl(chainId, trade.hash)} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 truncate">
                             {trade.hash.slice(0, 6)}...
                         </a>
