@@ -25,10 +25,22 @@ export async function GET(request: Request) {
   const encoder = new TextEncoder();
 
   let interval: ReturnType<typeof setInterval> | undefined;
+  let closed = false;
+  let sentCount = 0;
+  const startedAt = Date.now();
+  const maxStreamMs = 30_000;
+  const maxMessages = 20;
 
   const stream = new ReadableStream({
     async start(controller) {
       const send = async () => {
+        if (closed) return;
+        if (Date.now() - startedAt > maxStreamMs || sentCount >= maxMessages) {
+          closed = true;
+          if (interval) clearInterval(interval);
+          controller.close();
+          return;
+        }
         try {
           const timeoutMs = 8000;
           const data = await Promise.race([
@@ -36,8 +48,10 @@ export async function GET(request: Request) {
             new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Orderbook timeout')), timeoutMs)),
           ]);
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          sentCount += 1;
         } catch {
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: 'stream_failed' })}\n\n`));
+          sentCount += 1;
         }
       };
 
@@ -46,6 +60,7 @@ export async function GET(request: Request) {
     },
     cancel() {
       if (interval) clearInterval(interval);
+      closed = true;
     },
   });
 

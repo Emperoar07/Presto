@@ -186,10 +186,22 @@ export async function GET(request: Request) {
 
   const encoder = new TextEncoder();
   let interval: ReturnType<typeof setInterval> | undefined;
+  let closed = false;
+  let sentCount = 0;
+  const startedAt = Date.now();
+  const maxStreamMs = 30_000;
+  const maxMessages = 20;
 
   const stream = new ReadableStream({
     async start(controller) {
       const send = async () => {
+        if (closed) return;
+        if (Date.now() - startedAt > maxStreamMs || sentCount >= maxMessages) {
+          closed = true;
+          if (interval) clearInterval(interval);
+          controller.close();
+          return;
+        }
         let lastError: unknown;
         const orderedClients = sortRpcClients(clients);
         for (const { url, client } of orderedClients) {
@@ -219,6 +231,7 @@ export async function GET(request: Request) {
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(trades)}\n\n`));
             markRpcSuccess(url, Date.now() - start);
+            sentCount += 1;
             return;
           } catch (error) {
             markRpcFailure(url);
@@ -227,6 +240,7 @@ export async function GET(request: Request) {
         }
         const message = lastError instanceof Error ? lastError.message : 'stream_failed';
         controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: message })}\n\n`));
+        sentCount += 1;
       };
 
       await send();
@@ -234,6 +248,7 @@ export async function GET(request: Request) {
     },
     cancel() {
       if (interval) clearInterval(interval);
+      closed = true;
     },
   });
 

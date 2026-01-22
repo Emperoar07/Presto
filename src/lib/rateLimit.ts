@@ -26,7 +26,11 @@ const getUpstashLimiter = (limit: number, windowMs: number) => {
 
 export const getClientIp = (request: Request) => {
   const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.VERCEL === '1';
-  if (trustProxy) {
+  const hasTrustedProxy =
+    !!request.headers.get('x-vercel-id') ||
+    !!request.headers.get('x-vercel-forwarded-for') ||
+    !!request.headers.get('cf-ray');
+  if (trustProxy && hasTrustedProxy) {
     const forwarded = request.headers.get('x-forwarded-for');
     if (forwarded) return forwarded.split(',')[0].trim();
     const realIp = request.headers.get('x-real-ip');
