@@ -10,7 +10,7 @@ import { Hooks } from '@/lib/tempo';
 
 type Trade = { price: number; amount: bigint; side: 'buy' | 'sell'; hash: `0x${string}`; block: bigint };
 
-export function AnalyticsDashboard() {
+export function AnalyticsDashboard({ initialOrderbookView }: { initialOrderbookView?: 'book' | 'trades' | 'transactions' | 'cancelled' }) {
   const chainId = useChainId();
   const tokens = getTokens(chainId);
   
@@ -95,6 +95,7 @@ export function AnalyticsDashboard() {
       <Orderbook
         baseToken={selectedToken}
         quoteToken={pathToken}
+        initialView={initialOrderbookView}
         prefetched={{
           data: orderbookHook.data as any,
           isLoading: orderbookHook.isLoading,

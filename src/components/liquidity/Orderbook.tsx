@@ -16,6 +16,7 @@ type OrderbookData = { bids: OrderbookEntry[]; asks: OrderbookEntry[]; recentTra
 interface OrderbookProps {
   baseToken: Token;
   quoteToken: Token;
+  initialView?: 'book' | 'trades' | 'transactions' | 'cancelled';
   prefetched?: {
     data: OrderbookData | null;
     isLoading: boolean;
@@ -26,9 +27,9 @@ interface OrderbookProps {
   };
 }
 
-export function Orderbook({ baseToken, quoteToken, prefetched }: OrderbookProps) {
+export function Orderbook({ baseToken, quoteToken, prefetched, initialView }: OrderbookProps) {
 
-  const [view, setView] = useState<'book' | 'trades' | 'transactions' | 'cancelled'>('book');
+  const [view, setView] = useState<'book' | 'trades' | 'transactions' | 'cancelled'>(initialView ?? 'book');
   const [depth, setDepth] = useState(10);
   const chainId = useChainId();
   const hookResult = (Hooks.dex.useOrderbook
