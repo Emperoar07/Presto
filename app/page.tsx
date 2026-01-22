@@ -1,8 +1,52 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 export default function Home() {
+  const bpmStrings = [
+    'BPM 96 · 102 · 108 · 114',
+    'BPM 120 · 124 · 128 · 132',
+    'BPM 136 · 140 · 144 · 148',
+    'BPM 152 · 156 · 160 · 164',
+  ];
+  const [showLoader, setShowLoader] = useState(true);
+  const [bpmIndex, setBpmIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBpmIndex((prev) => (prev + 1) % bpmStrings.length);
+    }, 350);
+    const timeout = setTimeout(() => {
+      setShowLoader(false);
+    }, 2600);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
+
   return (
     <main className="flex flex-col items-center justify-center min-h-[80vh] gap-8 px-6">
+      {showLoader && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-black/70 px-8 py-10 text-center shadow-2xl">
+            <div className="text-xs uppercase tracking-[0.3em] text-zinc-500">PrestoDEX Tempo</div>
+            <div className="mt-4 text-3xl font-bold text-white">
+              Loading the beat
+            </div>
+            <div className="mt-3 text-sm text-zinc-400">
+              syncing tempo engine
+            </div>
+            <div className="mt-6 font-mono text-sm text-[#00F3FF]">
+              {bpmStrings[bpmIndex]}
+            </div>
+            <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="h-full w-2/3 animate-pulse bg-gradient-to-r from-[#00F3FF] to-[#BC13FE]" />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Hero Section */}
       <div className="text-center animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">

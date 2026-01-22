@@ -169,7 +169,6 @@ export function SwapCardEnhanced() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<Error | null>(null);
   const [priceImpact, setPriceImpact] = useState<number>(0);
-  const [tempoLiquidityStatus, setTempoLiquidityStatus] = useState<'unknown' | 'available' | 'empty' | 'error'>('unknown');
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -247,42 +246,6 @@ export function SwapCardEnhanced() {
     return () => clearTimeout(timer);
   }, [inputAmount, inputToken, outputToken, exactField, publicClient, dexAddress, isTempoChain, inputReserves, outputReserves]);
 
-  useEffect(() => {
-    if (!isTempoChain) {
-      setTempoLiquidityStatus('available');
-      return;
-    }
-    if (!inputToken.address || !outputToken.address) return;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    const baseToken = outputToken.symbol === 'pathUSD' ? inputToken.address : outputToken.address;
-
-    const checkLiquidity = async () => {
-      try {
-        const response = await fetch(`/api/orderbook?token=${baseToken}&depth=1&chainId=${chainId}`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        if (!response.ok) {
-          setTempoLiquidityStatus('error');
-          return;
-        }
-        const result = await response.json();
-        const bids = Array.isArray(result?.bids) ? result.bids : [];
-        const asks = Array.isArray(result?.asks) ? result.asks : [];
-        setTempoLiquidityStatus(bids.length + asks.length > 0 ? 'available' : 'empty');
-      } catch (e) {
-        if (e instanceof DOMException && e.name === 'AbortError') return;
-        setTempoLiquidityStatus('error');
-      }
-    };
-
-    checkLiquidity();
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [chainId, inputToken.address, outputToken.address, outputToken.symbol, inputToken.symbol, isTempoChain]);
 
   // Swap execution
   const handleSwap = async () => {
@@ -582,11 +545,6 @@ export function SwapCardEnhanced() {
               {(quoteError?.message?.includes('InsufficientLiquidity') || quoteError?.message?.includes('reverted'))
                 ? 'Not enough liquidity available.'
                 : 'Error fetching quote.'}
-            </div>
-          )}
-          {isTempoChain && tempoLiquidityStatus === 'empty' && !quoteError && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-sm">
-              Orderbook liquidity appears empty for this pair. Swaps may still succeed if liquidity exists.
             </div>
           )}
 
