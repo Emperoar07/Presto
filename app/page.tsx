@@ -20,24 +20,57 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
         }`}
       >
         <div
-          className="absolute inset-0 z-0 opacity-20 pointer-events-none"
+          className="absolute inset-0 z-0 pointer-events-none"
           style={{
             backgroundImage:
-              'linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
+              'linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
           }}
         />
+        <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_0%,rgba(0,0,0,0.3)_40%,rgba(0,0,0,0.8)_100%)]" />
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-30 scanline" />
 
-        <div className="relative z-10 w-full max-w-3xl h-64 flex items-center justify-center">
+        <div className="relative z-10 w-full h-[40vh] flex items-center justify-center">
+          <svg
+            viewBox="0 0 1600 260"
+            className="absolute inset-0 w-full h-full opacity-90"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="loaderWave" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="rgba(139,92,246,0.35)" />
+                <stop offset="50%" stopColor="rgba(34,211,238,0.65)" />
+                <stop offset="100%" stopColor="rgba(139,92,246,0.35)" />
+              </linearGradient>
+              <filter id="loaderGlow" x="-30%" y="-80%" width="160%" height="260%">
+                <feGaussianBlur stdDeviation="6" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <path
+                id="loaderCurve"
+                d="M 0 130 C 320 85, 560 85, 800 130 S 1280 175, 1600 130"
+              />
+            </defs>
+            <use href="#loaderCurve" stroke="url(#loaderWave)" strokeWidth="8" fill="none" filter="url(#loaderGlow)" />
+            <use href="#loaderCurve" stroke="url(#loaderWave)" strokeWidth="6" fill="none" opacity="0.5" transform="translate(0,-18)" />
+            <use href="#loaderCurve" stroke="url(#loaderWave)" strokeWidth="6" fill="none" opacity="0.5" transform="translate(0,18)" />
+            <circle cx="980" cy="130" r="10" fill="rgba(34,211,238,0.9)" filter="url(#loaderGlow)">
+              <animate attributeName="cx" values="620;980;1320;980;620" dur="4.8s" repeatCount="indefinite" />
+            </circle>
+          </svg>
+
           <div className="logo-sheen">
-            <PrestoDexMotionStaffLogo width={520} height={160} withWordmark />
+            <PrestoDexMotionStaffLogo width={560} height={180} withWordmark />
           </div>
         </div>
 
-        <div className="z-10 mt-3 text-center">
+        <div className="z-10 mt-2 text-center">
           <div className="flex items-center justify-center gap-2">
-            <span className="block w-2 h-2 rounded-full bg-green-500 animate-ping" />
-            <p className="text-xs text-gray-500 tracking-widest uppercase">System Tempo: 128 BPM</p>
+            <span className="block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <p className="text-xs text-gray-400 tracking-[0.4em] uppercase">System Tempo: 128 BPM</p>
           </div>
         </div>
       </div>
@@ -52,6 +85,16 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
           filter: drop-shadow(0 0 18px rgba(124, 58, 237, 0.35));
         }
 
+        .scanline {
+          background: linear-gradient(
+            120deg,
+            transparent 0%,
+            rgba(34, 211, 238, 0.08) 45%,
+            transparent 70%
+          );
+          animation: scanline 6s ease-in-out infinite;
+        }
+
         @keyframes logoFloat {
           0% {
             transform: translateY(0) scale(0.98);
@@ -64,6 +107,21 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
           100% {
             transform: translateY(0) scale(0.98);
             opacity: 0.92;
+          }
+        }
+
+        @keyframes scanline {
+          0% {
+            transform: translateY(-10%);
+            opacity: 0.2;
+          }
+          50% {
+            transform: translateY(0%);
+            opacity: 0.4;
+          }
+          100% {
+            transform: translateY(10%);
+            opacity: 0.2;
           }
         }
       `}</style>
