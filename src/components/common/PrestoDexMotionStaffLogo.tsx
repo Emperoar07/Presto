@@ -11,14 +11,14 @@ type Props = {
 
 export function PrestoDexMotionStaffLogo({
   width = 520,
-  height = 160,
+  height = 180,
   withWordmark = true,
   className,
 }: Props) {
   return (
     <div className={className} style={{ width, height }}>
       <svg
-        viewBox="0 0 900 260"
+        viewBox="0 0 900 280"
         width="100%"
         height="100%"
         role="img"
@@ -44,6 +44,14 @@ export function PrestoDexMotionStaffLogo({
             d="M 90 90
                C 220 55, 340 55, 460 90
                S 700 135, 830 85"
+          />
+
+          {/* Text curve - follows the staff with offset for text placement */}
+          <path
+            id="textCurve"
+            d="M 90 118
+               C 220 82, 340 82, 460 118
+               S 700 162, 830 112"
           />
 
           <style>{`
@@ -114,8 +122,10 @@ export function PrestoDexMotionStaffLogo({
         </g>
 
         {withWordmark && (
-          <text x="90" y="220" fontSize="64" className="wordmark">
-            Presto<tspan className="dex">DEX</tspan>
+          <text fontSize="56" className="wordmark">
+            <textPath href="#textCurve" startOffset="18%">
+              Presto<tspan className="dex" dy="-8" dx="-2">DEX</tspan>
+            </textPath>
           </text>
         )}
       </svg>

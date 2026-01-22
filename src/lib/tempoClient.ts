@@ -438,7 +438,7 @@ export async function executeSwap(
         address: tokenIn as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'approve',
-        args: [dexAddress, maxUint256],
+        args: [dexAddress, amountIn],
         account: account as `0x${string}`,
         chain: null
       });
