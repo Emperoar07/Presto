@@ -8,78 +8,13 @@ type Props = {
   onClose: () => void;
 };
 
-const COOLDOWN_HOURS = 48;
-const COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
-const STORAGE_KEY = 'prestodex_faucet_claims';
-
-// Get claim history from localStorage
-const getClaimHistory = (): Record<string, number> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-// Save claim timestamp for a wallet
-const recordClaim = (address: string) => {
-  if (typeof window === 'undefined') return;
-  const history = getClaimHistory();
-  history[address.toLowerCase()] = Date.now();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-};
-
-// Check if wallet is on cooldown
-const getCooldownRemaining = (address: string): number => {
-  const history = getClaimHistory();
-  const lastClaim = history[address.toLowerCase()];
-  if (!lastClaim) return 0;
-
-  const elapsed = Date.now() - lastClaim;
-  const remaining = COOLDOWN_MS - elapsed;
-  return remaining > 0 ? remaining : 0;
-};
-
-// Format milliseconds to readable time
-const formatTimeRemaining = (ms: number): string => {
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
-  }
-  return `${seconds}s`;
-};
-
 export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props) {
   const { address, isConnected } = useAccount();
-  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const faucetUrl = address
     ? `https://docs.tempo.xyz/quickstart/faucet?address=${address}`
     : 'https://docs.tempo.xyz/quickstart/faucet';
-
-  // Check cooldown on open and periodically
-  useEffect(() => {
-    if (isOpen && address) {
-      const checkCooldown = () => {
-        const remaining = getCooldownRemaining(address);
-        setCooldownRemaining(remaining);
-      };
-
-      checkCooldown();
-      const interval = setInterval(checkCooldown, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isOpen, address]);
 
   useEffect(() => {
     if (isOpen) {
@@ -91,16 +26,7 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
     setIsLoading(false);
   }, []);
 
-  const handleMarkClaimed = useCallback(() => {
-    if (address) {
-      recordClaim(address);
-      setCooldownRemaining(COOLDOWN_MS);
-    }
-  }, [address]);
-
   if (!isOpen) return null;
-
-  const isOnCooldown = cooldownRemaining > 0;
 
   return (
     <>
@@ -122,7 +48,7 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">Tempo Testnet Faucet</h2>
-              <p className="text-xs text-zinc-500">Claim tokens directly • {COOLDOWN_HOURS}hr cooldown</p>
+              <p className="text-xs text-zinc-500">Claim free testnet tokens</p>
             </div>
           </div>
 
@@ -161,32 +87,6 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
                 Please connect your wallet first to claim testnet tokens from the faucet.
               </p>
             </div>
-          ) : isOnCooldown ? (
-            /* Cooldown State */
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mb-6">
-                <svg className="w-12 h-12 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-3">Cooldown Active</h3>
-              <p className="text-zinc-400 text-sm mb-6 max-w-sm">
-                You&apos;ve already claimed tokens. Please wait for the cooldown period to end before claiming again.
-              </p>
-
-              {/* Countdown Timer */}
-              <div className="px-8 py-5 rounded-2xl bg-gradient-to-r from-[#00F3FF]/10 to-[#BC13FE]/10 border border-white/10 mb-6">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Next claim available in</p>
-                <p className="text-4xl font-bold text-[#00F3FF] font-mono">{formatTimeRemaining(cooldownRemaining)}</p>
-              </div>
-
-              <button
-                onClick={onClose}
-                className="px-8 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-medium hover:bg-white/10 hover:text-white transition-all duration-300"
-              >
-                Close
-              </button>
-            </div>
           ) : (
             /* Faucet iframe */
             <>
@@ -209,24 +109,6 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
             </>
           )}
         </div>
-
-        {/* Footer with claim confirmation button */}
-        {isConnected && !isOnCooldown && (
-          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-t border-white/10 bg-black/50 flex-shrink-0">
-            <p className="text-xs text-zinc-500 hidden sm:block">
-              Click &quot;Add more funds&quot; on the faucet, then confirm below
-            </p>
-            <button
-              onClick={handleMarkClaimed}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 border border-emerald-500/40 text-emerald-400 font-medium hover:from-emerald-500/30 hover:to-emerald-600/30 transition-all duration-300 flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              I&apos;ve Claimed My Tokens
-            </button>
-          </div>
-        )}
       </div>
     </>
   );
