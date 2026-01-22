@@ -15,6 +15,7 @@ import { useFeeToken } from '@/context/FeeTokenContext';
 import { DexAccount } from './DexAccount';
 import type { PublicClient } from 'viem';
 import { TxToast } from '@/components/common/TxToast';
+import { isUserCancellation } from '@/lib/errorHandling';
 
 export function LiquidityCard() {
   const DEX_PLACE_ABI = parseAbi([
@@ -339,6 +340,9 @@ export function LiquidityCard() {
           toast.custom(() => <TxToast hash={hash} title="Order submitted" />);
           setOrderAmount('');
       } catch (e: unknown) {
+          if (isUserCancellation(e)) {
+              return;
+          }
           console.error(e);
           const msg = e instanceof Error ? e.message : 'Order placement failed';
           const detail = msg.length > 200 ? `${msg.slice(0, 200)}...` : msg;
