@@ -26,7 +26,7 @@ import {
   getDexAddress
 } from '@/config/contracts';
 import { writeContractWithRetry } from '@/lib/txRetry';
-import { readContractWithFallback } from '@/lib/rpc';
+import { readContractWithFallback, invalidateQuoteCache } from '@/lib/rpc';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
@@ -242,7 +242,7 @@ export function SwapCardEnhanced() {
       }
     };
 
-    const timer = setTimeout(fetchQuote, 500);
+    const timer = setTimeout(fetchQuote, 200); // Reduced debounce with caching
     return () => clearTimeout(timer);
   }, [inputAmount, inputToken, outputToken, exactField, publicClient, dexAddress, isTempoChain, inputReserves, outputReserves]);
 
@@ -337,9 +337,10 @@ export function SwapCardEnhanced() {
       // Wait for transaction confirmation
       await publicClient.waitForTransactionReceipt({ hash });
 
-      // Clear inputs and refresh balances
+      // Clear inputs, invalidate cache, and refresh balances
       setInputAmount('');
       setOutputAmount('');
+      invalidateQuoteCache(); // Clear quote cache after successful swap
       await fetchBalances();
 
       toast.success('Swap completed successfully!');

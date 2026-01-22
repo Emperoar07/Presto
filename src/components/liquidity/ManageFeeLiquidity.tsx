@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { Hooks } from '@/lib/tempo';
 import { MonitorSwaps } from './MonitorSwaps';
 import { RebalancePool } from './RebalancePool';
+import { PoolStats } from './PoolStats';
 import { addFeeLiquidity, withdrawDexBalance, getTokenBalance } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
 import type { PublicClient } from 'viem';
@@ -15,14 +16,18 @@ interface ManageFeeLiquidityProps {
     validatorToken: string;
     userTokenDecimals?: number;
     validatorTokenDecimals?: number;
+    userTokenSymbol?: string;
+    validatorTokenSymbol?: string;
     showMaintenance?: boolean;
 }
 
-export function ManageFeeLiquidity({ 
-    userToken, 
-    validatorToken, 
-    userTokenDecimals = 18, 
+export function ManageFeeLiquidity({
+    userToken,
+    validatorToken,
+    userTokenDecimals = 18,
     validatorTokenDecimals = 18,
+    userTokenSymbol = 'Token',
+    validatorTokenSymbol = 'pathUSD',
     showMaintenance = true
 }: ManageFeeLiquidityProps) {
   const { address } = useAccount();
@@ -189,30 +194,38 @@ export function ManageFeeLiquidity({
     }
   };
 
+  // Estimate total shares from pool reserves (simplified - actual would need contract call)
+  const estimatedTotalShares = pool?.reserveValidatorToken
+    ? pool.reserveValidatorToken * 2n // Rough estimate
+    : null;
+
   return (
     <div className="space-y-7">
+        {/* Enhanced Pool Stats */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-white/80">Liquidity overview</span>
-            <span className="text-xs text-zinc-500">Validator token: pathUSD</span>
+            <span className="text-sm font-semibold text-white/80">Pool Overview</span>
+            <span className="text-xs text-zinc-500">
+              {userTokenSymbol}/{validatorTokenSymbol}
+            </span>
           </div>
-          <div className="p-5 rounded-xl bg-black/20 border border-white/5 text-sm space-y-3">
-            <div className="flex justify-between font-bold text-white">
-                <span className="text-zinc-400">LP Token Balance</span>
-                <span>{balance ? formatUnits(balance, 18) : '0'}</span>
+          <PoolStats
+            userTokenSymbol={userTokenSymbol}
+            validatorTokenSymbol={validatorTokenSymbol}
+            reserveUserToken={pool?.reserveUserToken ?? null}
+            reserveValidatorToken={pool?.reserveValidatorToken ?? null}
+            userTokenDecimals={userTokenDecimals}
+            validatorTokenDecimals={validatorTokenDecimals}
+            totalShares={estimatedTotalShares}
+            userShares={balance}
+            inputAmount={amount}
+          />
+          <div className="p-3 rounded-lg bg-black/30 border border-white/5">
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Your LP Tokens</span>
+              <span className="text-white font-bold">{balance ? Number(formatUnits(balance, 18)).toFixed(4) : '0'}</span>
             </div>
-            <div className="flex justify-between text-zinc-300">
-                <span className="text-zinc-400">User Reserves</span>
-                <span>{pool ? formatUnits(pool.reserveUserToken, userTokenDecimals) : '0'}</span>
-            </div>
-            <div className="flex justify-between text-zinc-300">
-                <span className="text-zinc-400">Validator Reserves</span>
-                <span>{pool ? formatUnits(pool.reserveValidatorToken, validatorTokenDecimals) : '0'}</span>
-            </div>
-            <div className="rounded-lg border border-white/5 bg-black/30 p-2 text-[11px] text-zinc-500">
-              Raw LP: {balance ?? 0n} | Pair: {userToken.slice(0, 6)}.../{validatorToken.slice(0, 6)}...
-            </div>
-        </div>
+          </div>
         </div>
 
         <div className="space-y-4">

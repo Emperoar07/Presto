@@ -383,15 +383,13 @@ export function LiquidityCard() {
       {activeTab === 'fee' && (
           <div className="space-y-7">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-white/80">Pool status</span>
-                <span className="text-xs text-zinc-500">Validator token: {pathToken.symbol}</span>
-              </div>
-              <ManageFeeLiquidity 
-                  userToken={selectedToken.address} 
-                  validatorToken={pathToken.address} 
+              <ManageFeeLiquidity
+                  userToken={selectedToken.address}
+                  validatorToken={pathToken.address}
                   userTokenDecimals={selectedToken.decimals}
                   validatorTokenDecimals={pathToken.decimals}
+                  userTokenSymbol={selectedToken.symbol}
+                  validatorTokenSymbol={pathToken.symbol}
                   showMaintenance
               />
             </div>
