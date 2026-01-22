@@ -269,7 +269,9 @@ contract TempoHubAMM is Ownable, Pausable {
             // Case 1: pathUSD -> Token (Buy Token)
             uint256 rIn = pathReserves[tokenOut];
             uint256 rOut = tokenReserves[tokenOut];
+            require(rIn > 0 && rOut > 0, "Insufficient liquidity");
             amountOut = _getAmountOut(amountInReceived, rIn, rOut);
+            require(amountOut > 0, "Insufficient output");
 
             require(amountOut >= minAmountOut, "Slippage tolerance exceeded");
             require(amountOut <= rOut, "Insufficient liquidity");
@@ -281,7 +283,9 @@ contract TempoHubAMM is Ownable, Pausable {
             // Case 2: Token -> pathUSD (Sell Token)
             uint256 rIn = tokenReserves[tokenIn];
             uint256 rOut = pathReserves[tokenIn];
+            require(rIn > 0 && rOut > 0, "Insufficient liquidity");
             amountOut = _getAmountOut(amountInReceived, rIn, rOut);
+            require(amountOut > 0, "Insufficient output");
 
             require(amountOut >= minAmountOut, "Slippage tolerance exceeded");
             require(amountOut <= rOut, "Insufficient liquidity");
@@ -296,13 +300,17 @@ contract TempoHubAMM is Ownable, Pausable {
             // Step 1: Calculate Token A -> pathUSD
             uint256 rInA = tokenReserves[tokenIn];
             uint256 rOutA = pathReserves[tokenIn];
+            require(rInA > 0 && rOutA > 0, "Insufficient liquidity in first hop");
             uint256 amountPath = _getAmountOut(amountInReceived, rInA, rOutA);
+            require(amountPath > 0, "Insufficient output in first hop");
             require(amountPath <= rOutA, "Insufficient liquidity in first hop");
 
             // Step 2: Calculate pathUSD -> Token B
             uint256 rInB = pathReserves[tokenOut];
             uint256 rOutB = tokenReserves[tokenOut];
+            require(rInB > 0 && rOutB > 0, "Insufficient liquidity in second hop");
             amountOut = _getAmountOut(amountPath, rInB, rOutB);
+            require(amountOut > 0, "Insufficient output in second hop");
 
             require(amountOut >= minAmountOut, "Slippage tolerance exceeded");
             require(amountOut <= rOutB, "Insufficient liquidity in second hop");

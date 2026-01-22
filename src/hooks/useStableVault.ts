@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useChainId, useAccount } from 'wagmi';
 import { parseUnits } from 'viem';
-import { getContractAddresses, STABLE_VAULT_ABI } from '@/config/contracts';
+import { getContractAddresses, STABLE_VAULT_ABI, ZERO_ADDRESS } from '@/config/contracts';
 import { Token } from '@/config/tokens';
 import toast from 'react-hot-toast';
 
@@ -14,7 +14,7 @@ export function useStableVaultBalance(token: Token) {
     functionName: 'getBalance',
     args: [token.address],
     query: {
-        enabled: !!token.address && !!STABLE_VAULT_ADDRESS,
+        enabled: !!token.address && STABLE_VAULT_ADDRESS !== ZERO_ADDRESS,
     }
   });
 
@@ -38,6 +38,10 @@ export function useStableSwap(
   const swap = async () => {
     if (!address) {
         toast.error('Please connect wallet');
+        return;
+    }
+    if (STABLE_VAULT_ADDRESS === ZERO_ADDRESS) {
+        toast.error('Stable vault is not available on this network');
         return;
     }
     if (!amountIn || Number(amountIn) <= 0) {

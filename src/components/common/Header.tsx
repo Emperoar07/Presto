@@ -7,7 +7,9 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId } from 'wagmi';
 
 // Network badge configuration
-const MAINNET_CHAIN_IDS = [42431]; // Add production chain IDs here
+// Note: 42431 is Tempo Moderato TESTNET, not mainnet
+// Only add actual mainnet chain IDs here when ready for production
+const MAINNET_CHAIN_IDS: number[] = []; // Empty for now - all chains are testnet
 const isProductionMode = process.env.NEXT_PUBLIC_PRODUCTION_MODE === 'true';
 
 const NavLink = memo(function NavLink({

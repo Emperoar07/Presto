@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { HUB_AMM_ABI, getContractAddresses } from '@/config/contracts';
-import { Token } from '@/config/tokens';
+import { Token, getTokens } from '@/config/tokens';
 import { parseUnits, formatUnits } from 'viem';
 import { useChainId } from 'wagmi';
 
@@ -31,7 +31,13 @@ export function useHubQuote(tokenIn: Token, tokenOut: Token, amountIn: string) {
   };
 }
 
-export function useHubSwap(tokenIn: Token, tokenOut: Token, amountIn: string, amountOutMin: string) {
+export function useHubSwap(
+  tokenIn: Token,
+  tokenOut: Token,
+  amountIn: string,
+  amountOutMin: string,
+  deadlineMinutes = 20
+) {
   const chainId = useChainId();
   const { HUB_AMM_ADDRESS } = getContractAddresses(chainId);
   const { writeContract, data: hash, isPending, error } = useWriteContract();
@@ -41,12 +47,13 @@ export function useHubSwap(tokenIn: Token, tokenOut: Token, amountIn: string, am
     
     const parsedAmountIn = parseUnits(amountIn, tokenIn.decimals);
     const parsedAmountOutMin = parseUnits(amountOutMin, tokenOut.decimals);
+    const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadlineMinutes * 60));
 
     writeContract({
       address: HUB_AMM_ADDRESS as `0x${string}`,
       abi: HUB_AMM_ABI,
       functionName: 'swap',
-      args: [tokenIn.address, tokenOut.address, parsedAmountIn, parsedAmountOutMin],
+      args: [tokenIn.address, tokenOut.address, parsedAmountIn, parsedAmountOutMin, deadlineTimestamp],
     });
   };
 
@@ -66,20 +73,22 @@ export function useHubSwap(tokenIn: Token, tokenOut: Token, amountIn: string, am
 
 export function useHubLiquidity(token: Token) {
     const chainId = useChainId();
+    const tokens = getTokens(chainId);
+    const pathToken = tokens.find((t) => t.symbol === 'pathUSD');
     const { HUB_AMM_ADDRESS } = getContractAddresses(chainId);
     const { writeContract, data: hash, isPending, error } = useWriteContract();
   
-    const addLiquidity = (tokenAmount: string, pathAmount: string) => {
-        if (!tokenAmount || !pathAmount) return;
+    const addLiquidity = (tokenAmount: string, deadlineMinutes = 20) => {
+        if (!tokenAmount || !pathToken) return;
         
         const parsedTokenAmount = parseUnits(tokenAmount, token.decimals);
-        const parsedPathAmount = parseUnits(pathAmount, 18); // pathUSD is 18 decimals
+        const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadlineMinutes * 60));
     
         writeContract({
           address: HUB_AMM_ADDRESS as `0x${string}`,
           abi: HUB_AMM_ABI,
           functionName: 'addLiquidity',
-          args: [token.address, parsedTokenAmount, parsedPathAmount],
+          args: [token.address, pathToken.address, parsedTokenAmount, deadlineTimestamp],
         });
       };
     

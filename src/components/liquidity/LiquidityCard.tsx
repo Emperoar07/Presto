@@ -157,7 +157,7 @@ export function LiquidityCard() {
 
   const checkCrossedOrder = async (tickVal: number, type: 'buy' | 'sell') => {
       try {
-          const response = await fetch(`/api/orderbook?token=${selectedToken.address}&depth=1`);
+          const response = await fetch(`/api/orderbook?token=${selectedToken.address}&depth=1&chainId=${chainId}`);
           if (!response.ok) return null;
           const data = (await response.json()) as { bids: { tick: number }[]; asks: { tick: number }[] };
           const bestBid = data.bids?.[0]?.tick;
@@ -409,9 +409,13 @@ export function LiquidityCard() {
                         <span className="text-sm text-zinc-300">{Number(dexSpendBalance).toFixed(4)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mb-3">
-                        {[pathToken, selectedToken].map((token) => (
+                        {[pathToken, selectedToken]
+                          .filter((token, index, self) =>
+                            self.findIndex(t => t.address === token.address) === index
+                          )
+                          .map((token, index) => (
                           <button
-                            key={token.address}
+                            key={`${token.address}-${index}`}
                             type="button"
                             onClick={() => setDepositTokenAddress(token.address)}
                             className={`px-3 py-1 rounded-full border text-xs transition-colors ${

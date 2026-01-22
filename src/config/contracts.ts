@@ -68,6 +68,52 @@ export const HUB_AMM_ABI = parseAbi([
   "function owner() external view returns (address)"
 ]);
 
+/**
+ * Tempo Native DEX ABI - For Tempo chain precompile at 0xdec0...
+ * This is the native DEX on Tempo blockchain
+ */
+export const TEMPO_DEX_ABI = parseAbi([
+  // Swapping
+  "function swapExactAmountIn(address tokenIn, address tokenOut, uint128 amountIn, uint128 minAmountOut) external returns (uint128 amountOut)",
+  "function quoteSwapExactAmountIn(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256)",
+  // Liquidity (Fee AMM)
+  "function addLiquidity(address userToken, address validatorToken, uint128 validatorTokenAmount) external",
+  "function removeLiquidity(address userToken, address validatorToken, uint256 liquidityAmount) external",
+  "function getPool(address userToken, address validatorToken) external view returns (uint256 reserveUserToken, uint256 reserveValidatorToken)",
+  "function liquidityOf(address userToken, address validatorToken, address provider) external view returns (uint256)"
+]);
+
+// Tempo DEX precompile address
+export const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000' as const;
+
+// Tempo Fee Manager precompile address (for liquidity)
+export const TEMPO_FEE_MANAGER_ADDRESS = '0xfeec000000000000000000000000000000000000' as const;
+
+/**
+ * Check if chain is Tempo native (uses precompile DEX)
+ */
+export const isTempoNativeChain = (chainId?: number): boolean => chainId === 42431;
+
+/**
+ * Get the DEX address for a specific chain
+ */
+export const getDexAddress = (chainId?: number): `0x${string}` => {
+  if (isTempoNativeChain(chainId)) {
+    return TEMPO_DEX_ADDRESS;
+  }
+  return getContractAddresses(chainId).HUB_AMM_ADDRESS;
+};
+
+/**
+ * Get the Fee Manager / Liquidity address for a specific chain
+ */
+export const getFeeManagerAddress = (chainId?: number): `0x${string}` => {
+  if (isTempoNativeChain(chainId)) {
+    return TEMPO_FEE_MANAGER_ADDRESS;
+  }
+  return getContractAddresses(chainId).HUB_AMM_ADDRESS;
+};
+
 // ============================================================================
 // Contract Addresses - Chain-specific deployment addresses
 // Override with environment variables: NEXT_PUBLIC_HUB_AMM_ADDRESS_<CHAIN_ID>
@@ -102,7 +148,7 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
   [42431]: { // Tempo Testnet (Moderato)
     ROUTER_ADDRESS: ZERO_ADDRESS,
     FACTORY_ADDRESS: ZERO_ADDRESS,
-    STABLE_VAULT_ADDRESS: "0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A",
+    STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
     HUB_AMM_ADDRESS: "0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A",
     WETH_ADDRESS: ZERO_ADDRESS
   }
@@ -135,7 +181,7 @@ export const getContractAddresses = (chainId?: number): ContractAddresses => {
 
   return {
     ...defaults,
-    ...(hubAmmOverride && { HUB_AMM_ADDRESS: hubAmmOverride, STABLE_VAULT_ADDRESS: hubAmmOverride })
+    ...(hubAmmOverride && { HUB_AMM_ADDRESS: hubAmmOverride })
   };
 };
 

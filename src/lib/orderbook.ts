@@ -27,17 +27,18 @@ const globalRpcStats = globalThis as typeof globalThis & { __orderbookRpcStats?:
 const rpcStats = globalRpcStats.__orderbookRpcStats ?? new Map();
 globalRpcStats.__orderbookRpcStats = rpcStats;
 
-// Chain-specific DEX addresses
-const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000' as const;
-const DEFAULT_DEX_ADDRESS = '0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A' as const;
+// Chain-specific DEX addresses - use the TempoHubAMM contract
+// The precompile address (0xdec0...) doesn't have the expected events/functions
+const HUB_AMM_ADDRESS = '0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A' as const;
 
-export const getDexAddress = (chainId?: number): `0x${string}` => {
-  if (chainId === 42431) return TEMPO_DEX_ADDRESS;
-  return DEFAULT_DEX_ADDRESS;
+export const getDexAddress = (_chainId?: number): `0x${string}` => {
+  // Use the same HubAMM address for all chains
+  // The orderbook events come from the HubAMM contract, not the precompile
+  return HUB_AMM_ADDRESS;
 };
 
 // For backward compatibility
-export const DEX_ADDRESS = TEMPO_DEX_ADDRESS;
+export const DEX_ADDRESS = HUB_AMM_ADDRESS;
 
 const STATE_TTL_MS = 5 * 60 * 1000;
 const MAX_STATE_ENTRIES = 200;

@@ -51,6 +51,12 @@ const FEE_AMM_ABI = parseAbi([
   'function rebalanceSwap(address userToken, address validatorToken, uint256 amountOut, address to) external returns (uint256 amountIn)'
 ]);
 
+// HUB_AMM_ABI for non-Tempo chains
+const HUB_AMM_LIQUIDITY_ABI = parseAbi([
+  'function addLiquidity(address userToken, address validatorToken, uint256 amount, uint256 deadline) external returns (uint256 mintedShares)',
+  'function removeLiquidity(address userToken, address validatorToken, uint256 shareAmount, uint256 minUserOut, uint256 minPathOut, uint256 deadline) external returns (uint256 userOut, uint256 pathOut)'
+]);
+
 // Helper: Force uint128
 export const toUint128 = (amount: bigint) => {
   const max128 = 340282366920938463463374607431768211455n; // 2^128 - 1
@@ -651,28 +657,52 @@ export async function addFeeLiquidity(
   chainId?: number
 ) {
   const resolvedChainId = resolveChainId(chainId, client, publicClient);
-  const feeManagerAddress =
-    resolvedChainId === 42431 ? FEE_MANAGER_ADDRESS : getDexAddressForChain(resolvedChainId);
-  
+  const isTempoChain = resolvedChainId === 42431;
+
+  // Use different contracts and ABIs based on chain
+  const targetAddress = isTempoChain
+    ? FEE_MANAGER_ADDRESS
+    : DEFAULT_DEX_ADDRESS;
+
   onStage?.('approving');
   if (validatorToken !== ZERO_ADDRESS) {
-    await approveToken(client, publicClient, account, validatorToken, feeManagerAddress, amount);
+    await approveToken(client, publicClient, account, validatorToken, targetAddress, amount);
   }
 
   onStage?.('adding');
-  return client.writeContract({
-    address: feeManagerAddress,
-    abi: FEE_AMM_ABI,
-    functionName: 'mint',
-    args: [
-      userToken as `0x${string}`,
-      validatorToken as `0x${string}`,
-      amount,
-      account as `0x${string}`
-    ],
-    account: account as `0x${string}`,
-    chain: null
-  });
+
+  if (isTempoChain) {
+    // Tempo chain uses FEE_AMM_ABI.mint
+    return client.writeContract({
+      address: targetAddress,
+      abi: FEE_AMM_ABI,
+      functionName: 'mint',
+      args: [
+        userToken as `0x${string}`,
+        validatorToken as `0x${string}`,
+        amount,
+        account as `0x${string}`
+      ],
+      account: account as `0x${string}`,
+      chain: null
+    });
+  } else {
+    // Non-Tempo chains use HUB_AMM_LIQUIDITY_ABI.addLiquidity with deadline
+    const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60)); // 20 minutes
+    return client.writeContract({
+      address: targetAddress,
+      abi: HUB_AMM_LIQUIDITY_ABI,
+      functionName: 'addLiquidity',
+      args: [
+        userToken as `0x${string}`,
+        validatorToken as `0x${string}`,
+        amount,
+        deadlineTimestamp
+      ],
+      account: account as `0x${string}`,
+      chain: null
+    });
+  }
 }
 
 export async function withdrawDexBalance(

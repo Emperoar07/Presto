@@ -19,7 +19,12 @@ import {
   calculateMinAmountOut
 } from '@/lib/priceImpact';
 import { parseContractError, logError, isUserCancellation } from '@/lib/errorHandling';
-import { HUB_AMM_ABI, getContractAddresses } from '@/config/contracts';
+import {
+  HUB_AMM_ABI,
+  TEMPO_DEX_ABI,
+  isTempoNativeChain,
+  getDexAddress
+} from '@/config/contracts';
 import { writeContractWithRetry } from '@/lib/txRetry';
 import { readContractWithFallback } from '@/lib/rpc';
 
@@ -82,8 +87,10 @@ export function SwapCardEnhanced() {
   const [balanceOut, setBalanceOut] = useState('0.00');
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
 
-  const contractAddresses = getContractAddresses(chainId);
-  const hubAmmAddress = contractAddresses.HUB_AMM_ADDRESS;
+  // Get the correct DEX address and ABI based on chain
+  const isTempoChain = isTempoNativeChain(chainId);
+  const dexAddress = getDexAddress(chainId);
+  const dexAbi = isTempoChain ? TEMPO_DEX_ABI : HUB_AMM_ABI;
 
   // Fetch token balances
   const fetchBalances = useCallback(async () => {
@@ -121,23 +128,25 @@ export function SwapCardEnhanced() {
     fetchBalances();
   }, [fetchBalances]);
 
+  // Note: Tempo DEX uses getPool instead of tokenReserves
+  // For now, we'll skip reserves-based price impact for Tempo chain
   const { data: reservesData } = useReadContracts({
-    contracts: [
+    contracts: isTempoChain ? [] : [
       {
-        address: hubAmmAddress as `0x${string}`,
+        address: dexAddress as `0x${string}`,
         abi: HUB_AMM_ABI,
         functionName: 'tokenReserves',
         args: [inputTokenAddress],
       },
       {
-        address: hubAmmAddress as `0x${string}`,
+        address: dexAddress as `0x${string}`,
         abi: HUB_AMM_ABI,
         functionName: 'tokenReserves',
         args: [outputTokenAddress],
       },
     ],
     query: {
-      enabled: !!hubAmmAddress && !!inputTokenAddress && !!outputTokenAddress,
+      enabled: !isTempoChain && !!dexAddress && !!inputTokenAddress && !!outputTokenAddress,
     },
   });
 
@@ -179,24 +188,48 @@ export function SwapCardEnhanced() {
         try {
           const amount = safeParseUnits(inputAmount, inputToken.decimals);
 
-          // Get quote
-          const result = await readContractWithFallback<bigint>(publicClient, {
-            address: hubAmmAddress as `0x${string}`,
-            abi: HUB_AMM_ABI,
-            functionName: 'getQuote',
-            args: [inputToken.address, outputToken.address, amount],
-          });
+          // Get quote - use different function based on chain
+          let result: bigint;
+          if (isTempoChain) {
+            // Tempo DEX uses quoteSwapExactAmountIn
+            result = await readContractWithFallback<bigint>(publicClient, {
+              address: dexAddress as `0x${string}`,
+              abi: TEMPO_DEX_ABI,
+              functionName: 'quoteSwapExactAmountIn',
+              args: [inputToken.address, outputToken.address, amount],
+            });
+          } else {
+            // HubAMM uses getQuote
+            result = await readContractWithFallback<bigint>(publicClient, {
+              address: dexAddress as `0x${string}`,
+              abi: HUB_AMM_ABI,
+              functionName: 'getQuote',
+              args: [inputToken.address, outputToken.address, amount],
+            });
+          }
 
           setOutputAmount(formatUnits(result, outputToken.decimals));
 
-          // Calculate price impact
-          if (inputReserves && outputReserves) {
+          // Calculate price impact (only for non-Tempo chains where we have reserves)
+          if (!isTempoChain && inputReserves && outputReserves) {
             const impact = calculatePriceImpact(
               amount,
               inputReserves as bigint,
               outputReserves as bigint
             );
             setPriceImpact(impact);
+          } else {
+            // For Tempo chain, estimate price impact from quote vs input
+            // Simple approximation: (1 - output/input) * 100 for same-decimal tokens
+            if (amount > 0n && result > 0n) {
+              const inputValue = Number(formatUnits(amount, inputToken.decimals));
+              const outputValue = Number(formatUnits(result, outputToken.decimals));
+              // Rough price impact estimate assuming 1:1 base rate for stablecoins
+              const estimatedImpact = Math.abs(1 - (outputValue / inputValue)) * 100;
+              setPriceImpact(estimatedImpact > 0.01 ? estimatedImpact : 0);
+            } else {
+              setPriceImpact(0);
+            }
           }
         } catch (e) {
           console.error("Quote failed", e);
@@ -211,7 +244,7 @@ export function SwapCardEnhanced() {
 
     const timer = setTimeout(fetchQuote, 500);
     return () => clearTimeout(timer);
-  }, [inputAmount, inputToken, outputToken, exactField, publicClient, hubAmmAddress, inputReserves, outputReserves]);
+  }, [inputAmount, inputToken, outputToken, exactField, publicClient, dexAddress, isTempoChain, inputReserves, outputReserves]);
 
   // Swap execution
   const handleSwap = async () => {
@@ -229,33 +262,60 @@ export function SwapCardEnhanced() {
       const expectedOut = outputAmount ? safeParseUnits(outputAmount, outputToken.decimals) : 0n;
       const minOut = calculateMinAmountOut(expectedOut, slippageTolerance);
 
-      // Calculate deadline timestamp (current time + deadline minutes)
-      const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadline * 60));
+      let hash: `0x${string}`;
 
-      // Execute swap
-      const hash = await writeContractWithRetry(
-        walletClient,
-        publicClient ?? undefined,
-        {
-          address: hubAmmAddress as `0x${string}`,
-          abi: HUB_AMM_ABI,
-          functionName: 'swap',
-          args: [
-            inputToken.address,
-            outputToken.address,
-            amount,
-            minOut,
-            deadlineTimestamp,
-          ],
-          account: address,
-          chain: null,
-        },
-        {
-          onRetry: (attempt) => {
-            toast.loading(`Retrying swap with higher gas (attempt ${attempt})...`, { duration: 1200 });
+      if (isTempoChain) {
+        // Tempo DEX uses swapExactAmountIn (no deadline parameter, uses uint128)
+        hash = await writeContractWithRetry(
+          walletClient,
+          publicClient ?? undefined,
+          {
+            address: dexAddress as `0x${string}`,
+            abi: TEMPO_DEX_ABI,
+            functionName: 'swapExactAmountIn',
+            args: [
+              inputToken.address,
+              outputToken.address,
+              amount,
+              minOut,
+            ],
+            account: address,
+            chain: null,
+          },
+          {
+            onRetry: (attempt) => {
+              toast.loading(`Retrying swap with higher gas (attempt ${attempt})...`, { duration: 1200 });
+            }
           }
-        }
-      );
+        );
+      } else {
+        // HubAMM uses swap with deadline
+        const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadline * 60));
+
+        hash = await writeContractWithRetry(
+          walletClient,
+          publicClient ?? undefined,
+          {
+            address: dexAddress as `0x${string}`,
+            abi: HUB_AMM_ABI,
+            functionName: 'swap',
+            args: [
+              inputToken.address,
+              outputToken.address,
+              amount,
+              minOut,
+              deadlineTimestamp,
+            ],
+            account: address,
+            chain: null,
+          },
+          {
+            onRetry: (attempt) => {
+              toast.loading(`Retrying swap with higher gas (attempt ${attempt})...`, { duration: 1200 });
+            }
+          }
+        );
+      }
 
       toast.custom(() => <TxToast hash={hash} title="Swap submitted" />);
 

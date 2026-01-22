@@ -4,10 +4,8 @@ import { useState, useEffect } from 'react';
 
 // --- Configuration ---
 
-// Hypothetical System Contract Address for Tempo Native DEX
-// Replace this with the actual address from Tempo docs if known.
-// For now, defaulting to a placeholder that won't revert but won't work without a real contract.
-export const TEMPO_DEX_ADDRESS = '0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A'; // TempoHubAMM on Tempo Testnet
+// Tempo Native DEX precompile (Tempo testnet)
+export const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000';
 const TEMPO_PRECOMPILE_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000';
 const FEE_MANAGER_ADDRESS = '0xfeec000000000000000000000000000000000000';
 const getDexAddressForChain = (chainId?: number) => (chainId === 42431 ? TEMPO_PRECOMPILE_DEX_ADDRESS : TEMPO_DEX_ADDRESS);

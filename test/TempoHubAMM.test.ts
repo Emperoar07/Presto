@@ -417,6 +417,22 @@ describe("TempoHubAMM - Unit Tests", function () {
   });
 
   describe("Swap - Direct (pathUSD <-> Token)", function () {
+    it("Should revert when swapping with empty reserves", async function () {
+      const { amm, tokens, user2 } = await loadFixture(deployFixture);
+
+      const swapAmount = parseTokens("100", 18);
+      const alphaAddress = await tokens.alphaUSD.getAddress();
+      const pathAddress = await tokens.pathUSD.getAddress();
+      const deadline = BigInt(await getCurrentTimestamp()) + 1800n;
+
+      await tokens.pathUSD.mint(user2.address, swapAmount);
+      await tokens.pathUSD.connect(user2).approve(await amm.getAddress(), ethers.MaxUint256);
+
+      await expect(
+        amm.connect(user2).swap(pathAddress, alphaAddress, swapAmount, 0, deadline)
+      ).to.be.revertedWith("Insufficient liquidity");
+    });
+
     it("Should swap pathUSD for Token", async function () {
       const { amm, tokens, user1, user2 } = await loadFixture(deployFixture);
 
