@@ -13,11 +13,8 @@ type TxItem = {
   functionName?: string;
 };
 
-const MAX_RANGE = BigInt(
-  Math.min(
-    Number.parseInt(process.env.TX_SCAN_BLOCKS ?? '300', 10) || 300,
-    1000
-  )
+const MAX_SCAN_BLOCKS = BigInt(
+  Math.max(1, Number.parseInt(process.env.TX_SCAN_MAX_BLOCKS ?? '50000', 10) || 50000)
 );
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
@@ -83,8 +80,7 @@ export async function GET(request: Request) {
   try {
     const data = await withFallback(async (client) => {
       const latestBlock = await client.getBlockNumber();
-      const fromBlock = latestBlock > (MAX_RANGE - 1n) ? latestBlock - (MAX_RANGE - 1n) : 0n;
-      const deadline = Date.now() + 7000;
+      const fromBlock = latestBlock > (MAX_SCAN_BLOCKS - 1n) ? latestBlock - (MAX_SCAN_BLOCKS - 1n) : 0n;
 
       const items: TxItem[] = [];
       const dexAddress = TEMPO_DEX_ADDRESS.toLowerCase();
@@ -92,7 +88,6 @@ export async function GET(request: Request) {
       const batchSize = 10n;
 
       for (let start = latestBlock; start >= fromBlock && items.length < limit; start -= batchSize) {
-        if (Date.now() > deadline) break;
         const end = start;
         const begin = start >= (batchSize - 1n) ? start - (batchSize - 1n) : 0n;
         const blocks: bigint[] = [];

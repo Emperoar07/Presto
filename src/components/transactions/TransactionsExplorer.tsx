@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAccount, useChainId } from 'wagmi';
 import { formatUnitsFixed } from '@/lib/format';
 import { getExplorerTxUrl } from '@/lib/explorer';
@@ -98,13 +98,13 @@ export function TransactionsExplorer() {
     }
   }, [address, queryAddress.length]);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!queryAddress) return;
     setIsLoading(true);
     setError(null);
     try {
       const response = await fetch(
-        `/api/transactions?address=${queryAddress}&chainId=${chainId}&limit=50`
+        `/api/transactions?address=${queryAddress}&chainId=${chainId}&limit=30`
       );
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -118,7 +118,7 @@ export function TransactionsExplorer() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [chainId, queryAddress]);
 
   useEffect(() => {
     if (queryAddress) {
@@ -126,6 +126,16 @@ export function TransactionsExplorer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryAddress, chainId]);
+
+  useEffect(() => {
+    if (!queryAddress) return undefined;
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && !isLoading) {
+        fetchTransactions();
+      }
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [fetchTransactions, isLoading, queryAddress]);
 
   // Filter items
   const filteredItems = useMemo(() => {
