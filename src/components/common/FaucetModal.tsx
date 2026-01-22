@@ -54,17 +54,13 @@ const formatTimeRemaining = (ms: number): string => {
 };
 
 export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props) {
-  const { address } = useAccount();
-  const [iframeError, setIframeError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { address, isConnected } = useAccount();
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
-  const [hasClaimed, setHasClaimed] = useState(false);
+  const [isClaimingTokens, setIsClaimingTokens] = useState(false);
 
   const faucetUrl = address
     ? `https://docs.tempo.xyz/quickstart/faucet?address=${address}`
     : 'https://docs.tempo.xyz/quickstart/faucet';
-
-  const chainlinkFaucetUrl = 'https://faucets.chain.link/tempo-testnet';
 
   // Check cooldown on open and periodically
   useEffect(() => {
@@ -75,7 +71,7 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
       };
 
       checkCooldown();
-      const interval = setInterval(checkCooldown, 60000); // Update every minute
+      const interval = setInterval(checkCooldown, 1000); // Update every second for smooth countdown
 
       return () => clearInterval(interval);
     }
@@ -83,65 +79,48 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
 
   useEffect(() => {
     if (isOpen) {
-      setIsLoading(true);
-      setIframeError(false);
-      setHasClaimed(false);
+      setIsClaimingTokens(false);
     }
   }, [isOpen]);
 
-  const handleIframeLoad = useCallback(() => {
-    setIsLoading(false);
-  }, []);
+  const handleClaimTokens = useCallback(() => {
+    if (!address) return;
 
-  const handleIframeError = useCallback(() => {
-    setIframeError(true);
-    setIsLoading(false);
-  }, []);
+    // Record the claim (starts cooldown)
+    recordClaim(address);
+    setCooldownRemaining(COOLDOWN_MS);
+    setIsClaimingTokens(true);
 
-  const handleClaimSuccess = useCallback(() => {
-    if (address) {
-      recordClaim(address);
-      setHasClaimed(true);
-      setCooldownRemaining(COOLDOWN_MS);
-    }
-  }, [address]);
-
-  const openInNewTab = useCallback((url: string) => {
-    window.open(url, '_blank', 'noopener,noreferrer');
-    // Record claim when opening external faucet
-    if (address) {
-      recordClaim(address);
-      setHasClaimed(true);
-      setCooldownRemaining(COOLDOWN_MS);
-    }
-  }, [address]);
+    // Open the faucet page in a new tab
+    window.open(faucetUrl, '_blank', 'noopener,noreferrer');
+  }, [address, faucetUrl]);
 
   if (!isOpen) return null;
 
-  const isOnCooldown = cooldownRemaining > 0 && !hasClaimed;
+  const isOnCooldown = cooldownRemaining > 0;
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="fixed inset-4 md:inset-10 lg:inset-20 z-[101] flex items-center justify-center">
-        <div className="relative w-full h-full max-w-4xl max-h-[80vh] rounded-3xl overflow-hidden bg-black/90 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(0,243,255,0.15)] animate-slide-up">
+      <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+        <div className="relative w-full max-w-md rounded-3xl overflow-hidden bg-black/90 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(0,243,255,0.15)]">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/50">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#00F3FF]/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#00F3FF]/20 to-[#BC13FE]/20 flex items-center justify-center">
+                <svg className="w-6 h-6 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Claim Testnet Tokens</h2>
-                <p className="text-xs text-zinc-500">Get free TEMPO tokens for testing</p>
+                <h2 className="text-xl font-bold text-white">Testnet Faucet</h2>
+                <p className="text-xs text-zinc-500">Claim free TEMPO tokens</p>
               </div>
             </div>
             <button
@@ -155,129 +134,127 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
           </div>
 
           {/* Content */}
-          <div className="relative h-[calc(100%-80px)]">
-            {/* Cooldown Warning */}
-            {isOnCooldown && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 z-20 p-8 text-center">
-                <div className="w-20 h-20 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-6">
+          <div className="p-6">
+            {!isConnected ? (
+              /* Not Connected State */
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Wallet Not Connected</h3>
+                <p className="text-zinc-400 text-sm">Please connect your wallet to claim testnet tokens.</p>
+              </div>
+            ) : isOnCooldown && !isClaimingTokens ? (
+              /* Cooldown State */
+              <div className="text-center py-6">
+                <div className="w-20 h-20 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-5">
                   <svg className="w-10 h-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Cooldown Active</h3>
-                <p className="text-zinc-400 text-sm mb-4 max-w-md">
-                  You can claim testnet tokens once every {COOLDOWN_HOURS} hours per wallet.
+                <h3 className="text-xl font-bold text-white mb-2">Cooldown Active</h3>
+                <p className="text-zinc-400 text-sm mb-5">
+                  You can claim tokens once every {COOLDOWN_HOURS} hours.
                 </p>
-                <div className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#00F3FF]/10 to-[#BC13FE]/10 border border-white/10 mb-6">
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Time Remaining</p>
-                  <p className="text-3xl font-bold text-[#00F3FF]">{formatTimeRemaining(cooldownRemaining)}</p>
+
+                {/* Countdown Timer */}
+                <div className="inline-flex flex-col items-center px-8 py-4 rounded-2xl bg-gradient-to-r from-[#00F3FF]/10 to-[#BC13FE]/10 border border-white/10">
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Next claim available in</p>
+                  <p className="text-3xl font-bold text-[#00F3FF] font-mono">{formatTimeRemaining(cooldownRemaining)}</p>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-medium hover:bg-white/10 hover:text-white transition-all duration-300"
-                >
-                  Close
-                </button>
-              </div>
-            )}
 
-            {/* Loading State */}
-            {isLoading && !iframeError && !isOnCooldown && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10">
-                <div className="w-12 h-12 border-2 border-[#00F3FF]/30 border-t-[#00F3FF] rounded-full animate-spin mb-4" />
-                <p className="text-zinc-400 text-sm">Loading faucet...</p>
+                {/* Wallet Info */}
+                <div className="mt-6 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+                  <p className="text-xs text-zinc-500 mb-1">Connected Wallet</p>
+                  <p className="text-sm text-[#00F3FF] font-mono">{address}</p>
+                </div>
               </div>
-            )}
-
-            {/* Claim Success */}
-            {hasClaimed && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 z-20 p-8 text-center">
-                <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-6">
+            ) : isClaimingTokens ? (
+              /* Success State */
+              <div className="text-center py-6">
+                <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-5">
                   <svg className="w-10 h-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Claim Initiated!</h3>
-                <p className="text-zinc-400 text-sm mb-6 max-w-md">
-                  Your testnet tokens should arrive shortly. You can claim again in {COOLDOWN_HOURS} hours.
+                <h3 className="text-xl font-bold text-white mb-2">Faucet Opened!</h3>
+                <p className="text-zinc-400 text-sm mb-4">
+                  Complete the claim on the Tempo faucet page.<br />
+                  Your tokens will arrive shortly.
                 </p>
+                <p className="text-xs text-zinc-500">
+                  Next claim available in <span className="text-[#00F3FF]">{COOLDOWN_HOURS} hours</span>
+                </p>
+
                 <button
                   onClick={onClose}
-                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#00F3FF]/20 to-[#BC13FE]/20 border border-[#00F3FF]/40 text-white font-medium hover:from-[#00F3FF]/30 hover:to-[#BC13FE]/30 transition-all duration-300"
+                  className="mt-6 w-full py-3 rounded-2xl bg-gradient-to-r from-[#00F3FF]/20 to-[#BC13FE]/20 border border-[#00F3FF]/40 text-white font-medium hover:from-[#00F3FF]/30 hover:to-[#BC13FE]/30 transition-all duration-300"
                 >
                   Done
                 </button>
               </div>
-            )}
-
-            {/* Iframe Error / Fallback */}
-            {iframeError && !isOnCooldown ? (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Embedded faucet unavailable</h3>
-                <p className="text-zinc-400 text-sm mb-8 max-w-md">
-                  The faucet cannot be embedded directly. Please use one of the options below to claim your testnet tokens.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button
-                    onClick={() => openInNewTab(faucetUrl)}
-                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#00F3FF]/20 to-[#BC13FE]/20 border border-[#00F3FF]/40 text-white font-medium hover:from-[#00F3FF]/30 hover:to-[#BC13FE]/30 transition-all duration-300"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    Tempo Faucet
-                  </button>
-                  <button
-                    onClick={() => openInNewTab(chainlinkFaucetUrl)}
-                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-medium hover:bg-white/10 hover:text-white transition-all duration-300"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    Chainlink Faucet
-                  </button>
-                </div>
-              </div>
-            ) : !isOnCooldown && !hasClaimed && (
-              /* Iframe with claim button overlay */
-              <div className="relative h-full">
-                <iframe
-                  src={faucetUrl}
-                  className="w-full h-full border-0"
-                  onLoad={handleIframeLoad}
-                  onError={handleIframeError}
-                  title="Tempo Faucet"
-                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-                />
-
-                {/* Mark as claimed button - floating at bottom */}
-                {!isLoading && (
-                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2">
-                    <button
-                      onClick={handleClaimSuccess}
-                      className="px-6 py-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-medium hover:bg-emerald-500/30 transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                    >
-                      I&apos;ve Claimed My Tokens
-                    </button>
+            ) : (
+              /* Ready to Claim State */
+              <div className="py-4">
+                {/* Wallet Display */}
+                <div className="mb-6 px-4 py-4 rounded-2xl bg-gradient-to-r from-[#00F3FF]/5 to-[#BC13FE]/5 border border-white/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-zinc-500 uppercase tracking-wider">Your Wallet</span>
+                    <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Connected
+                    </span>
                   </div>
-                )}
+                  <p className="text-lg text-white font-mono truncate">{address}</p>
+                </div>
+
+                {/* Info */}
+                <div className="mb-6 space-y-3">
+                  <div className="flex items-start gap-3 text-sm">
+                    <div className="w-5 h-5 rounded-full bg-[#00F3FF]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-zinc-400">Receive test stablecoins on Tempo testnet</span>
+                  </div>
+                  <div className="flex items-start gap-3 text-sm">
+                    <div className="w-5 h-5 rounded-full bg-[#00F3FF]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-zinc-400">Funds arrive instantly to your wallet</span>
+                  </div>
+                  <div className="flex items-start gap-3 text-sm">
+                    <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-zinc-400">{COOLDOWN_HOURS}-hour cooldown between claims</span>
+                  </div>
+                </div>
+
+                {/* Claim Button */}
+                <button
+                  onClick={handleClaimTokens}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-white font-semibold text-lg hover:opacity-90 transition-all duration-300 shadow-[0_0_30px_rgba(0,243,255,0.3)] hover:shadow-[0_0_40px_rgba(0,243,255,0.5)] flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Claim Testnet Tokens
+                </button>
+
+                <p className="text-center text-xs text-zinc-600 mt-3">
+                  Opens Tempo faucet in a new tab
+                </p>
               </div>
             )}
           </div>
-
-          {/* Wallet Address Display */}
-          {address && !isOnCooldown && !hasClaimed && (
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-center pointer-events-none">
-              <div className="px-4 py-2 rounded-xl bg-black/60 backdrop-blur-xl border border-white/10 text-xs text-zinc-400">
-                Connected: <span className="text-[#00F3FF] font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>
