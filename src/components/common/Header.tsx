@@ -99,12 +99,8 @@ export const Header = memo(function Header() {
       {/* Floating Header Container - No solid background */}
       <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 pt-4">
-          {/* Logo - Floating glass container */}
           <div className="pointer-events-auto">
-            <Link
-              href="/"
-              className="flex items-center group rounded-2xl bg-black/30 backdrop-blur-xl border border-white/10 px-4 py-2 transition-all duration-300 hover:bg-black/40 hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,243,255,0.15)]"
-            >
+            <Link href="/" className="flex items-center group">
               <PrestoDexMotionStaffLogo
                 width={180}
                 height={55}
