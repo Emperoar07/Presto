@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createPublicClient, http, parseAbiItem } from 'viem';
+import { createPublicClient, decodeFunctionData, http, parseAbi } from 'viem';
 import { tempoModerato } from 'viem/chains';
 import { getTempoRpcUrls } from '@/lib/rpc';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
@@ -7,24 +7,26 @@ import { getClientIp, rateLimit } from '@/lib/rateLimit';
 type TxItem = {
   hash: string;
   block: bigint;
-  type: 'Order Placed' | 'Order Filled' | 'Order Cancelled';
+  type: string;
   status: string;
   amount: string;
-  token?: string;
-  isBid?: boolean;
-  tick?: number;
+  functionName?: string;
 };
 
-const MAX_RANGE = 100000n;
+const MAX_RANGE = 5000n;
+const DEFAULT_LIMIT = 30;
+const MAX_LIMIT = 50;
 const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000' as const;
 
-const ORDER_PLACED_EVENT = parseAbiItem(
-  'event OrderPlaced(uint128 indexed orderId, address indexed maker, address indexed token, uint128 amount, bool isBid, int16 tick, bool isFlipOrder, int16 flipTick)'
-);
-const ORDER_FILLED_EVENT = parseAbiItem(
-  'event OrderFilled(uint128 indexed orderId, address indexed maker, address indexed taker, uint128 amountFilled, bool partialFill)'
-);
-const ORDER_CANCELLED_EVENT = parseAbiItem('event OrderCancelled(uint128 indexed orderId)');
+const DEX_ABI = parseAbi([
+  'function swapExactAmountIn(address tokenIn, address tokenOut, uint128 amountIn, uint128 minAmountOut) external returns (uint128 amountOut)',
+  'function place(address token, uint128 amount, bool isBid, int16 tick) external returns (uint128 id)',
+  'function placeFlip(address token, uint128 amount, bool isBid, int16 tick, int16 flipTick) external returns (uint128 id)',
+  'function addLiquidity(address userToken, address validatorToken, uint128 amount) external',
+  'function removeLiquidity(address userToken, address validatorToken, uint256 liquidityAmount) external',
+  'function withdraw(address token, uint128 amount) external',
+  'function cancel(uint128 orderId) external',
+]);
 
 const isValidAddress = (value: string | null) => !!value && /^0x[a-fA-F0-9]{40}$/.test(value);
 
@@ -61,6 +63,10 @@ export async function GET(request: Request) {
   const address = searchParams.get('address');
   const chainIdParam = searchParams.get('chainId');
   const chainId = chainIdParam ? parseInt(chainIdParam, 10) : tempoModerato.id;
+  const limitParam = Number(searchParams.get('limit') ?? DEFAULT_LIMIT);
+  const limit = Number.isFinite(limitParam)
+    ? Math.min(Math.max(limitParam, 1), MAX_LIMIT)
+    : DEFAULT_LIMIT;
 
   if (!isValidAddress(address)) {
     return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
@@ -73,90 +79,76 @@ export async function GET(request: Request) {
     const data = await withFallback(async (client) => {
       const latestBlock = await client.getBlockNumber();
       const fromBlock = latestBlock > (MAX_RANGE - 1n) ? latestBlock - (MAX_RANGE - 1n) : 0n;
-      const toBlock = latestBlock;
 
-      const placedLogs = await client.getLogs({
-        address: TEMPO_DEX_ADDRESS,
-        event: ORDER_PLACED_EVENT,
-        args: { maker: address as `0x${string}` },
-        fromBlock,
-        toBlock,
-      });
+      const items: TxItem[] = [];
+      let block = latestBlock;
+      while (block >= fromBlock && items.length < limit) {
+        const blockData = await client.getBlock({ blockNumber: block, includeTransactions: true });
+        for (const tx of blockData.transactions) {
+          if (!tx.to) continue;
+          if (tx.to.toLowerCase() !== TEMPO_DEX_ADDRESS.toLowerCase()) continue;
+          if (tx.from?.toLowerCase() !== address!.toLowerCase()) continue;
 
-      const orderDetails = new Map<string, { token: string; isBid: boolean; tick: number; amount: bigint }>();
-      const placedItems: TxItem[] = placedLogs.map((log) => {
-        const { orderId, token, amount, isBid, tick } = log.args;
-        const id = orderId?.toString() ?? '';
-        if (orderId && token && amount !== undefined && isBid !== undefined && tick !== undefined) {
-          orderDetails.set(id, { token, isBid, tick: Number(tick), amount });
+          let functionName = 'unknown';
+          let type = 'DEX Call';
+          let amount = '0';
+
+          try {
+            const decoded = decodeFunctionData({ abi: DEX_ABI, data: tx.input });
+            functionName = decoded.functionName;
+            switch (decoded.functionName) {
+              case 'swapExactAmountIn':
+                type = 'Swap';
+                amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
+                break;
+              case 'place':
+                type = 'Order Placed';
+                amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
+                break;
+              case 'placeFlip':
+                type = 'Order Placed (Flip)';
+                amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
+                break;
+              case 'addLiquidity':
+                type = 'Add Liquidity';
+                amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
+                break;
+              case 'removeLiquidity':
+                type = 'Remove Liquidity';
+                amount = (decoded.args?.[2] as bigint | undefined)?.toString() ?? '0';
+                break;
+              case 'withdraw':
+                type = 'Withdraw';
+                amount = (decoded.args?.[1] as bigint | undefined)?.toString() ?? '0';
+                break;
+              case 'cancel':
+                type = 'Order Cancelled';
+                amount = '0';
+                break;
+              default:
+                type = 'DEX Call';
+            }
+          } catch {
+            // Leave as generic DEX Call if we cannot decode input.
+          }
+
+          const receipt = await client.getTransactionReceipt({ hash: tx.hash });
+          const status = receipt.status === 'success' ? 'Confirmed' : 'Failed';
+
+          items.push({
+            hash: tx.hash,
+            block: tx.blockNumber ?? blockData.number,
+            type,
+            status,
+            amount,
+            functionName,
+          });
+          if (items.length >= limit) break;
         }
-        return {
-          hash: log.transactionHash,
-          block: log.blockNumber,
-          type: 'Order Placed',
-          status: 'Confirmed',
-          amount: amount?.toString() ?? '0',
-          token,
-          isBid,
-          tick: tick ? Number(tick) : undefined,
-        };
-      });
-
-      const orderIds = Array.from(orderDetails.keys()).map((id) => BigInt(id));
-      let filledItems: TxItem[] = [];
-      let cancelledItems: TxItem[] = [];
-
-      if (orderIds.length > 0) {
-        const filledLogs = await client.getLogs({
-          address: TEMPO_DEX_ADDRESS,
-          event: ORDER_FILLED_EVENT,
-          args: { orderId: orderIds },
-          fromBlock,
-          toBlock,
-        });
-
-        filledItems = filledLogs.map((log) => {
-          const { orderId, amountFilled, partialFill } = log.args;
-          const details = orderId ? orderDetails.get(orderId.toString()) : undefined;
-          return {
-            hash: log.transactionHash,
-            block: log.blockNumber,
-            type: 'Order Filled',
-            status: partialFill ? 'Partial' : 'Filled',
-            amount: amountFilled?.toString() ?? '0',
-            token: details?.token,
-            isBid: details?.isBid,
-            tick: details?.tick,
-          };
-        });
-
-        const cancelledLogs = await client.getLogs({
-          address: TEMPO_DEX_ADDRESS,
-          event: ORDER_CANCELLED_EVENT,
-          args: { orderId: orderIds },
-          fromBlock,
-          toBlock,
-        });
-
-        cancelledItems = cancelledLogs.map((log) => {
-          const { orderId } = log.args;
-          const details = orderId ? orderDetails.get(orderId.toString()) : undefined;
-          return {
-            hash: log.transactionHash,
-            block: log.blockNumber,
-            type: 'Order Cancelled',
-            status: 'Cancelled',
-            amount: details?.amount?.toString() ?? '0',
-            token: details?.token,
-            isBid: details?.isBid,
-            tick: details?.tick,
-          };
-        });
+        if (block === 0n) break;
+        block -= 1n;
       }
 
-      const items = [...placedItems, ...filledItems, ...cancelledItems].sort(
-        (a, b) => Number(b.block - a.block)
-      );
       return {
         items: items.map((item) => ({
           ...item,

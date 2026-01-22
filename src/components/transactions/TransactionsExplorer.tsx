@@ -1,26 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
-import { getTokens } from '@/config/tokens';
 import { formatUnitsFixed } from '@/lib/format';
 import { getExplorerTxUrl } from '@/lib/explorer';
 
 type TxItem = {
   hash: string;
   block: string;
-  type: 'Order Placed' | 'Order Filled' | 'Order Cancelled';
+  type: string;
   status: string;
   amount: string;
-  token?: string;
-  isBid?: boolean;
-  tick?: number;
+  functionName?: string;
 };
 
 export function TransactionsExplorer() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const tokens = getTokens(chainId);
   const [queryAddress, setQueryAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,13 +28,6 @@ export function TransactionsExplorer() {
     }
   }, [address, queryAddress.length]);
 
-  const tokenByAddress = useMemo(() => {
-    const map = new Map<string, { symbol: string; decimals: number }>();
-    tokens.forEach((token) => {
-      map.set(token.address.toLowerCase(), { symbol: token.symbol, decimals: token.decimals });
-    });
-    return map;
-  }, [tokens]);
 
   const fetchTransactions = async () => {
     if (!queryAddress) return;
@@ -46,7 +35,7 @@ export function TransactionsExplorer() {
     setError(null);
     try {
       const response = await fetch(
-        `/api/transactions?address=${queryAddress}&chainId=${chainId}`
+        `/api/transactions?address=${queryAddress}&chainId=${chainId}&limit=30`
       );
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -112,17 +101,17 @@ export function TransactionsExplorer() {
         ) : (
           <div className="space-y-2">
             {items.map((item) => {
-              const tokenInfo = item.token ? tokenByAddress.get(item.token.toLowerCase()) : undefined;
-              const amountDisplay = tokenInfo
-                ? formatUnitsFixed(BigInt(item.amount), tokenInfo.decimals)
-                : item.amount;
+              const amountDisplay =
+                item.amount && item.amount !== '0'
+                  ? formatUnitsFixed(BigInt(item.amount), 6)
+                  : '--';
               return (
                 <div key={`${item.hash}-${item.block}`} className="grid grid-cols-4 text-xs text-zinc-300 border-b border-white/5 pb-2">
-                  <span className={item.type.includes('Cancel') ? 'text-red-400' : 'text-green-400'}>
+                  <span className={item.type.includes('Cancel') || item.status === 'Failed' ? 'text-red-400' : 'text-green-400'}>
                     {item.type}
                   </span>
                   <span className="font-mono">
-                    {amountDisplay} {tokenInfo?.symbol ?? ''}
+                    {amountDisplay}
                   </span>
                   <span className={item.status === 'Cancelled' ? 'text-red-400' : 'text-emerald-400'}>
                     {item.status}
