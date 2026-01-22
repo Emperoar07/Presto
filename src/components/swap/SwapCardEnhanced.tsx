@@ -5,7 +5,7 @@ import { getTokens } from '@/config/tokens';
 import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContracts } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { formatUnits, parseUnits } from 'viem';
-import { getTokenBalancesBatch, toUint128 } from '@/lib/tempoClient';
+import { approveToken, getTokenBalancesBatch, toUint128 } from '@/lib/tempoClient';
 import toast from 'react-hot-toast';
 import { useFeeToken } from '@/context/FeeTokenContext';
 import { TxToast } from '@/components/common/TxToast';
@@ -303,6 +303,20 @@ export function SwapCardEnhanced() {
       let hash: `0x${string}`;
 
       if (isTempoChain) {
+        if (!publicClient) {
+          toast.error('Public client unavailable');
+          return;
+        }
+        if (inputToken.address !== '0x0000000000000000000000000000000000000000') {
+          await approveToken(
+            walletClient,
+            publicClient,
+            address,
+            inputToken.address,
+            dexAddress,
+            amount
+          );
+        }
         // Tempo DEX uses swapExactAmountIn (no deadline parameter, uses uint128)
         hash = await writeContractWithRetry(
           walletClient,
@@ -563,13 +577,16 @@ export function SwapCardEnhanced() {
           )}
 
           {/* Error Message */}
-          {(quoteError || (isTempoChain && tempoLiquidityStatus === 'empty')) && (
+          {quoteError && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
-              {isTempoChain && tempoLiquidityStatus === 'empty'
-                ? 'No orderbook liquidity available for this pair on Tempo testnet.'
-                : (quoteError?.message?.includes('InsufficientLiquidity') || quoteError?.message?.includes('reverted'))
-                  ? 'Not enough liquidity available.'
-                  : 'Error fetching quote.'}
+              {(quoteError?.message?.includes('InsufficientLiquidity') || quoteError?.message?.includes('reverted'))
+                ? 'Not enough liquidity available.'
+                : 'Error fetching quote.'}
+            </div>
+          )}
+          {isTempoChain && tempoLiquidityStatus === 'empty' && !quoteError && (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-sm">
+              Orderbook liquidity appears empty for this pair. Swaps may still succeed if liquidity exists.
             </div>
           )}
 
@@ -581,7 +598,7 @@ export function SwapCardEnhanced() {
           ) : (
             <button
               onClick={handleSwap}
-              disabled={isSwapping || !inputAmount || !!quoteError || (isTempoChain && tempoLiquidityStatus === 'empty') || (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))}
+              disabled={isSwapping || !inputAmount || !!quoteError || (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))}
               className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-black hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,243,255,0.3)]"
             >
               {isSwapping ? 'Swapping...' : needsConfirmation ? 'Swap Anyway (High Impact)' : 'Swap'}
