@@ -101,7 +101,7 @@ export const Header = memo(function Header() {
       {/* Floating Header Container - No solid background */}
       <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto flex flex-col items-start gap-2">
             <Link
               href="/"
               className="flex items-center group transition-all duration-300 hover:opacity-80"
@@ -113,6 +113,10 @@ export const Header = memo(function Header() {
                 className="text-white drop-shadow-[0_0_15px_rgba(0,243,255,0.3)]"
               />
             </Link>
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 backdrop-blur-xl text-[10px] font-semibold uppercase tracking-[0.3em] text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Testnet
+            </div>
           </div>
 
           {/* Center Navigation - Floating glass buttons */}
@@ -135,10 +139,6 @@ export const Header = memo(function Header() {
 
           {/* Right side - Floating glass containers */}
           <div className="flex items-center gap-3 pointer-events-auto">
-            {/* Network Badge */}
-            <div className="hidden lg:block">
-              <NetworkBadge />
-            </div>
 
             {/* Faucet Button - Glass style */}
             <button
