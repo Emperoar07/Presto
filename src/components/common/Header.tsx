@@ -107,12 +107,12 @@ export const Header = memo(function Header() {
                 href="/"
                 className="flex items-center group transition-all duration-300 hover:opacity-80"
               >
-                <PrestoDexMotionStaffLogo
-                  width={160}
-                  height={55}
-                  withWordmark={false}
-                  className="text-white drop-shadow-[0_0_15px_rgba(0,243,255,0.3)]"
-                />
+              <PrestoDexMotionStaffLogo
+                width={160}
+                height={55}
+                withWordmark
+                className="text-white drop-shadow-[0_0_15px_rgba(0,243,255,0.3)]"
+              />
               </Link>
             )}
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 backdrop-blur-xl text-[10px] font-semibold uppercase tracking-[0.3em] text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
