@@ -136,11 +136,6 @@ export default function Home() {
   return (
     <LandingLoader>
       <main className="relative flex flex-col items-center justify-center min-h-screen gap-12 px-6 py-20 overflow-hidden bg-black text-white">
-        {/* Top-corner accent */}
-        <div className="absolute top-6 left-6 z-10 pointer-events-none">
-          <PrestoDexMotionStaffLogo width={150} height={50} withWordmark={false} />
-        </div>
-
         {/* Background effects */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Gradient orbs */}
@@ -150,10 +145,6 @@ export default function Home() {
 
         {/* Hero Section */}
         <div className="relative z-10 text-center animate-fade-in max-w-3xl">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <PrestoDexMotionStaffLogo width={320} height={110} withWordmark />
-          </div>
 
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
             Trade with{' '}
