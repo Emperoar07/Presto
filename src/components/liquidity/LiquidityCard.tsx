@@ -45,6 +45,7 @@ export function LiquidityCard() {
   // Token State
   const [selectedToken, setSelectedToken] = useState<Token>(tokens.find(t => t.symbol !== 'pathUSD') || tokens[1]); 
   const pathToken = tokens.find(t => t.symbol === 'pathUSD') || tokens[0];
+  const quoteToken = tokens.find(t => t.id && t.id === selectedToken.quoteTokenId) || pathToken;
 
   // Reset tokens on chain change
   useEffect(() => {
@@ -61,14 +62,14 @@ export function LiquidityCard() {
         if (!publicClient || !address) return;
         const balances = await getTokenBalancesBatch(publicClient, address, [
           { address: selectedToken.address, decimals: selectedToken.decimals },
-          { address: pathToken.address, decimals: pathToken.decimals },
+          { address: quoteToken.address, decimals: quoteToken.decimals },
         ]);
         setTokenBalance(balances[selectedToken.address] ?? '0.00');
-        setPathBalance(balances[pathToken.address] ?? '0.00');
+        setPathBalance(balances[quoteToken.address] ?? '0.00');
     };
     
     fetchBalances();
-  }, [publicClient, address, selectedToken, pathToken]);
+  }, [publicClient, address, selectedToken, quoteToken]);
 
   // FEE LIQUIDITY STATE
   const [lpAmount, setLpAmount] = useState('');
@@ -89,7 +90,7 @@ export function LiquidityCard() {
   const [isFlip, setIsFlip] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
-  const [depositTokenAddress, setDepositTokenAddress] = useState<string>(pathToken.address);
+  const [depositTokenAddress, setDepositTokenAddress] = useState<string>(quoteToken.address);
   const [orderDebug, setOrderDebug] = useState<{
     message: string;
     data?: string;
@@ -112,16 +113,16 @@ export function LiquidityCard() {
         formattedMap[key] = value.formatted;
       });
       setDexBalances(formattedMap);
-      const spendToken = orderType === 'buy' ? pathToken : selectedToken;
+      const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
       setDexSpendBalance(dexMap[spendToken.address]?.formatted ?? '0.00');
     };
     fetchAllDexBalances();
-  }, [publicClient, address, tokens, isOrdering, chainId, orderType, selectedToken, pathToken]);
+  }, [publicClient, address, tokens, isOrdering, chainId, orderType, selectedToken, quoteToken]);
 
   useEffect(() => {
-    const spendToken = orderType === 'buy' ? pathToken : selectedToken;
+    const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
     setDepositTokenAddress(spendToken.address);
-  }, [orderType, selectedToken, pathToken]);
+  }, [orderType, selectedToken, quoteToken]);
   
   const handleRemoveFeeLiquidity = () => {
       if (!address || !lpAmount) return;
@@ -214,12 +215,11 @@ export function LiquidityCard() {
           }
           const crossed = await checkCrossedOrder(tickVal, orderType);
           if (crossed) {
-              toast.error(crossed);
+              toast(crossed, { icon: '⚠️' });
               setOrderDebug({ message: crossed, params: { tick: tickVal, side: orderType } });
-              return;
           }
           const isBid = orderType === 'buy';
-          const spendToken = orderType === 'buy' ? pathToken : selectedToken;
+          const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
           const tokenToSpend = spendToken.address;
           const spendAmount = parseUnits(orderAmount, spendToken.decimals);
           if (tokenToSpend !== ZERO_ADDRESS) {
@@ -497,7 +497,7 @@ export function LiquidityCard() {
                   <span className="text-xs font-medium text-zinc-300">{Number(dexSpendBalance).toFixed(4)}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {[pathToken, selectedToken]
+                  {[quoteToken, selectedToken]
                     .filter((token, index, self) =>
                       self.findIndex(t => t.address === token.address) === index
                     )
@@ -517,7 +517,7 @@ export function LiquidityCard() {
                     ))}
                 </div>
                 <div className="text-[10px] text-zinc-600">
-                  Orders auto-pull from wallet if DEX balance is low
+                  Orders use DEX balance first; flip execution requires DEX balance
                 </div>
               </div>
 
@@ -526,7 +526,7 @@ export function LiquidityCard() {
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Order Details</span>
                   <span className="text-[10px] text-zinc-500">
-                    Wallet: <span className="text-zinc-400">{orderType === 'sell' ? Number(tokenBalance).toFixed(4) : `${Number(pathBalance).toFixed(4)} pathUSD`}</span>
+                    Wallet: <span className="text-zinc-400">{orderType === 'sell' ? Number(tokenBalance).toFixed(4) : `${Number(pathBalance).toFixed(4)} ${quoteToken.symbol}`}</span>
                   </span>
                 </div>
 
@@ -607,7 +607,7 @@ export function LiquidityCard() {
                   }`}
                 >
                   {isApproving
-                    ? `Approving ${orderType === 'buy' ? pathToken.symbol : selectedToken.symbol}...`
+                    ? `Approving ${orderType === 'buy' ? quoteToken.symbol : selectedToken.symbol}...`
                     : isOrdering
                     ? 'Placing Order...'
                     : `Place ${orderType === 'buy' ? 'Buy' : 'Sell'} Order`}
@@ -626,7 +626,7 @@ export function LiquidityCard() {
                 </div>
               )}
 
-              <Orderbook baseToken={selectedToken} quoteToken={pathToken} />
+              <Orderbook baseToken={selectedToken} quoteToken={quoteToken} />
             </div>
           )}
 
