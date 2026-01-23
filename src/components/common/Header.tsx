@@ -117,7 +117,7 @@ export const Header = memo(function Header() {
 
           {/* Center Navigation - Floating glass buttons */}
           {pathname !== '/' && (
-            <nav className="hidden md:flex items-center gap-2 pointer-events-auto">
+            <nav className="hidden md:flex items-center gap-2 pointer-events-auto ml-12">
               <GlassNavButton href="/swap" isActive={isActive('/swap')} icon={swapIcon}>
                 Swap
               </GlassNavButton>

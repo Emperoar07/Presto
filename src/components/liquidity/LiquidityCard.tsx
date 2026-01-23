@@ -357,248 +357,287 @@ export function LiquidityCard() {
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
 
   return (
-    <div className="flex flex-col gap-7 w-full max-w-md">
-       <div className="w-full p-7 rounded-2xl shadow-2xl border border-white/10 bg-black/40 backdrop-blur-md">
-      
-      {/* Tabs */}
-       <div className="flex space-x-3 mb-7 bg-black/20 p-2 rounded-xl border border-white/5">
-           <button 
-             onClick={() => setActiveTab('fee')}
-            className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'fee' ? 'bg-[#00F3FF]/20 text-[#00F3FF] shadow-[0_0_10px_rgba(0,243,255,0.2)]' : 'text-zinc-400 hover:text-white'}`}
-           >
-             Fee Liquidity
-           </button>
-           <button 
-             onClick={() => setActiveTab('order')}
-            className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'order' ? 'bg-[#00F3FF]/20 text-[#00F3FF] shadow-[0_0_10px_rgba(0,243,255,0.2)]' : 'text-zinc-400 hover:text-white'}`}
-           >
-             Orderbook (Limit)
-           </button>
-       </div>
+    <div className="flex flex-col gap-6 w-full max-w-md">
+      {/* Glass Card Container */}
+      <div className="relative w-full group">
+        {/* Outer glow effect */}
+        <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-[#BC13FE]/20 via-[#00F3FF]/20 to-[#BC13FE]/20 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500" />
 
-       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-white">{activeTab === 'fee' ? 'Manage Fee Liquidity' : 'Place Limit Order'}</h2>
-      </div>
+        {/* Main card */}
+        <div className="relative p-6 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6 p-1.5 rounded-2xl bg-white/[0.03] border border-white/5">
+            <button
+              onClick={() => setActiveTab('fee')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                activeTab === 'fee'
+                  ? 'bg-gradient-to-r from-[#00F3FF]/15 to-[#BC13FE]/15 text-white border border-[#00F3FF]/30 shadow-[0_0_15px_rgba(0,243,255,0.15)]'
+                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+              }`}
+            >
+              Fee Liquidity
+            </button>
+            <button
+              onClick={() => setActiveTab('order')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                activeTab === 'order'
+                  ? 'bg-gradient-to-r from-[#00F3FF]/15 to-[#BC13FE]/15 text-white border border-[#00F3FF]/30 shadow-[0_0_15px_rgba(0,243,255,0.15)]'
+                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+              }`}
+            >
+              Orderbook (Limit)
+            </button>
+          </div>
 
-      {activeTab === 'fee' && (
-          <div className="space-y-7">
-            <div className="space-y-4">
-              <ManageFeeLiquidity
-                  userToken={selectedToken.address}
-                  validatorToken={pathToken.address}
-                  userTokenDecimals={selectedToken.decimals}
-                  validatorTokenDecimals={pathToken.decimals}
-                  userTokenSymbol={selectedToken.symbol}
-                  validatorTokenSymbol={pathToken.symbol}
-                  showMaintenance
-              />
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#BC13FE]/20 to-[#00F3FF]/20 flex items-center justify-center border border-white/10">
+              {activeTab === 'fee' ? (
+                <svg className="w-4 h-4 text-[#BC13FE]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              )}
             </div>
+            <div>
+              <h2 className="text-base font-bold text-white">{activeTab === 'fee' ? 'Manage Fee Liquidity' : 'Place Limit Order'}</h2>
+              <p className="text-[10px] text-zinc-500">{activeTab === 'fee' ? 'Add or remove liquidity' : 'Set your price'}</p>
+            </div>
+          </div>
 
-             <div className="space-y-4">
-               <div className="flex items-center justify-between">
-                 <span className="text-sm font-semibold text-white/80">Liquidity actions</span>
-                 <span className="text-xs text-zinc-500">LP burn uses the validator ratio</span>
-               </div>
-               <div className="p-5 rounded-xl bg-black/20 border border-white/5 space-y-4">
+          {activeTab === 'fee' && (
+            <div className="space-y-5">
+              <ManageFeeLiquidity
+                userToken={selectedToken.address}
+                validatorToken={pathToken.address}
+                userTokenDecimals={selectedToken.decimals}
+                validatorTokenDecimals={pathToken.decimals}
+                userTokenSymbol={selectedToken.symbol}
+                validatorTokenSymbol={pathToken.symbol}
+                showMaintenance
+              />
+
+              {/* Remove Liquidity Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-medium text-zinc-400">Remove Liquidity</span>
+                  <span className="text-[10px] text-zinc-600">LP burn uses validator ratio</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
                   <div className="flex justify-between items-center">
-                      <span className="text-sm text-zinc-400">Remove liquidity</span>
-                      <span className="text-xs text-zinc-500">
-                        Available LP: {lpBalance ? formatUnits(lpBalance, 18) : '0'}
-                      </span>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Amount</span>
+                    <span className="text-[10px] text-zinc-500">
+                      Available: <span className="text-zinc-400">{lpBalance ? Number(formatUnits(lpBalance, 18)).toFixed(4) : '0'}</span>
+                    </span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                      <input
+                  <div className="flex items-center gap-2">
+                    <input
                       type="text"
                       value={lpAmount}
                       onChange={(e) => setLpAmount(e.target.value)}
                       placeholder="0.0"
-                      className="w-full bg-transparent text-2xl font-bold text-white outline-none placeholder-zinc-600"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (lpBalance) setLpAmount(formatUnits(lpBalance, 18));
-                        }}
-                        className="px-2 py-2 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-white/30 text-xs"
-                      >
-                        Max
-                      </button>
-                  </div>
-                   <button 
-                      onClick={handleRemoveFeeLiquidity}
-                      disabled={burnLiquidity.isPending || !lpAmount}
-                      className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-500 font-bold rounded-xl transition-all disabled:opacity-50"
-                   >
-                       {burnLiquidity.isPending ? 'Removing...' : 'Remove Liquidity'}
-                   </button>
-              </div>
-             </div>
-             <DexAccount />
-          </div>
-      )}
-
-       {activeTab === 'order' && (
-           <div className="space-y-8">
-               {/* Order Type */}
-               <div className="flex space-x-3">
-                    <button 
-                      onClick={() => setOrderType('buy')}
-                      className={`flex-1 py-3 rounded-xl font-bold transition-all ${orderType === 'buy' ? 'bg-green-500/20 text-green-400 border border-green-500/50' : 'bg-black/20 text-zinc-400 border border-white/5 hover:bg-black/40'}`}
-                    >
-                        Buy {selectedToken.symbol}
-                    </button>
-                    <button 
-                      onClick={() => setOrderType('sell')}
-                      className={`flex-1 py-3 rounded-xl font-bold transition-all ${orderType === 'sell' ? 'bg-red-500/20 text-red-400 border border-red-500/50' : 'bg-black/20 text-zinc-400 border border-white/5 hover:bg-black/40'}`}
-                    >
-                        Sell {selectedToken.symbol}
-                    </button>
-               </div>
-
-                {/* DEX Balance */}
-                <div className="p-5 rounded-xl bg-black/20 border border-white/5 space-y-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm text-zinc-400">DEX Balance (used first for orders)</span>
-                        <span className="text-sm text-zinc-300">{Number(dexSpendBalance).toFixed(4)}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                        {[pathToken, selectedToken]
-                          .filter((token, index, self) =>
-                            self.findIndex(t => t.address === token.address) === index
-                          )
-                          .map((token, index) => (
-                          <button
-                            key={`${token.address}-${index}`}
-                            type="button"
-                            onClick={() => setDepositTokenAddress(token.address)}
-                            className={`px-3 py-1 rounded-full border text-xs transition-colors ${
-                              depositTokenAddress === token.address
-                                ? 'border-[#00F3FF]/50 text-[#00F3FF] bg-[#00F3FF]/10'
-                                : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/30'
-                            }`}
-                          >
-                            {token.symbol}
-                          </button>
-                        ))}
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs text-zinc-500">
-                            Orders auto-pull from wallet if DEX balance is low.
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                            Tab DEX Bal: {Number(dexBalances[depositTokenAddress] ?? 0).toFixed(4)}
-                        </span>
-                    </div>
-                    <div className="text-xs text-zinc-500">
-                        DEX balances are credited by DEX contract actions, not raw token transfers.
-                    </div>
-                </div>
-
-                <div className="p-6 rounded-xl bg-black/20 border border-white/5 space-y-5">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-zinc-400">Order details</span>
-                        <span className="text-xs text-zinc-500">
-                            {orderType === 'sell' ? `Wallet: ${Number(tokenBalance).toFixed(4)}` : `Wallet: ${Number(pathBalance).toFixed(4)} pathUSD`}
-                        </span>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                            <input
-                            type="text"
-                            value={orderAmount}
-                            onChange={(e) => setOrderAmount(e.target.value)}
-                            placeholder="Amount"
-                            className="w-full bg-transparent text-2xl font-bold text-white outline-none placeholder-zinc-600"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => {
-                                  const max = orderType === 'buy' ? pathBalance : tokenBalance;
-                                  if (max && Number(max) > 0) setOrderAmount(max);
-                                }}
-                                className="px-2 py-2 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-white/30 text-xs"
-                            >
-                                Max
-                            </button>
-                             <button 
-                                onClick={() => setIsTokenModalOpen(true)}
-                                className="flex items-center space-x-1 bg-zinc-800 hover:bg-zinc-700 px-3 py-1 rounded-full transition-colors border border-zinc-700"
-                            >
-                                <span className="font-semibold text-white">{selectedToken.symbol}</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400"><path d="m6 9 6 6 6-6"/></svg>
-                            </button>
-                        </div>
-                        <div>
-                            <div className="flex justify-between mb-2">
-                                <span className="text-sm text-zinc-400">Price tick</span>
-                                <span className="text-xs text-zinc-500">0 = 1:1 peg</span>
-                            </div>
-                            <input
-                                type="number"
-                                value={tick}
-                                onChange={(e) => setTick(e.target.value)}
-                                className="w-full bg-transparent text-xl font-bold text-white outline-none placeholder-zinc-600"
-                            />
-                            <p className="text-xs text-zinc-500 mt-1">Higher tick means higher price.</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Flip Order Toggle */}
-                <div className="flex items-center space-x-3 px-1">
-                    <input 
-                        type="checkbox" 
-                        id="flipOrder" 
-                        checked={isFlip} 
-                        onChange={(e) => setIsFlip(e.target.checked)}
-                        className="w-4 h-4 rounded border-zinc-600 bg-black/20 text-[#00F3FF] focus:ring-[#00F3FF]"
+                      className="w-full bg-transparent text-xl font-bold text-white outline-none placeholder-zinc-700"
                     />
-                    <label htmlFor="flipOrder" className="text-sm text-zinc-400 select-none cursor-pointer flex items-center gap-1">
-                        Flip Order (Earn Spread)
-                        <span className="text-xs text-zinc-600 bg-zinc-800 rounded-full w-4 h-4 flex items-center justify-center cursor-help" title="Automatically places a reverse order when filled to earn trading fees.">?</span>
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (lpBalance) setLpAmount(formatUnits(lpBalance, 18));
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 text-xs transition-all"
+                    >
+                      Max
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleRemoveFeeLiquidity}
+                    disabled={burnLiquidity.isPending || !lpAmount}
+                    className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/15 border border-red-500/30 text-red-400 font-semibold text-sm rounded-xl transition-all disabled:opacity-40"
+                  >
+                    {burnLiquidity.isPending ? 'Removing...' : 'Remove Liquidity'}
+                  </button>
+                </div>
+              </div>
+              <DexAccount />
+            </div>
+          )}
+
+          {activeTab === 'order' && (
+            <div className="space-y-4">
+              {/* Order Type */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setOrderType('buy')}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                    orderType === 'buy'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
+                      : 'bg-white/[0.03] text-zinc-500 border border-white/5 hover:bg-white/5 hover:text-zinc-300'
+                  }`}
+                >
+                  Buy {selectedToken.symbol}
+                </button>
+                <button
+                  onClick={() => setOrderType('sell')}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                    orderType === 'sell'
+                      ? 'bg-red-500/15 text-red-400 border border-red-500/40'
+                      : 'bg-white/[0.03] text-zinc-500 border border-white/5 hover:bg-white/5 hover:text-zinc-300'
+                  }`}
+                >
+                  Sell {selectedToken.symbol}
+                </button>
+              </div>
+
+              {/* DEX Balance */}
+              <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wide">DEX Balance</span>
+                  <span className="text-xs font-medium text-zinc-300">{Number(dexSpendBalance).toFixed(4)}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[pathToken, selectedToken]
+                    .filter((token, index, self) =>
+                      self.findIndex(t => t.address === token.address) === index
+                    )
+                    .map((token, index) => (
+                      <button
+                        key={`${token.address}-${index}`}
+                        type="button"
+                        onClick={() => setDepositTokenAddress(token.address)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all ${
+                          depositTokenAddress === token.address
+                            ? 'bg-[#00F3FF]/10 text-[#00F3FF] border border-[#00F3FF]/30'
+                            : 'bg-white/5 text-zinc-500 border border-white/5 hover:text-zinc-300'
+                        }`}
+                      >
+                        {token.symbol}
+                      </button>
+                    ))}
+                </div>
+                <div className="text-[10px] text-zinc-600">
+                  Orders auto-pull from wallet if DEX balance is low
+                </div>
+              </div>
+
+              {/* Order Details */}
+              <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Order Details</span>
+                  <span className="text-[10px] text-zinc-500">
+                    Wallet: <span className="text-zinc-400">{orderType === 'sell' ? Number(tokenBalance).toFixed(4) : `${Number(pathBalance).toFixed(4)} pathUSD`}</span>
+                  </span>
                 </div>
 
-                {/* Place Order Button */}
-                {!isConnected ? (
-                     <div className="w-full [&_button]:w-full [&_button]:py-4 [&_button]:rounded-xl [&_button]:font-bold [&_button]:text-lg [&_button]:bg-gradient-to-r [&_button]:from-[#00F3FF] [&_button]:to-[#BC13FE] [&_button]:text-black [&_button]:hover:opacity-90 [&_button]:transition-opacity">
-                         <ConnectButton />
-                     </div>
-                ) : (
-                    <button 
-                        onClick={handlePlaceOrder}
-                        disabled={isOrdering || !orderAmount}
-                        className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-black hover:opacity-90 transition-opacity disabled:opacity-50 shadow-[0_0_20px_rgba(0,243,255,0.3)]"
-                    >
-                        {isApproving ? `Approving ${orderType === 'buy' ? pathToken.symbol : selectedToken.symbol}...` 
-                          : isOrdering ? 'Placing Order...' 
-                          : `Place ${orderType === 'buy' ? 'Buy' : 'Sell'} Order`}
-                    </button>
-                )}
+                {/* Amount Input */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={orderAmount}
+                    onChange={(e) => setOrderAmount(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full bg-transparent text-xl font-bold text-white outline-none placeholder-zinc-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const max = orderType === 'buy' ? pathBalance : tokenBalance;
+                      if (max && Number(max) > 0) setOrderAmount(max);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-zinc-400 hover:text-white text-[10px] transition-all"
+                  >
+                    Max
+                  </button>
+                  <button
+                    onClick={() => setIsTokenModalOpen(true)}
+                    className="flex items-center gap-1 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-all border border-white/10 hover:border-white/20"
+                  >
+                    <span className="text-sm font-medium text-white">{selectedToken.symbol}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                </div>
 
-                {showOrderDebug && orderDebug && (
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs space-y-1">
-                    <div>{orderDebug.message}</div>
-                    {orderDebug.data && <div className="font-mono break-all">data: {orderDebug.data}</div>}
-                    {orderDebug.params && (
-                      <pre className="text-[11px] text-red-300 whitespace-pre-wrap">
-{JSON.stringify(orderDebug.params, null, 2)}
-                      </pre>
-                    )}
+                {/* Price Tick */}
+                <div className="pt-2 border-t border-white/5">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Price Tick</span>
+                    <span className="text-[10px] text-zinc-600">0 = 1:1 peg</span>
                   </div>
-                )}
-                
-                <Orderbook baseToken={selectedToken} quoteToken={pathToken} />
-          </div>
-      )}
+                  <input
+                    type="number"
+                    value={tick}
+                    onChange={(e) => setTick(e.target.value)}
+                    className="w-full bg-transparent text-lg font-bold text-white outline-none placeholder-zinc-700"
+                  />
+                  <p className="text-[10px] text-zinc-600 mt-1">Higher tick = higher price</p>
+                </div>
+              </div>
 
-      <TokenModal
-        isOpen={isTokenModalOpen}
-        onClose={() => setIsTokenModalOpen(false)}
-        onSelect={setSelectedToken}
-        selectedToken={selectedToken}
-        filterTokens={(token) => token.symbol !== 'pathUSD'}
-      />
+              {/* Flip Order Toggle */}
+              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-all">
+                <input
+                  type="checkbox"
+                  id="flipOrder"
+                  checked={isFlip}
+                  onChange={(e) => setIsFlip(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-black/40 text-[#00F3FF] focus:ring-[#00F3FF]/50"
+                />
+                <div className="flex-1">
+                  <span className="text-xs text-zinc-300 font-medium">Flip Order</span>
+                  <p className="text-[10px] text-zinc-600">Auto-reverse when filled to earn spread</p>
+                </div>
+              </label>
+
+              {/* Place Order Button */}
+              {!isConnected ? (
+                <div className="w-full [&_button]:w-full [&_button]:py-3 [&_button]:rounded-2xl [&_button]:font-bold [&_button]:text-sm [&_button]:bg-gradient-to-r [&_button]:from-[#00F3FF] [&_button]:to-[#BC13FE] [&_button]:text-black [&_button]:hover:opacity-90 [&_button]:transition-all [&_button]:shadow-[0_0_20px_rgba(0,243,255,0.2)]">
+                  <ConnectButton />
+                </div>
+              ) : (
+                <button
+                  onClick={handlePlaceOrder}
+                  disabled={isOrdering || !orderAmount}
+                  className={`w-full py-3 rounded-2xl font-bold text-sm transition-all disabled:opacity-40 shadow-[0_0_20px_rgba(0,243,255,0.2)] hover:shadow-[0_0_30px_rgba(0,243,255,0.3)] ${
+                    orderType === 'buy'
+                      ? 'bg-gradient-to-r from-emerald-500 to-[#00F3FF] text-black'
+                      : 'bg-gradient-to-r from-red-500 to-[#BC13FE] text-white'
+                  }`}
+                >
+                  {isApproving
+                    ? `Approving ${orderType === 'buy' ? pathToken.symbol : selectedToken.symbol}...`
+                    : isOrdering
+                    ? 'Placing Order...'
+                    : `Place ${orderType === 'buy' ? 'Buy' : 'Sell'} Order`}
+                </button>
+              )}
+
+              {showOrderDebug && orderDebug && (
+                <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-red-400 text-[10px] space-y-1">
+                  <div>{orderDebug.message}</div>
+                  {orderDebug.data && <div className="font-mono break-all">data: {orderDebug.data}</div>}
+                  {orderDebug.params && (
+                    <pre className="text-[10px] text-red-300 whitespace-pre-wrap">
+                      {JSON.stringify(orderDebug.params, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              <Orderbook baseToken={selectedToken} quoteToken={pathToken} />
+            </div>
+          )}
+
+          <TokenModal
+            isOpen={isTokenModalOpen}
+            onClose={() => setIsTokenModalOpen(false)}
+            onSelect={setSelectedToken}
+            selectedToken={selectedToken}
+            filterTokens={(token) => token.symbol !== 'pathUSD'}
+          />
+        </div>
       </div>
     </div>
   );

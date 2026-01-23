@@ -367,212 +367,245 @@ export function SwapCardEnhanced() {
 
   return (
     <>
-      <div className="w-full max-w-xl p-7 rounded-2xl shadow-2xl border border-white/10 bg-black/40 backdrop-blur-md relative">
-        {/* Settings button */}
-        <button
-          onClick={() => setShowSettings(true)}
-          className="absolute top-3 right-3 p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition-colors"
-          aria-label="Settings"
-          title="Transaction Settings"
-        >
-          <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
+      {/* Glass Card Container */}
+      <div className="relative w-full max-w-xl group">
+        {/* Outer glow effect */}
+        <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-[#00F3FF]/20 via-[#BC13FE]/20 to-[#00F3FF]/20 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500" />
 
-        <div className="mb-7">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-1">Swap</h2>
-              <p className="text-sm text-zinc-400">Instant swaps on Tempo</p>
+        {/* Main card */}
+        <div className="relative p-6 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00F3FF]/20 to-[#BC13FE]/20 flex items-center justify-center border border-white/10">
+                <svg className="w-5 h-5 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Swap</h2>
+                <p className="text-xs text-zinc-500">Instant swaps on Tempo</p>
+              </div>
             </div>
-          </div>
 
-          {/* Fee Token Selector */}
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-zinc-500">Fee Token:</span>
-            <select
-              value={feeToken?.address}
-              onChange={(e) => {
-                const token = tokens.find(t => t.address === e.target.value);
-                if (token) setFeeToken(token);
-              }}
-              className="bg-transparent text-xs text-zinc-400 outline-none border-b border-zinc-700 hover:border-zinc-500 transition-colors cursor-pointer"
-            >
-              {tokens.map(t => (
-                <option key={t.address} value={t.address} className="bg-zinc-900 text-zinc-300">
-                  {t.symbol}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          {/* Input Field */}
-          <div className="p-5 rounded-xl bg-black/20 border border-white/5">
-            <div className="flex justify-between mb-2">
-              <span className="text-sm text-zinc-400">Pay</span>
-              <span className="text-sm text-zinc-400 flex items-center gap-2">
-                Balance: {isBalanceLoading ? '...' : Number(balanceIn).toFixed(4)}
-                <button
-                  type="button"
-                  onClick={fetchBalances}
-                  className="inline-flex items-center justify-center rounded-md p-1 text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
-                  aria-label="Refresh balances"
+            <div className="flex items-center gap-2">
+              {/* Fee Token */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                <span className="text-[10px] text-zinc-500 uppercase">Fee:</span>
+                <select
+                  value={feeToken?.address}
+                  onChange={(e) => {
+                    const token = tokens.find(t => t.address === e.target.value);
+                    if (token) setFeeToken(token);
+                  }}
+                  className="bg-transparent text-xs text-zinc-300 outline-none cursor-pointer"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
-                    <path d="M21 3v6h-6"/>
+                  {tokens.map(t => (
+                    <option key={t.address} value={t.address} className="bg-zinc-900 text-zinc-300">
+                      {t.symbol}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Settings button */}
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200"
+                aria-label="Settings"
+              >
+                <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {/* Input Field */}
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
+              <div className="flex justify-between mb-3">
+                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">You Pay</span>
+                <span className="text-xs text-zinc-500 flex items-center gap-1.5">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
-                </button>
-              </span>
-            </div>
-            <div className="flex gap-5">
-              <input
-                type="text"
-                value={inputAmount}
-                onChange={(e) => {
-                  setInputAmount(e.target.value);
-                  setExactField('input');
-                }}
-                placeholder="0.0"
-                className="w-full bg-transparent text-3xl font-bold text-white outline-none placeholder-zinc-600"
-              />
-              <select
-                value={inputTokenAddress}
-                onChange={(e) => setInputTokenAddress(e.target.value as `0x${string}`)}
-                className="bg-zinc-800 text-white rounded-lg px-3 py-1 outline-none border border-zinc-700 focus:border-[#00F3FF]"
-              >
-                {tokens.map(t => (
-                  <option key={t.address} value={t.address} disabled={t.address === outputTokenAddress}>
-                    {t.symbol}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Switch Button */}
-          <div className="flex justify-center -my-3 relative z-10">
-            <button
-              onClick={() => {
-                const tempToken = inputTokenAddress;
-                setInputTokenAddress(outputTokenAddress);
-                setOutputTokenAddress(tempToken);
-                setInputAmount(outputAmount);
-                setOutputAmount('');
-                setExactField('input');
-              }}
-              className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 transition-colors shadow-lg group"
-              aria-label="Switch tokens"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-zinc-400 group-hover:text-white transition-colors"
-              >
-                <path d="m3 16 4 4 4-4"/>
-                <path d="M7 20V4"/>
-                <path d="m21 8-4-4-4 4"/>
-                <path d="M17 4v16"/>
-              </svg>
-            </button>
-          </div>
-
-          {/* Output Field */}
-          <div className="p-5 rounded-xl bg-black/20 border border-white/5">
-            <div className="flex justify-between mb-2">
-              <span className="text-sm text-zinc-400">Receive</span>
-              <span className="text-sm text-zinc-400 flex items-center gap-2">
-                Balance: {isBalanceLoading ? '...' : Number(balanceOut).toFixed(4)}
-              </span>
-            </div>
-            <div className="flex gap-5">
-              <input
-                type="text"
-                value={quoteLoading ? '...' : outputAmount}
-                readOnly
-                placeholder="0.0"
-                className={`w-full bg-transparent text-3xl font-bold outline-none placeholder-zinc-600 ${quoteLoading ? 'text-zinc-500 animate-pulse' : 'text-white'}`}
-              />
-              <select
-                value={outputTokenAddress}
-                onChange={(e) => setOutputTokenAddress(e.target.value as `0x${string}`)}
-                className="bg-zinc-800 text-white rounded-lg px-3 py-1 outline-none border border-zinc-700 focus:border-[#00F3FF]"
-              >
-                {tokens.map(t => (
-                  <option key={t.address} value={t.address} disabled={t.address === inputTokenAddress}>
-                    {t.symbol}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Price Impact Display */}
-          {priceImpact > 0 && (
-            <div className={`p-3 rounded-lg border ${
-              priceImpact < 1 ? 'bg-green-500/10 border-green-500/20' :
-              priceImpact < 3 ? 'bg-yellow-500/10 border-yellow-500/20' :
-              priceImpact < 5 ? 'bg-orange-500/10 border-orange-500/20' :
-              'bg-red-500/10 border-red-500/20'
-            }`}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-400">Price Impact</span>
-                <span className={`text-sm font-semibold ${getPriceImpactColor(priceImpact)}`}>
-                  {formatPriceImpact(priceImpact)}
+                  {isBalanceLoading ? '...' : Number(balanceIn).toFixed(4)}
+                  <button
+                    type="button"
+                    onClick={fetchBalances}
+                    className="p-0.5 rounded text-zinc-500 hover:text-[#00F3FF] transition-colors"
+                    aria-label="Refresh"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+                      <path d="M21 3v6h-6"/>
+                    </svg>
+                  </button>
                 </span>
               </div>
-              {priceImpactWarning && (
-                <p className={`text-xs mt-2 ${getPriceImpactColor(priceImpact)}`}>
-                  {priceImpactWarning}
-                </p>
-              )}
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={inputAmount}
+                  onChange={(e) => {
+                    setInputAmount(e.target.value);
+                    setExactField('input');
+                  }}
+                  placeholder="0.0"
+                  className="w-full bg-transparent text-2xl font-bold text-white outline-none placeholder-zinc-700"
+                />
+                <select
+                  value={inputTokenAddress}
+                  onChange={(e) => setInputTokenAddress(e.target.value as `0x${string}`)}
+                  className="bg-white/5 text-white text-sm font-medium rounded-xl px-3 py-2 outline-none border border-white/10 hover:border-[#00F3FF]/50 focus:border-[#00F3FF] transition-colors cursor-pointer"
+                >
+                  {tokens.map(t => (
+                    <option key={t.address} value={t.address} disabled={t.address === outputTokenAddress} className="bg-zinc-900">
+                      {t.symbol}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          )}
 
-          {/* Error Message */}
-          {quoteError && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
-              {(quoteError?.message?.includes('InsufficientLiquidity') || quoteError?.message?.includes('reverted'))
-                ? 'Not enough liquidity available.'
-                : 'Error fetching quote.'}
+            {/* Switch Button */}
+            <div className="flex justify-center -my-1 relative z-10">
+              <button
+                onClick={() => {
+                  const tempToken = inputTokenAddress;
+                  setInputTokenAddress(outputTokenAddress);
+                  setOutputTokenAddress(tempToken);
+                  setInputAmount(outputAmount);
+                  setOutputAmount('');
+                  setExactField('input');
+                }}
+                className="p-2 rounded-xl bg-black/60 hover:bg-[#00F3FF]/10 border border-white/10 hover:border-[#00F3FF]/50 transition-all duration-200 shadow-lg group/btn"
+                aria-label="Switch tokens"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-zinc-500 group-hover/btn:text-[#00F3FF] transition-colors"
+                >
+                  <path d="m3 16 4 4 4-4"/>
+                  <path d="M7 20V4"/>
+                  <path d="m21 8-4-4-4 4"/>
+                  <path d="M17 4v16"/>
+                </svg>
+              </button>
             </div>
-          )}
 
-          {/* Swap Button */}
-          {!isConnected ? (
-            <div className="w-full [&_button]:w-full [&_button]:py-4 [&_button]:rounded-xl [&_button]:font-bold [&_button]:text-lg [&_button]:bg-gradient-to-r [&_button]:from-[#00F3FF] [&_button]:to-[#BC13FE] [&_button]:text-black [&_button]:hover:opacity-90 [&_button]:transition-opacity">
-              <ConnectButton />
+            {/* Output Field */}
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
+              <div className="flex justify-between mb-3">
+                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">You Receive</span>
+                <span className="text-xs text-zinc-500 flex items-center gap-1.5">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                  {isBalanceLoading ? '...' : Number(balanceOut).toFixed(4)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={quoteLoading ? '...' : outputAmount}
+                  readOnly
+                  placeholder="0.0"
+                  className={`w-full bg-transparent text-2xl font-bold outline-none placeholder-zinc-700 ${quoteLoading ? 'text-zinc-600 animate-pulse' : 'text-white'}`}
+                />
+                <select
+                  value={outputTokenAddress}
+                  onChange={(e) => setOutputTokenAddress(e.target.value as `0x${string}`)}
+                  className="bg-white/5 text-white text-sm font-medium rounded-xl px-3 py-2 outline-none border border-white/10 hover:border-[#00F3FF]/50 focus:border-[#00F3FF] transition-colors cursor-pointer"
+                >
+                  {tokens.map(t => (
+                    <option key={t.address} value={t.address} disabled={t.address === inputTokenAddress} className="bg-zinc-900">
+                      {t.symbol}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          ) : (
-            <button
-              onClick={handleSwap}
-              disabled={isSwapping || !inputAmount || !!quoteError || (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))}
-              className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-black hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,243,255,0.3)]"
-            >
-              {isSwapping ? 'Swapping...' : needsConfirmation ? 'Swap Anyway (High Impact)' : 'Swap'}
-            </button>
-          )}
 
-          {/* Transaction Details */}
-          <div className="text-xs text-zinc-500 space-y-1">
-            <div className="flex justify-between">
-              <span>Slippage Tolerance</span>
-              <span>{slippageTolerance}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Transaction Deadline</span>
-              <span>{deadline} minutes</span>
+            {/* Price Impact Display */}
+            {priceImpact > 0 && (
+              <div className={`p-3 rounded-xl border ${
+                priceImpact < 1 ? 'bg-emerald-500/5 border-emerald-500/20' :
+                priceImpact < 3 ? 'bg-amber-500/5 border-amber-500/20' :
+                priceImpact < 5 ? 'bg-orange-500/5 border-orange-500/20' :
+                'bg-red-500/5 border-red-500/20'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">Price Impact</span>
+                  <span className={`text-xs font-semibold ${getPriceImpactColor(priceImpact)}`}>
+                    {formatPriceImpact(priceImpact)}
+                  </span>
+                </div>
+                {priceImpactWarning && (
+                  <p className={`text-[10px] mt-1.5 ${getPriceImpactColor(priceImpact)}`}>
+                    {priceImpactWarning}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Error Message */}
+            {quoteError && (
+              <div className="p-3 bg-red-500/5 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {(quoteError?.message?.includes('InsufficientLiquidity') || quoteError?.message?.includes('reverted'))
+                  ? 'Not enough liquidity available.'
+                  : 'Error fetching quote.'}
+              </div>
+            )}
+
+            {/* Swap Button */}
+            {!isConnected ? (
+              <div className="w-full [&_button]:w-full [&_button]:py-3.5 [&_button]:rounded-2xl [&_button]:font-bold [&_button]:text-base [&_button]:bg-gradient-to-r [&_button]:from-[#00F3FF] [&_button]:to-[#BC13FE] [&_button]:text-black [&_button]:hover:opacity-90 [&_button]:transition-all [&_button]:shadow-[0_0_20px_rgba(0,243,255,0.2)]">
+                <ConnectButton />
+              </div>
+            ) : (
+              <button
+                onClick={handleSwap}
+                disabled={isSwapping || !inputAmount || !!quoteError || (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))}
+                className="w-full py-3.5 rounded-2xl font-bold text-base bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-black hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,243,255,0.2)] hover:shadow-[0_0_30px_rgba(0,243,255,0.3)]"
+              >
+                {isSwapping ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Swapping...
+                  </span>
+                ) : needsConfirmation ? 'Swap Anyway (High Impact)' : 'Swap'}
+              </button>
+            )}
+
+            {/* Transaction Details */}
+            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="text-[10px] text-zinc-500 space-y-1.5">
+                <div className="flex justify-between">
+                  <span>Slippage Tolerance</span>
+                  <span className="text-zinc-400">{slippageTolerance}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Transaction Deadline</span>
+                  <span className="text-zinc-400">{deadline} min</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
