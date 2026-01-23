@@ -8,121 +8,44 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 4000);
+    const timer = setTimeout(() => setLoading(false), 5000);
     return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div className="relative min-h-screen w-full bg-black text-white selection:bg-cyan-500 selection:text-black">
+    <div className="relative min-h-screen w-full bg-black text-white">
+      {/* Loading Screen */}
       <div
-        className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-black transition-opacity duration-1000 ${
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black transition-opacity duration-700 ${
           loading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        <div
-          className="absolute inset-0 z-0 pointer-events-none"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_0%,rgba(0,0,0,0.3)_40%,rgba(0,0,0,0.8)_100%)]" />
-        <div className="absolute inset-0 z-0 pointer-events-none opacity-30 scanline" />
-
-        <div className="relative z-10 w-full h-[40vh] flex items-center justify-center">
-          <svg
-            viewBox="0 0 1600 260"
-            className="absolute inset-0 w-full h-full opacity-90"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient id="loaderWave" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="rgba(0,243,255,0.35)" />
-                <stop offset="50%" stopColor="rgba(188,19,254,0.65)" />
-                <stop offset="100%" stopColor="rgba(0,243,255,0.35)" />
-              </linearGradient>
-              <filter id="loaderGlow" x="-30%" y="-80%" width="160%" height="260%">
-                <feGaussianBlur stdDeviation="6" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-              <path
-                id="loaderCurve"
-                d="M 0 130 C 320 85, 560 85, 800 130 S 1280 175, 1600 130"
-              />
-            </defs>
-            <use href="#loaderCurve" stroke="url(#loaderWave)" strokeWidth="8" fill="none" filter="url(#loaderGlow)" />
-            <use href="#loaderCurve" stroke="url(#loaderWave)" strokeWidth="6" fill="none" opacity="0.5" transform="translate(0,-18)" />
-            <use href="#loaderCurve" stroke="url(#loaderWave)" strokeWidth="6" fill="none" opacity="0.5" transform="translate(0,18)" />
-            <circle cx="980" cy="130" r="10" fill="rgba(0,243,255,0.9)" filter="url(#loaderGlow)">
-              <animate attributeName="cx" values="620;980;1320;980;620" dur="4.8s" repeatCount="indefinite" />
-            </circle>
-          </svg>
-
-          <div className="logo-sheen">
-            <PrestoDexMotionStaffLogo width={560} height={180} withWordmark />
-          </div>
-        </div>
-
-        <div className="z-10 mt-2 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <span className="block w-2 h-2 rounded-full bg-[#00F3FF] animate-pulse" />
-            <p className="text-xs text-gray-400 tracking-[0.4em] uppercase">System Tempo: 128 BPM</p>
+        <div className="flex flex-col items-center">
+          <div className="animate-float">
+            <PrestoDexMotionStaffLogo width={400} height={130} withWordmark />
           </div>
         </div>
       </div>
 
-      <div className={`transition-all duration-1000 ${loading ? 'blur-sm scale-95 opacity-0' : 'blur-0 scale-100 opacity-100'}`}>
+      {/* Main Content */}
+      <div className={`transition-all duration-700 ${loading ? 'opacity-0' : 'opacity-100'}`}>
         {children}
       </div>
 
       <style jsx>{`
-        .logo-sheen {
-          animation: logoFloat 3.4s ease-in-out infinite;
-          filter: drop-shadow(0 0 18px rgba(0, 243, 255, 0.35));
-        }
-
-        .scanline {
-          background: linear-gradient(
-            120deg,
-            transparent 0%,
-            rgba(0, 243, 255, 0.08) 45%,
-            transparent 70%
-          );
-          animation: scanline 6s ease-in-out infinite;
-        }
-
-        @keyframes logoFloat {
-          0% {
-            transform: translateY(0) scale(0.98);
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0);
             opacity: 0.9;
           }
           50% {
-            transform: translateY(-6px) scale(1.02);
+            transform: translateY(-8px);
             opacity: 1;
           }
-          100% {
-            transform: translateY(0) scale(0.98);
-            opacity: 0.92;
-          }
         }
-
-        @keyframes scanline {
-          0% {
-            transform: translateY(-10%);
-            opacity: 0.2;
-          }
-          50% {
-            transform: translateY(0%);
-            opacity: 0.4;
-          }
-          100% {
-            transform: translateY(10%);
-            opacity: 0.2;
-          }
+        .animate-float {
+          animation: float 2s ease-in-out infinite;
+          filter: drop-shadow(0 0 25px rgba(0, 243, 255, 0.3));
         }
       `}</style>
     </div>
@@ -212,7 +135,12 @@ const GlassCard = ({
 export default function Home() {
   return (
     <LandingLoader>
-      <main className="relative flex flex-col items-center justify-center min-h-screen gap-12 px-6 py-20 overflow-hidden">
+      <main className="relative flex flex-col items-center justify-center min-h-screen gap-12 px-6 py-20 overflow-hidden bg-black text-white">
+        {/* Top-corner accent */}
+        <div className="absolute top-6 left-6 z-10 pointer-events-none">
+          <PrestoDexMotionStaffLogo width={150} height={50} withWordmark={false} />
+        </div>
+
         {/* Background effects */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Gradient orbs */}
