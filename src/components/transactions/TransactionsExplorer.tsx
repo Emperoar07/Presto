@@ -110,6 +110,11 @@ export function TransactionsExplorer() {
         throw new Error(`API error: ${response.status}`);
       }
       const result = await response.json();
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        setError(null);
+      }
       setItems(result.items ?? []);
       setLastUpdated(Date.now());
     } catch (e) {
