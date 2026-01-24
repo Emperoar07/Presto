@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getTokens } from '@/config/tokens';
 import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContracts } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -33,7 +33,8 @@ const DEFAULT_DEADLINE = 20; // 20 minutes
 
 export function SwapCardEnhanced() {
   const chainId = useChainId();
-  const tokens = getTokens(chainId);
+  // Memoize tokens to prevent unnecessary re-renders
+  const tokens = useMemo(() => getTokens(chainId), [chainId]);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -169,9 +170,12 @@ export function SwapCardEnhanced() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<Error | null>(null);
   const [priceImpact, setPriceImpact] = useState<number>(0);
+  // Track quote request version to cancel stale requests
+  const quoteRequestId = useRef(0);
 
   useEffect(() => {
     const fetchQuote = async () => {
+      const currentRequestId = ++quoteRequestId.current;
       if (!publicClient || !inputToken.address || !outputToken.address) return;
 
       if (exactField === 'input') {
@@ -208,6 +212,9 @@ export function SwapCardEnhanced() {
             });
           }
 
+          // Discard stale quote responses
+          if (currentRequestId !== quoteRequestId.current) return;
+
           setOutputAmount(formatUnits(result, outputToken.decimals));
 
           // Calculate price impact (only for non-Tempo chains where we have reserves)
@@ -242,14 +249,18 @@ export function SwapCardEnhanced() {
       }
     };
 
-    const timer = setTimeout(fetchQuote, 200); // Reduced debounce with caching
+    const timer = setTimeout(fetchQuote, 400); // Optimized debounce with caching
     return () => clearTimeout(timer);
-  }, [inputAmount, inputToken, outputToken, exactField, publicClient, dexAddress, isTempoChain, inputReserves, outputReserves]);
+  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain]);
 
 
   // Swap execution
   const handleSwap = async () => {
     if (!walletClient || !address || !inputAmount || !publicClient) return;
+    if (quoteLoading) {
+      toast.error('Quote is still loading');
+      return;
+    }
 
     if (inputToken.address === outputToken.address) {
       toast.error("Cannot swap the same token");
@@ -260,7 +271,15 @@ export function SwapCardEnhanced() {
 
     try {
       const amount = parseUnits(inputAmount, inputToken.decimals);
-      const expectedOut = outputAmount ? safeParseUnits(outputAmount, outputToken.decimals) : 0n;
+      if (!outputAmount || Number(outputAmount) <= 0) {
+        toast.error('No valid quote available');
+        return;
+      }
+      const expectedOut = safeParseUnits(outputAmount, outputToken.decimals);
+      if (expectedOut <= 0n) {
+        toast.error('No valid quote available');
+        return;
+      }
       const minOut = calculateMinAmountOut(expectedOut, slippageTolerance);
 
       let hash: `0x${string}`;
@@ -579,7 +598,14 @@ export function SwapCardEnhanced() {
             ) : (
               <button
                 onClick={handleSwap}
-                disabled={isSwapping || !inputAmount || !!quoteError || (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))}
+                disabled={
+                  isSwapping ||
+                  quoteLoading ||
+                  !inputAmount ||
+                  !outputAmount ||
+                  !!quoteError ||
+                  (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))
+                }
                 className="w-full py-3.5 rounded-2xl font-bold text-base bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-black hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,243,255,0.2)] hover:shadow-[0_0_30px_rgba(0,243,255,0.3)]"
               >
                 {isSwapping ? (

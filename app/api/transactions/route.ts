@@ -14,16 +14,37 @@ type TxItem = {
   timestamp?: number;
 };
 
-// Scan range for collecting last N transactions. Can be overridden via env.
+// Scan range for collecting last N transactions. Can be overridden via env, but capped.
+const HARD_MAX_SCAN_BLOCKS = 50_000;
+const DEFAULT_MAX_SCAN_BLOCKS = 50_000;
+const DEFAULT_INITIAL_SCAN_BLOCKS = 10_000;
 const MAX_SCAN_BLOCKS = BigInt(
-  Math.max(1, Number.parseInt(process.env.TX_SCAN_MAX_BLOCKS ?? '200000', 10) || 200000)
+  Math.max(
+    1,
+    Math.min(
+      Number.parseInt(process.env.TX_SCAN_MAX_BLOCKS ?? `${DEFAULT_MAX_SCAN_BLOCKS}`, 10) || DEFAULT_MAX_SCAN_BLOCKS,
+      HARD_MAX_SCAN_BLOCKS
+    )
+  )
 );
 const INITIAL_SCAN_BLOCKS = BigInt(
-  Math.max(1, Number.parseInt(process.env.TX_SCAN_INITIAL_BLOCKS ?? '20000', 10) || 20000)
+  Math.max(
+    1,
+    Math.min(
+      Number.parseInt(process.env.TX_SCAN_INITIAL_BLOCKS ?? `${DEFAULT_INITIAL_SCAN_BLOCKS}`, 10) || DEFAULT_INITIAL_SCAN_BLOCKS,
+      HARD_MAX_SCAN_BLOCKS
+    )
+  )
 );
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
 const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000' as const;
+
+type CachedResponse = { ts: number; payload: Awaited<ReturnType<typeof buildResponse>> };
+const globalCache = globalThis as typeof globalThis & { __txCache?: Map<string, CachedResponse> };
+const txCache = globalCache.__txCache ?? new Map<string, CachedResponse>();
+globalCache.__txCache = txCache;
+const CACHE_TTL_MS = 10_000;
 
 const DEX_ABI = parseAbi([
   'function swapExactAmountIn(address tokenIn, address tokenOut, uint128 amountIn, uint128 minAmountOut) external returns (uint128 amountOut)',
@@ -113,6 +134,121 @@ function decodeTransaction(input: `0x${string}`): { type: string; amount: string
   }
 }
 
+async function buildResponse(
+  client: ReturnType<typeof createClient>,
+  address: string,
+  limit: number
+) {
+  const latestBlock = await client.getBlockNumber();
+  const minBlock = latestBlock > (MAX_SCAN_BLOCKS - 1n) ? latestBlock - (MAX_SCAN_BLOCKS - 1n) : 0n;
+
+  // Time budget for scanning
+  const deadline = Date.now() + 25000;
+
+  const items: TxItem[] = [];
+  const dexAddress = TEMPO_DEX_ADDRESS.toLowerCase();
+  const fromAddress = address.toLowerCase();
+
+  const batchSize = 50n;
+  let timedOut = false;
+  let scanWindow = INITIAL_SCAN_BLOCKS;
+
+  while (items.length < limit && !timedOut) {
+    if (Date.now() > deadline) {
+      timedOut = true;
+      break;
+    }
+
+    const fromBlock = latestBlock > (scanWindow - 1n) ? latestBlock - (scanWindow - 1n) : 0n;
+
+    for (let end = latestBlock; end >= fromBlock && items.length < limit; end -= batchSize) {
+      if (Date.now() > deadline) {
+        timedOut = true;
+        break;
+      }
+
+      const start = end >= (batchSize - 1n) ? end - (batchSize - 1n) : 0n;
+      if (start > end) break;
+
+      // Build array of block numbers to fetch
+      const blockNumbers: bigint[] = [];
+      for (let b = end; b >= start; b -= 1n) {
+        blockNumbers.push(b);
+      }
+
+      try {
+        const blockResults = await Promise.allSettled(
+          blockNumbers.map((blockNumber) =>
+            client.getBlock({ blockNumber, includeTransactions: true })
+          )
+        );
+
+        const successfulBlocks = blockResults
+          .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getBlock>>> =>
+            result.status === 'fulfilled'
+          )
+          .map((result) => result.value);
+
+        // Process transactions from each block
+        for (const block of successfulBlocks) {
+          if (items.length >= limit) break;
+
+          for (const tx of block.transactions) {
+            if (items.length >= limit) break;
+            if (!tx.to) continue;
+            if (tx.to.toLowerCase() !== dexAddress) continue;
+            if (tx.from?.toLowerCase() !== fromAddress) continue;
+
+            const decoded = decodeTransaction(tx.input);
+
+            items.push({
+              hash: tx.hash,
+              block: tx.blockNumber ?? block.number,
+              type: decoded.type,
+              status: 'Pending',
+              amount: decoded.amount,
+              functionName: decoded.functionName,
+              timestamp: Number(block.timestamp),
+            });
+          }
+        }
+      } catch (batchError) {
+        console.error('Batch fetch error:', batchError);
+      }
+
+      if (start === 0n) break;
+    }
+
+    if (fromBlock === 0n || scanWindow >= MAX_SCAN_BLOCKS) break;
+    scanWindow = scanWindow * 2n > MAX_SCAN_BLOCKS ? MAX_SCAN_BLOCKS : scanWindow * 2n;
+  }
+
+  // Fetch receipts in parallel for status
+  if (items.length > 0) {
+    const receiptResults = await Promise.allSettled(
+      items.map((item) => client.getTransactionReceipt({ hash: item.hash as `0x${string}` }))
+    );
+
+    receiptResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        items[index].status = result.value.status === 'success' ? 'Confirmed' : 'Failed';
+      } else {
+        items[index].status = 'Unknown';
+      }
+    });
+  }
+
+  return {
+    items: items.map((item) => ({
+      ...item,
+      block: item.block.toString(),
+    })),
+    total: items.length,
+    partial: timedOut || items.length < limit,
+    scannedBlocks: Number(latestBlock - minBlock),
+  };
+}
+
 export async function GET(request: Request) {
   const ip = getClientIp(request);
   const { allowed, retryAfter } = await rateLimit(`transactions:${ip}`, 30, 60_000);
@@ -140,117 +276,20 @@ export async function GET(request: Request) {
   }
 
   try {
+    const cacheKey = `${address!.toLowerCase()}:${chainId}:${limit}`;
+    const cached = txCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return NextResponse.json(cached.payload, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        },
+      });
+    }
     const data = await withFallback(async (client) => {
-      const latestBlock = await client.getBlockNumber();
-      const minBlock = latestBlock > (MAX_SCAN_BLOCKS - 1n) ? latestBlock - (MAX_SCAN_BLOCKS - 1n) : 0n;
-
-      // Time budget for scanning
-      const deadline = Date.now() + 25000;
-
-      const items: TxItem[] = [];
-      const dexAddress = TEMPO_DEX_ADDRESS.toLowerCase();
-      const fromAddress = address!.toLowerCase();
-
-      const batchSize = 50n;
-      let timedOut = false;
-      let scanWindow = INITIAL_SCAN_BLOCKS;
-
-      while (items.length < limit && !timedOut) {
-        if (Date.now() > deadline) {
-          timedOut = true;
-          break;
-        }
-
-        const fromBlock = latestBlock > (scanWindow - 1n) ? latestBlock - (scanWindow - 1n) : 0n;
-
-        for (let end = latestBlock; end >= fromBlock && items.length < limit; end -= batchSize) {
-          if (Date.now() > deadline) {
-            timedOut = true;
-            break;
-          }
-
-          const start = end >= (batchSize - 1n) ? end - (batchSize - 1n) : 0n;
-          if (start > end) break;
-
-          // Build array of block numbers to fetch
-          const blockNumbers: bigint[] = [];
-          for (let b = end; b >= start; b -= 1n) {
-            blockNumbers.push(b);
-          }
-
-          try {
-            const blockResults = await Promise.allSettled(
-              blockNumbers.map((blockNumber) =>
-                client.getBlock({ blockNumber, includeTransactions: true })
-              )
-            );
-
-            const successfulBlocks = blockResults
-              .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getBlock>>> =>
-                result.status === 'fulfilled'
-              )
-              .map((result) => result.value);
-
-            // Process transactions from each block
-            for (const block of successfulBlocks) {
-              if (items.length >= limit) break;
-
-              for (const tx of block.transactions) {
-                if (items.length >= limit) break;
-                if (!tx.to) continue;
-                if (tx.to.toLowerCase() !== dexAddress) continue;
-                if (tx.from?.toLowerCase() !== fromAddress) continue;
-
-                const decoded = decodeTransaction(tx.input);
-
-                items.push({
-                  hash: tx.hash,
-                  block: tx.blockNumber ?? block.number,
-                  type: decoded.type,
-                  status: 'Pending',
-                  amount: decoded.amount,
-                  functionName: decoded.functionName,
-                  timestamp: Number(block.timestamp),
-                });
-              }
-            }
-          } catch (batchError) {
-            console.error('Batch fetch error:', batchError);
-          }
-
-          if (start === 0n) break;
-        }
-
-        if (fromBlock === 0n || scanWindow >= MAX_SCAN_BLOCKS) break;
-        scanWindow = scanWindow * 2n > MAX_SCAN_BLOCKS ? MAX_SCAN_BLOCKS : scanWindow * 2n;
-      }
-
-      // Fetch receipts in parallel for status
-      if (items.length > 0) {
-        const receiptResults = await Promise.allSettled(
-          items.map((item) => client.getTransactionReceipt({ hash: item.hash as `0x${string}` }))
-        );
-
-        receiptResults.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            items[index].status = result.value.status === 'success' ? 'Confirmed' : 'Failed';
-          } else {
-            items[index].status = 'Unknown';
-          }
-        });
-      }
-
-      return {
-        items: items.map((item) => ({
-          ...item,
-          block: item.block.toString(),
-        })),
-        total: items.length,
-        partial: timedOut || items.length < limit,
-        scannedBlocks: Number(latestBlock - minBlock),
-      };
+      return buildResponse(client, address!, limit);
     });
 
+    txCache.set(cacheKey, { ts: Date.now(), payload: data });
     return NextResponse.json(data, {
       headers: {
         'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',

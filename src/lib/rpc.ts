@@ -148,7 +148,7 @@ export const readContractWithFallback = async <T>(
   const { useCache = true, raceMode = true } = options || {};
 
   // Check cache first for quote-like calls
-  if (useCache && params.functionName?.includes('quote') || params.functionName?.includes('Quote')) {
+  if (useCache && (params.functionName?.includes('quote') || params.functionName?.includes('Quote'))) {
     const cached = getCachedQuote(params);
     if (cached !== null) {
       return cached as T;

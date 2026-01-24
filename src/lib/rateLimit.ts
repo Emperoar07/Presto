@@ -38,7 +38,14 @@ export const getClientIp = (request: Request) => {
     const cf = request.headers.get('cf-connecting-ip');
     if (cf) return cf;
   }
-  return 'unknown';
+  const agent = request.headers.get('user-agent') ?? 'unknown';
+  const accept = request.headers.get('accept-language') ?? 'unknown';
+  const entropy = `${agent}|${accept}`;
+  let hash = 0;
+  for (let i = 0; i < entropy.length; i += 1) {
+    hash = (hash * 31 + entropy.charCodeAt(i)) >>> 0;
+  }
+  return `unknown:${hash.toString(16)}`;
 };
 
 export const rateLimit = async (key: string, limit: number, windowMs: number) => {

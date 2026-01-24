@@ -20,9 +20,23 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
           loading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        <div className="flex flex-col items-center">
-          <div className="animate-float">
-            <PrestoDexMotionStaffLogo width={400} height={130} withWordmark />
+        {/* Background gradient orbs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#00F3FF]/8 blur-[150px] animate-pulse" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#BC13FE]/10 blur-[120px] animate-pulse" style={{ animationDelay: '0.5s' }} />
+        </div>
+
+        <div className="flex flex-col items-center relative z-10">
+          {/* Logo with pulsing glow */}
+          <div className="animate-float-glow">
+            <PrestoDexMotionStaffLogo width={560} height={180} withWordmark />
+          </div>
+
+          {/* Powered by Tempo text */}
+          <div className="mt-8 animate-text-glow">
+            <p className="text-sm tracking-[0.3em] uppercase text-zinc-400">
+              Powered by <span className="text-[#00F3FF] font-semibold">Tempo</span>
+            </p>
           </div>
         </div>
       </div>
@@ -33,19 +47,32 @@ const LandingLoader = ({ children }: { children: React.ReactNode }) => {
       </div>
 
       <style jsx>{`
-        @keyframes float {
+        @keyframes floatGlow {
           0%, 100% {
             transform: translateY(0);
-            opacity: 0.9;
+            filter: drop-shadow(0 0 20px rgba(0, 243, 255, 0.2)) drop-shadow(0 0 40px rgba(188, 19, 254, 0.1));
           }
           50% {
-            transform: translateY(-8px);
-            opacity: 1;
+            transform: translateY(-10px);
+            filter: drop-shadow(0 0 40px rgba(0, 243, 255, 0.5)) drop-shadow(0 0 80px rgba(188, 19, 254, 0.3));
           }
         }
-        .animate-float {
-          animation: float 2s ease-in-out infinite;
-          filter: drop-shadow(0 0 25px rgba(0, 243, 255, 0.3));
+        .animate-float-glow {
+          animation: floatGlow 2.5s ease-in-out infinite;
+        }
+
+        @keyframes textGlow {
+          0%, 100% {
+            opacity: 0.7;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+          }
+          50% {
+            opacity: 1;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.4), 0 0 40px rgba(0, 243, 255, 0.2);
+          }
+        }
+        .animate-text-glow {
+          animation: textGlow 2.5s ease-in-out infinite;
         }
       `}</style>
     </div>

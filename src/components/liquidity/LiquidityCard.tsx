@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { TokenModal } from '../common/TokenModal';
 import { Orderbook } from './Orderbook';
 import { Token, getTokens } from '@/config/tokens';
@@ -17,21 +17,24 @@ import type { PublicClient } from 'viem';
 import { TxToast } from '@/components/common/TxToast';
 import { isUserCancellation } from '@/lib/errorHandling';
 
+// Move ABIs outside component to prevent re-creation on every render
+const DEX_PLACE_ABI = parseAbi([
+  'function place(address token, uint128 amount, bool isBid, int16 tick) external returns (uint128 id)',
+]);
+const DEX_PLACE_FLIP_ABI = parseAbi([
+  'function placeFlip(address token, uint128 amount, bool isBid, int16 tick, int16 flipTick) external returns (uint128 id)',
+]);
+const ERC20_ALLOWANCE_ABI = parseAbi([
+  'function allowance(address owner, address spender) external view returns (uint256)',
+  'function balanceOf(address owner) external view returns (uint256)',
+]);
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 export function LiquidityCard() {
-  const DEX_PLACE_ABI = parseAbi([
-    'function place(address token, uint128 amount, bool isBid, int16 tick) external returns (uint128 id)',
-  ]);
-  const DEX_PLACE_FLIP_ABI = parseAbi([
-    'function placeFlip(address token, uint128 amount, bool isBid, int16 tick, int16 flipTick) external returns (uint128 id)',
-  ]);
-  const ERC20_ALLOWANCE_ABI = parseAbi([
-    'function allowance(address owner, address spender) external view returns (uint256)',
-    'function balanceOf(address owner) external view returns (uint256)',
-  ]);
-  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
   const showOrderDebug = process.env.NEXT_PUBLIC_DEBUG_ORDERS === 'true';
   const chainId = useChainId();
-  const tokens = getTokens(chainId);
+  // Memoize tokens to prevent unnecessary re-fetches
+  const tokens = useMemo(() => getTokens(chainId), [chainId]);
   const { address } = useAccount();
   const { isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -53,23 +56,32 @@ export function LiquidityCard() {
     setSelectedToken(nextToken);
   }, [chainId, tokens]);
 
-  // Balances
+  // Balances - with debounce and stale request handling
   const [tokenBalance, setTokenBalance] = useState('0.00');
   const [pathBalance, setPathBalance] = useState('0.00');
+  const balanceRequestId = useRef(0);
 
   useEffect(() => {
     const fetchBalances = async () => {
-        if (!publicClient || !address) return;
-        const balances = await getTokenBalancesBatch(publicClient, address, [
-          { address: selectedToken.address, decimals: selectedToken.decimals },
-          { address: quoteToken.address, decimals: quoteToken.decimals },
-        ]);
-        setTokenBalance(balances[selectedToken.address] ?? '0.00');
-        setPathBalance(balances[quoteToken.address] ?? '0.00');
+      if (!publicClient || !address) return;
+      const currentRequestId = ++balanceRequestId.current;
+
+      const balances = await getTokenBalancesBatch(publicClient, address, [
+        { address: selectedToken.address, decimals: selectedToken.decimals },
+        { address: quoteToken.address, decimals: quoteToken.decimals },
+      ]);
+
+      // Discard stale responses
+      if (currentRequestId !== balanceRequestId.current) return;
+
+      setTokenBalance(balances[selectedToken.address] ?? '0.00');
+      setPathBalance(balances[quoteToken.address] ?? '0.00');
     };
-    
-    fetchBalances();
-  }, [publicClient, address, selectedToken, quoteToken]);
+
+    // Debounce balance fetches
+    const timer = setTimeout(fetchBalances, 200);
+    return () => clearTimeout(timer);
+  }, [publicClient, address, selectedToken.address, selectedToken.decimals, quoteToken.address, quoteToken.decimals]);
 
   // FEE LIQUIDITY STATE
   const [lpAmount, setLpAmount] = useState('');
@@ -99,25 +111,41 @@ export function LiquidityCard() {
   const [dexSpendBalance, setDexSpendBalance] = useState('0');
   const [dexBalances, setDexBalances] = useState<Record<string, string>>({});
 
+  // Optimized: Only fetch balances for relevant tokens, with debounce
+  const dexBalanceRequestId = useRef(0);
   useEffect(() => {
-    const fetchAllDexBalances = async () => {
+    const fetchRelevantDexBalances = async () => {
       if (!publicClient || !address) return;
+      const currentRequestId = ++dexBalanceRequestId.current;
+
+      // Only fetch balances for tokens we actually need
+      const relevantTokens = [selectedToken, quoteToken].filter(
+        (token, index, self) => self.findIndex(t => t.address === token.address) === index
+      );
+
       const dexMap = await getDexBalancesBatch(
         publicClient,
         address,
-        tokens.map((token) => ({ address: token.address, decimals: token.decimals })),
+        relevantTokens.map((token) => ({ address: token.address, decimals: token.decimals })),
         chainId
       );
+
+      // Discard stale responses
+      if (currentRequestId !== dexBalanceRequestId.current) return;
+
       const formattedMap: Record<string, string> = {};
       Object.entries(dexMap).forEach(([key, value]) => {
         formattedMap[key] = value.formatted;
       });
-      setDexBalances(formattedMap);
+      setDexBalances(prev => ({ ...prev, ...formattedMap }));
       const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
       setDexSpendBalance(dexMap[spendToken.address]?.formatted ?? '0.00');
     };
-    fetchAllDexBalances();
-  }, [publicClient, address, tokens, isOrdering, chainId, orderType, selectedToken, quoteToken]);
+
+    // Debounce DEX balance fetches
+    const timer = setTimeout(fetchRelevantDexBalances, 300);
+    return () => clearTimeout(timer);
+  }, [publicClient, address, isOrdering, chainId, orderType, selectedToken, quoteToken]);
 
   useEffect(() => {
     const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
