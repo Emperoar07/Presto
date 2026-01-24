@@ -289,7 +289,7 @@ export function ManageFeeLiquidity({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-white/80">Protocol fee</span>
-            <span className="text-xs text-zinc-500">Uniswap-style fee receiver</span>
+            <span className="sr-only">Uniswap-style fee receiver</span>
           </div>
           <div className="p-5 rounded-xl bg-black/20 border border-white/5 space-y-4">
             {factoryAddress === ZERO_ADDRESS ? (
@@ -347,4 +347,3 @@ export function ManageFeeLiquidity({
     </div>
   );
 }
-
