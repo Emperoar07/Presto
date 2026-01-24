@@ -14,28 +14,9 @@ type TxItem = {
   timestamp?: number;
 };
 
-// Scan range for collecting last N transactions. Can be overridden via env, but capped.
-const HARD_MAX_SCAN_BLOCKS = 50_000;
-const DEFAULT_MAX_SCAN_BLOCKS = 50_000;
-const DEFAULT_INITIAL_SCAN_BLOCKS = 10_000;
-const MAX_SCAN_BLOCKS = BigInt(
-  Math.max(
-    1,
-    Math.min(
-      Number.parseInt(process.env.TX_SCAN_MAX_BLOCKS ?? `${DEFAULT_MAX_SCAN_BLOCKS}`, 10) || DEFAULT_MAX_SCAN_BLOCKS,
-      HARD_MAX_SCAN_BLOCKS
-    )
-  )
-);
-const INITIAL_SCAN_BLOCKS = BigInt(
-  Math.max(
-    1,
-    Math.min(
-      Number.parseInt(process.env.TX_SCAN_INITIAL_BLOCKS ?? `${DEFAULT_INITIAL_SCAN_BLOCKS}`, 10) || DEFAULT_INITIAL_SCAN_BLOCKS,
-      HARD_MAX_SCAN_BLOCKS
-    )
-  )
-);
+// Pagination-friendly scan range optimized for Vercel's 10s timeout
+// Each request scans ~2000 blocks which completes in ~5-7 seconds
+const BLOCKS_PER_PAGE = 2000n;
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
 const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000' as const;
@@ -137,13 +118,21 @@ function decodeTransaction(input: `0x${string}`): { type: string; amount: string
 async function buildResponse(
   client: ReturnType<typeof createClient>,
   address: string,
-  limit: number
+  limit: number,
+  requestedToBlock?: bigint
 ) {
   const latestBlock = await client.getBlockNumber();
-  const minBlock = latestBlock > (MAX_SCAN_BLOCKS - 1n) ? latestBlock - (MAX_SCAN_BLOCKS - 1n) : 0n;
 
-  // Time budget for scanning
-  const deadline = Date.now() + 25000;
+  // Use requested toBlock or latest block
+  const toBlock = requestedToBlock !== undefined && requestedToBlock <= latestBlock
+    ? requestedToBlock
+    : latestBlock;
+
+  // Calculate fromBlock based on BLOCKS_PER_PAGE
+  const fromBlock = toBlock > BLOCKS_PER_PAGE ? toBlock - BLOCKS_PER_PAGE : 0n;
+
+  // Time budget for scanning (keep below Vercel's 10s timeout)
+  const deadline = Date.now() + 8_500;
 
   const items: TxItem[] = [];
   const dexAddress = TEMPO_DEX_ADDRESS.toLowerCase();
@@ -151,76 +140,68 @@ async function buildResponse(
 
   const batchSize = 50n;
   let timedOut = false;
-  let scanWindow = INITIAL_SCAN_BLOCKS;
+  let lastScannedBlock = toBlock;
 
-  while (items.length < limit && !timedOut) {
+  // Scan from toBlock down to fromBlock
+  for (let end = toBlock; end >= fromBlock && items.length < limit; end -= batchSize) {
     if (Date.now() > deadline) {
       timedOut = true;
       break;
     }
 
-    const fromBlock = latestBlock > (scanWindow - 1n) ? latestBlock - (scanWindow - 1n) : 0n;
+    const start = end >= (batchSize - 1n) ? end - (batchSize - 1n) : 0n;
+    const actualStart = start < fromBlock ? fromBlock : start;
+    if (actualStart > end) break;
 
-    for (let end = latestBlock; end >= fromBlock && items.length < limit; end -= batchSize) {
-      if (Date.now() > deadline) {
-        timedOut = true;
-        break;
-      }
-
-      const start = end >= (batchSize - 1n) ? end - (batchSize - 1n) : 0n;
-      if (start > end) break;
-
-      // Build array of block numbers to fetch
-      const blockNumbers: bigint[] = [];
-      for (let b = end; b >= start; b -= 1n) {
-        blockNumbers.push(b);
-      }
-
-      try {
-        const blockResults = await Promise.allSettled(
-          blockNumbers.map((blockNumber) =>
-            client.getBlock({ blockNumber, includeTransactions: true })
-          )
-        );
-
-        const successfulBlocks = blockResults
-          .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getBlock>>> =>
-            result.status === 'fulfilled'
-          )
-          .map((result) => result.value);
-
-        // Process transactions from each block
-        for (const block of successfulBlocks) {
-          if (items.length >= limit) break;
-
-          for (const tx of block.transactions) {
-            if (items.length >= limit) break;
-            if (!tx.to) continue;
-            if (tx.to.toLowerCase() !== dexAddress) continue;
-            if (tx.from?.toLowerCase() !== fromAddress) continue;
-
-            const decoded = decodeTransaction(tx.input);
-
-            items.push({
-              hash: tx.hash,
-              block: tx.blockNumber ?? block.number,
-              type: decoded.type,
-              status: 'Pending',
-              amount: decoded.amount,
-              functionName: decoded.functionName,
-              timestamp: Number(block.timestamp),
-            });
-          }
-        }
-      } catch (batchError) {
-        console.error('Batch fetch error:', batchError);
-      }
-
-      if (start === 0n) break;
+    // Build array of block numbers to fetch
+    const blockNumbers: bigint[] = [];
+    for (let b = end; b >= actualStart; b -= 1n) {
+      blockNumbers.push(b);
     }
 
-    if (fromBlock === 0n || scanWindow >= MAX_SCAN_BLOCKS) break;
-    scanWindow = scanWindow * 2n > MAX_SCAN_BLOCKS ? MAX_SCAN_BLOCKS : scanWindow * 2n;
+    try {
+      const blockResults = await Promise.allSettled(
+        blockNumbers.map((blockNumber) =>
+          client.getBlock({ blockNumber, includeTransactions: true })
+        )
+      );
+
+      const successfulBlocks = blockResults
+        .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getBlock>>> =>
+          result.status === 'fulfilled'
+        )
+        .map((result) => result.value);
+
+      // Process transactions from each block
+      for (const block of successfulBlocks) {
+        if (items.length >= limit) break;
+
+        for (const tx of block.transactions) {
+          if (items.length >= limit) break;
+          if (!tx.to) continue;
+          if (tx.to.toLowerCase() !== dexAddress) continue;
+          if (tx.from?.toLowerCase() !== fromAddress) continue;
+
+          const decoded = decodeTransaction(tx.input);
+
+          items.push({
+            hash: tx.hash,
+            block: tx.blockNumber ?? block.number,
+            type: decoded.type,
+            status: 'Pending',
+            amount: decoded.amount,
+            functionName: decoded.functionName,
+            timestamp: Number(block.timestamp),
+          });
+        }
+      }
+
+      lastScannedBlock = actualStart;
+    } catch (batchError) {
+      console.error('Batch fetch error:', batchError);
+    }
+
+    if (actualStart === 0n) break;
   }
 
   // Fetch receipts in parallel for status
@@ -238,14 +219,24 @@ async function buildResponse(
     });
   }
 
+  // Calculate next page info
+  const nextToBlock = lastScannedBlock > 0n ? lastScannedBlock - 1n : null;
+  const hasMore = nextToBlock !== null;
+
   return {
     items: items.map((item) => ({
       ...item,
       block: item.block.toString(),
     })),
     total: items.length,
-    partial: timedOut || items.length < limit,
-    scannedBlocks: Number(latestBlock - minBlock),
+    hasMore,
+    nextToBlock: nextToBlock?.toString() ?? null,
+    scannedRange: {
+      from: fromBlock.toString(),
+      to: toBlock.toString(),
+    },
+    latestBlock: latestBlock.toString(),
+    timedOut,
   };
 }
 
@@ -268,6 +259,10 @@ export async function GET(request: Request) {
     ? Math.min(Math.max(limitParam, 1), MAX_LIMIT)
     : DEFAULT_LIMIT;
 
+  // Pagination: toBlock parameter (optional - for loading older transactions)
+  const toBlockParam = searchParams.get('toBlock');
+  const toBlock = toBlockParam ? BigInt(toBlockParam) : undefined;
+
   if (!isValidAddress(address)) {
     return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
   }
@@ -276,20 +271,28 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Only cache initial requests (no toBlock), not paginated requests
     const cacheKey = `${address!.toLowerCase()}:${chainId}:${limit}`;
-    const cached = txCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      return NextResponse.json(cached.payload, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
-        },
-      });
+    if (toBlock === undefined) {
+      const cached = txCache.get(cacheKey);
+      if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+        return NextResponse.json(cached.payload, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+          },
+        });
+      }
     }
+
     const data = await withFallback(async (client) => {
-      return buildResponse(client, address!, limit);
+      return buildResponse(client, address!, limit, toBlock);
     });
 
-    txCache.set(cacheKey, { ts: Date.now(), payload: data });
+    // Only cache initial requests
+    if (toBlock === undefined) {
+      txCache.set(cacheKey, { ts: Date.now(), payload: data });
+    }
+
     return NextResponse.json(data, {
       headers: {
         'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
@@ -303,7 +306,8 @@ export async function GET(request: Request) {
         error: message,
         items: [],
         total: 0,
-        partial: true,
+        hasMore: false,
+        nextToBlock: null,
       },
       { status: 200 }
     );

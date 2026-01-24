@@ -7,10 +7,10 @@ const splitUrls = (value: string) =>
     .map((url) => url.trim())
     .filter(Boolean);
 
-// Quote cache for faster responses
+// Quote cache for faster responses - longer TTL for stablecoins
 type QuoteCacheEntry = { result: bigint; timestamp: number };
 const quoteCache = new Map<string, QuoteCacheEntry>();
-const QUOTE_CACHE_TTL_MS = 3000; // 3 seconds
+const QUOTE_CACHE_TTL_MS = 10000; // 10 seconds - stablecoin prices don't change rapidly
 
 // RPC performance tracking
 type RpcStats = { avgMs: number; samples: number; failures: number; lastFailure: number };
@@ -81,9 +81,14 @@ export const getTempoPublicClientsList = () => getTempoPublicClients().map(c => 
 /**
  * Get a cache key for quote requests
  */
+const stringifyArgs = (value: unknown): string => {
+  const result = JSON.stringify(value, (_key, val) => (typeof val === 'bigint' ? val.toString() : val));
+  return result ?? '';
+};
+
 const getQuoteCacheKey = (params: Parameters<PublicClient['readContract']>[0]): string => {
   const { address, functionName, args } = params;
-  return `${address}:${functionName}:${JSON.stringify(args)}`;
+  return `${address}:${functionName}:${stringifyArgs(args)}`;
 };
 
 /**

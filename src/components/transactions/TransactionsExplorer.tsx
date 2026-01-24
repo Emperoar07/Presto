@@ -87,10 +87,14 @@ export function TransactionsExplorer() {
   const chainId = useChainId();
   const [queryAddress, setQueryAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<TxItem[]>([]);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [filter, setFilter] = useState<'all' | 'swaps' | 'orders' | 'liquidity'>('all');
+  const [nextToBlock, setNextToBlock] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
     if (address && queryAddress.length === 0) {
@@ -98,10 +102,16 @@ export function TransactionsExplorer() {
     }
   }, [address, queryAddress.length]);
 
-  const fetchTransactions = useCallback(async () => {
+  const fetchTransactions = useCallback(async (reset = true) => {
     if (!queryAddress) return;
     setIsLoading(true);
     setError(null);
+    if (reset) {
+      setItems([]);
+      setNextToBlock(null);
+      setHasMore(false);
+      setTimedOut(false);
+    }
     try {
       const response = await fetch(
         `/api/transactions?address=${queryAddress}&chainId=${chainId}&limit=30`
@@ -116,6 +126,9 @@ export function TransactionsExplorer() {
         setError(null);
       }
       setItems(result.items ?? []);
+      setNextToBlock(result.nextToBlock ?? null);
+      setHasMore(result.hasMore ?? false);
+      setTimedOut(result.timedOut ?? false);
       setLastUpdated(Date.now());
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to fetch transactions';
@@ -124,6 +137,47 @@ export function TransactionsExplorer() {
       setIsLoading(false);
     }
   }, [chainId, queryAddress]);
+
+  const loadMoreTransactions = useCallback(async () => {
+    if (!queryAddress || !nextToBlock || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/transactions?address=${queryAddress}&chainId=${chainId}&limit=30&toBlock=${nextToBlock}`
+      );
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const result = await response.json();
+      if (result?.error) {
+        setError(result.error);
+      }
+      // Append new items, merging by hash and preferring higher block (reorg-safe)
+      const merged = new Map<string, TxItem>();
+      items.forEach((item) => merged.set(item.hash, item));
+      (result.items ?? []).forEach((item: TxItem) => {
+        const existing = merged.get(item.hash);
+        if (!existing) {
+          merged.set(item.hash, item);
+          return;
+        }
+        const existingBlock = Number(existing.block || '0');
+        const nextBlock = Number(item.block || '0');
+        if (nextBlock >= existingBlock) {
+          merged.set(item.hash, item);
+        }
+      });
+      setItems(Array.from(merged.values()));
+      setNextToBlock(result.nextToBlock ?? null);
+      setHasMore(result.hasMore ?? false);
+      setTimedOut(result.timedOut ?? false);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load more transactions';
+      setError(message);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [chainId, queryAddress, nextToBlock, isLoadingMore, items]);
 
   useEffect(() => {
     if (queryAddress) {
@@ -255,6 +309,14 @@ export function TransactionsExplorer() {
           {error}
         </div>
       )}
+      {timedOut && !error && (
+        <div className="mb-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm flex items-center gap-3">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Partial results loaded. Click “Load More” to continue scanning older blocks.
+        </div>
+      )}
 
       {/* Transactions Table */}
       <div className="rounded-2xl border border-white/10 bg-black/30 overflow-hidden">
@@ -316,6 +378,34 @@ export function TransactionsExplorer() {
             })
           )}
         </div>
+
+        {/* Load More Button */}
+        {hasMore && !isLoading && filteredItems.length > 0 && (
+          <div className="p-4 border-t border-white/5">
+            <button
+              onClick={loadMoreTransactions}
+              disabled={isLoadingMore}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#00F3FF]/10 to-[#BC13FE]/10 text-white border border-white/10 hover:border-[#00F3FF]/30 transition-all text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isLoadingMore ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading older transactions...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Load More Transactions
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
