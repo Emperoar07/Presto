@@ -1,4 +1,14 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { connectorsForWallets } from '@rainbow-me/rainbowkit';
+import {
+  metaMaskWallet,
+  rabbyWallet,
+  zerionWallet,
+  coinbaseWallet,
+  walletConnectWallet,
+  injectedWallet,
+  trustWallet,
+} from '@rainbow-me/rainbowkit/wallets';
+import { createConfig } from 'wagmi';
 import {
   baseSepolia,
 } from 'wagmi/chains';
@@ -19,11 +29,38 @@ const baseSepoliaTransport =
     ? fallback(baseSepoliaRpcUrls.map((url) => http(url, { timeout: 8000 })))
     : http(baseSepoliaRpcUrls[0] ?? baseSepolia.rpcUrls.default.http[0], { timeout: 8000 });
 
-export const config = getDefaultConfig({
-  appName: 'Tempo Mini DEX',
-  projectId: '3a8170812b534d0ff9d794f19a901d64', // Placeholder Project ID
+const projectId = '3a8170812b534d0ff9d794f19a901d64';
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'Popular',
+      wallets: [
+        metaMaskWallet,
+        rabbyWallet,
+        zerionWallet,
+        coinbaseWallet,
+        trustWallet,
+      ],
+    },
+    {
+      groupName: 'More',
+      wallets: [
+        walletConnectWallet,
+        injectedWallet,
+      ],
+    },
+  ],
+  {
+    appName: 'Tempo Mini DEX',
+    projectId,
+  }
+);
+
+export const config = createConfig({
+  connectors,
   chains: [tempoModerato, baseSepolia],
-  ssr: true, // If your dApp uses server side rendering (SSR)
+  ssr: true,
   transports: {
     [tempoModerato.id]: tempoTransport,
     [baseSepolia.id]: baseSepoliaTransport,
