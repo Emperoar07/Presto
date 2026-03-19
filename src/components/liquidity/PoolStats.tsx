@@ -196,9 +196,16 @@ export function PoolStats({
               </div>
             </div>
           ) : (
-            <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Enter a deposit amount to preview expected LP tokens and your next pool share.
-            </p>
+            <div className="mt-3 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Est. LP Tokens</span>
+                <span className="font-semibold text-slate-900 dark:text-white">--</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">New Pool Share</span>
+                <span className="font-semibold text-primary">--</span>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -210,12 +210,6 @@ export function ManageFeeLiquidity({
     !!feeToSetter &&
     feeToSetter.toLowerCase() === address.toLowerCase();
   const modeTitle = isTempoChain ? 'Tempo Fee Liquidity' : isArcTestnet ? 'Arc Stable Liquidity' : 'Liquidity Controls';
-  const modeDescription = isTempoChain
-    ? `${validatorTokenSymbol} acts as the validator-side asset for Tempo fee pools and supports fee-routed execution.`
-    : isArcTestnet
-      ? `${validatorTokenSymbol} acts as the stable hub asset on Arc while you size deposits with ${userTokenSymbol}.`
-      : 'Liquidity controls adapt to the connected network and only show supported flows.';
-
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50/50 dark:border-white/10 dark:from-slate-950 dark:via-slate-950 dark:to-cyan-950/20">
@@ -230,9 +224,6 @@ export function ManageFeeLiquidity({
                   <h3 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">
                     {userTokenSymbol} / {validatorTokenSymbol}
                   </h3>
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                    {modeDescription}
-                  </p>
                 </div>
               </div>
               <div className="hidden rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-right shadow-sm dark:border-white/10 dark:bg-white/[0.03] lg:block">
@@ -332,11 +323,6 @@ export function ManageFeeLiquidity({
                     </span>
                   </div>
                 )}
-                <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
-                  {isTempoChain
-                    ? 'Tempo mints LP shares from the validator-side deposit ratio and uses those shares to support fee-routed pools.'
-                    : `Arc pairs your ${userTokenSymbol} deposit with ${validatorTokenSymbol} automatically using the live pool ratio, so both approvals are handled before the add transaction.`}
-                </div>
               </div>
 
               <button

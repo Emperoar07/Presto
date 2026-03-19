@@ -257,22 +257,22 @@ export function LiquidityCard() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2 rounded-2xl border border-slate-200 bg-slate-100/90 p-1.5 dark:border-white/5 dark:bg-white/[0.03]">
-            <button
-              onClick={() => setActiveTab('fee')}
-              className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'fee' ? 'border border-primary/20 bg-white text-primary shadow-sm dark:bg-white/10' : 'text-slate-500 dark:text-slate-400'}`}
-            >
-              {isArcTestnet ? 'Stable Liquidity' : 'Fee Liquidity'}
-            </button>
-            {supportsLimitOrders && (
+          {supportsLimitOrders && (
+            <div className="flex gap-2 rounded-2xl border border-slate-200 bg-slate-100/90 p-1.5 dark:border-white/5 dark:bg-white/[0.03]">
+              <button
+                onClick={() => setActiveTab('fee')}
+                className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'fee' ? 'border border-primary/20 bg-white text-primary shadow-sm dark:bg-white/10' : 'text-slate-500 dark:text-slate-400'}`}
+              >
+                Fee Liquidity
+              </button>
               <button
                 onClick={() => setActiveTab('order')}
                 className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'order' ? 'border border-primary/20 bg-white text-primary shadow-sm dark:bg-white/10' : 'text-slate-500 dark:text-slate-400'}`}
               >
                 Place Limit Order
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {activeTab === 'fee' && (

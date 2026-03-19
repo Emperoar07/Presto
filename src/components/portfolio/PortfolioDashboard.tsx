@@ -236,10 +236,6 @@ export function PortfolioDashboard() {
   const tokens = getTokens(chainId);
   const [activeTab, setActiveTab] = useState<TabId>('tokens');
   const [mounted, setMounted] = useState(false);
-  const isArcTestnet = isArcChain(chainId);
-  const validatorToken = getHubToken(chainId);
-  const nonHubTokens = tokens.filter((token) => !isHubToken(token, chainId));
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -250,8 +246,6 @@ export function PortfolioDashboard() {
     { id: 'tokens', label: 'Tokens', icon: 'token' },
     { id: 'lp', label: 'LP Positions', icon: 'water_drop' },
   ];
-
-  const configuredPoolCount = nonHubTokens.length;
 
   if (!isConnected || !address) {
     return (
@@ -271,8 +265,8 @@ export function PortfolioDashboard() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-5 md:py-7">
-      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="flex flex-col justify-center gap-4 rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:col-span-2">
+      <div className="mb-8">
+        <div className="flex flex-col justify-center gap-4 rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <p className="text-base font-medium text-slate-500 dark:text-slate-400">Portfolio Summary</p>
             <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-600 dark:text-green-500">
@@ -302,40 +296,6 @@ export function PortfolioDashboard() {
               Add Liquidity
             </Link>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-4 rounded-xl border border-primary/20 bg-primary/5 p-6 dark:bg-primary/10">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-bold uppercase tracking-wider text-primary">Liquidity Snapshot</p>
-            <Link
-              href={isArcTestnet ? "/transactions" : "/analytics"}
-              className="rounded-lg border border-primary/20 p-2 text-primary transition-colors hover:bg-primary/10"
-              aria-label={isArcTestnet ? 'Open activity' : 'Open analytics'}
-            >
-              <span className="material-symbols-outlined text-base">{isArcTestnet ? 'swap_horiz' : 'bar_chart'}</span>
-            </Link>
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-slate-500 dark:text-slate-400">Configured Pool Pairs</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{configuredPoolCount}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-slate-500 dark:text-slate-400">Hub Asset</p>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              {validatorToken?.symbol ?? '--'}
-            </p>
-          </div>
-          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-            {isArcTestnet
-              ? 'Arc does not expose staking or reward modules in this app, so this panel focuses on the deployed stable hub pools and swap activity.'
-              : 'Tempo currently exposes fee-routed liquidity and native activity in this app, without a separate staking or rewards module.'}
-          </p>
-          <Link
-            href="/liquidity"
-            className="mt-auto w-full rounded-xl border-2 border-primary py-2 text-center text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-background-dark"
-          >
-            Manage Liquidity
-          </Link>
         </div>
       </div>
 
@@ -413,27 +373,6 @@ export function PortfolioDashboard() {
             <RecentHistoryFeed address={address} chainId={chainId} />
           </div>
 
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary to-blue-600 p-6 text-background-dark shadow-md">
-            <div className="relative z-10">
-              <h4 className="mb-1 text-lg font-bold">
-                {isArcTestnet ? 'Manage Arc Stable Liquidity' : 'Manage Tempo Fee Liquidity'}
-              </h4>
-              <p className="mb-4 text-xs font-medium opacity-80">
-                {isArcTestnet
-                  ? 'Arc focuses on live stable hub pools and activity rather than a separate rewards module.'
-                  : 'Tempo focuses on fee-routed liquidity and native activity instead of a separate staking surface.'}
-              </p>
-              <Link
-                href="/liquidity"
-                className="inline-block rounded-xl bg-background-dark px-4 py-2 text-xs font-bold text-white transition-transform active:scale-95"
-              >
-                Open Liquidity
-              </Link>
-            </div>
-            <div className="absolute -bottom-4 -right-4 opacity-20">
-              <span className="material-symbols-outlined text-8xl">trending_up</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
