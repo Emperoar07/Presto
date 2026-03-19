@@ -12,7 +12,6 @@ interface PoolStatsProps {
   validatorTokenDecimals: number;
   totalShares: bigint | null;
   userShares: bigint | null;
-  inputAmount?: string;
 }
 
 export function PoolStats({
@@ -24,7 +23,6 @@ export function PoolStats({
   validatorTokenDecimals,
   totalShares,
   userShares,
-  inputAmount,
 }: PoolStatsProps) {
   const formatCompactPercent = (value: number) => {
     if (!Number.isFinite(value) || value <= 0) return '0.00%';
@@ -64,9 +62,8 @@ export function PoolStats({
   }, [reserveValidatorToken, validatorTokenDecimals]);
 
   const tvl = useMemo(() => {
-    if (!validatorReserveValue) return 0;
-    return validatorReserveValue * 2;
-  }, [validatorReserveValue]);
+    return userReserveValue + validatorReserveValue;
+  }, [userReserveValue, validatorReserveValue]);
 
   const userReserveDisplay = useMemo(() => {
     return formatMetric(userReserveValue, 4);
@@ -83,39 +80,6 @@ export function PoolStats({
     if (userReserveValue === 0) return null;
     return validatorReserveValue / userReserveValue;
   }, [reserveUserToken, reserveValidatorToken, userReserveValue, validatorReserveValue]);
-
-  const estimatedLpTokens = useMemo(() => {
-    if (!inputAmount || !reserveValidatorToken || reserveValidatorToken === 0n || !totalShares) {
-      return null;
-    }
-    try {
-      const inputValue = parseFloat(inputAmount);
-      if (isNaN(inputValue) || inputValue <= 0) return null;
-
-      const validatorReserve = Number(formatUnits(reserveValidatorToken, validatorTokenDecimals));
-      const currentTotalShares = Number(formatUnits(totalShares, 18));
-
-      if (validatorReserve === 0) {
-        return inputValue.toFixed(4);
-      }
-
-      const lpTokens = (inputValue / validatorReserve) * currentTotalShares;
-      return lpTokens.toFixed(4);
-    } catch {
-      return null;
-    }
-  }, [inputAmount, reserveValidatorToken, totalShares, validatorTokenDecimals]);
-
-  const estimatedPoolShare = useMemo(() => {
-    if (!estimatedLpTokens || !totalShares) return null;
-    const newLp = parseFloat(estimatedLpTokens);
-    const currentTotal = Number(formatUnits(totalShares, 18));
-    const currentUserShares = userShares ? Number(formatUnits(userShares, 18)) : 0;
-    const newTotal = currentTotal + newLp;
-    const newUserShares = currentUserShares + newLp;
-    if (newTotal === 0) return null;
-    return ((newUserShares / newTotal) * 100).toFixed(2);
-  }, [estimatedLpTokens, totalShares, userShares]);
 
   return (
     <div className="space-y-4">
@@ -136,7 +100,7 @@ export function PoolStats({
         </div>
       </div>
 
-      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+      <div>
         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Reserve Breakdown</p>
@@ -180,33 +144,6 @@ export function PoolStats({
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">LP Preview</p>
-          {inputAmount && parseFloat(inputAmount) > 0 ? (
-            <div className="mt-3 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">Est. LP Tokens</span>
-                <span className="font-semibold text-slate-900 dark:text-white">{estimatedLpTokens || '--'}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">New Pool Share</span>
-                <span className="font-semibold text-primary">{estimatedPoolShare ? `${estimatedPoolShare}%` : '--'}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-3 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">Est. LP Tokens</span>
-                <span className="font-semibold text-slate-900 dark:text-white">--</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">New Pool Share</span>
-                <span className="font-semibold text-primary">--</span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -140,6 +140,44 @@ export function ManageFeeLiquidity({
     ? (pool?.reserveValidatorToken ? pool.reserveValidatorToken * 2n : null)
     : (totalShares ?? null);
 
+  const estimatedLpTokens = (() => {
+    if (!amount || !pool?.reserveValidatorToken || pool.reserveValidatorToken === 0n || !estimatedTotalShares) {
+      return null;
+    }
+    try {
+      const inputValue = Number.parseFloat(amount);
+      if (!Number.isFinite(inputValue) || inputValue <= 0) return null;
+
+      const reserveBase = isTempoChain
+        ? Number.parseFloat(validatorTokenBalance || '0')
+        : Number(formatUnits(pool.reserveUserToken, userTokenDecimals));
+      const reserveForMint = isTempoChain
+        ? Number(formatUnits(pool.reserveValidatorToken, validatorTokenDecimals))
+        : reserveBase;
+      const currentTotalShares = Number(formatUnits(estimatedTotalShares, 18));
+
+      if (!Number.isFinite(reserveForMint) || reserveForMint <= 0 || !Number.isFinite(currentTotalShares)) {
+        return null;
+      }
+
+      const minted = (inputValue / reserveForMint) * currentTotalShares;
+      return Number.isFinite(minted) ? minted : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const estimatedPoolShare = (() => {
+    if (estimatedLpTokens === null || !estimatedTotalShares) return null;
+    const currentTotal = Number(formatUnits(estimatedTotalShares, 18));
+    const currentUserShares = balance ? Number(formatUnits(balance, 18)) : 0;
+    const newTotal = currentTotal + estimatedLpTokens;
+    const newUserShares = currentUserShares + estimatedLpTokens;
+    if (!Number.isFinite(newTotal) || newTotal <= 0) return null;
+    const share = (newUserShares / newTotal) * 100;
+    return Number.isFinite(share) ? share : null;
+  })();
+
   const handleAddLiquidity = async () => {
     if (!address || !amount || !walletClient || !publicClient) return;
     setIsAdding(true);
@@ -256,7 +294,6 @@ export function ManageFeeLiquidity({
               validatorTokenDecimals={validatorTokenDecimals}
               totalShares={estimatedTotalShares}
               userShares={balance}
-              inputAmount={amount}
             />
           </div>
 
@@ -337,6 +374,20 @@ export function ManageFeeLiquidity({
                     </span>
                   </div>
                 )}
+                <div className="grid gap-3 border-t border-slate-200/80 pt-3 dark:border-white/10 sm:grid-cols-2">
+                  <div className="flex items-center justify-between text-sm sm:block">
+                    <span className="text-slate-500 dark:text-slate-400">Est. LP</span>
+                    <p className="font-semibold text-slate-900 dark:text-white sm:mt-1">
+                      {estimatedLpTokens === null ? '--' : estimatedLpTokens.toFixed(4)}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between text-sm sm:block">
+                    <span className="text-slate-500 dark:text-slate-400">New share</span>
+                    <p className="font-semibold text-primary sm:mt-1">
+                      {estimatedPoolShare === null ? '--' : `${estimatedPoolShare.toFixed(2)}%`}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <button
