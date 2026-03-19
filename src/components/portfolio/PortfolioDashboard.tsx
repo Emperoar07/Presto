@@ -1,23 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useAccount, useChainId, useBalance, useReadContract, useReadContracts } from 'wagmi';
-import { formatUnits } from 'viem';
+import { useAccount, useChainId, usePublicClient } from 'wagmi';
 import Link from 'next/link';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
 import { getExplorerTxUrl } from '@/lib/explorer';
 import { Hooks } from '@/lib/tempo';
 import { getContractAddresses, isArcChain, ZERO_ADDRESS } from '@/config/contracts';
-
-const ERC20_BALANCE_ABI = [
-  {
-    inputs: [{ name: 'account', type: 'address' }],
-    name: 'balanceOf',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const;
+import { getTokenBalance } from '@/lib/tempoClient';
 
 const TOKEN_COLORS = [
   'bg-blue-500',
@@ -42,43 +32,14 @@ const isStableLikeToken = (symbol: string) => {
 function TokenRow({
   symbol,
   name,
-  address,
-  decimals,
   colorClass,
-  walletAddress,
+  balanceFormatted,
 }: {
   symbol: string;
   name: string;
-  address: `0x${string}`;
-  decimals: number;
   colorClass: string;
-  walletAddress: `0x${string}`;
+  balanceFormatted: string;
 }) {
-  const isNative = address === '0x0000000000000000000000000000000000000000';
-
-  const { data: nativeBal } = useBalance({
-    address: walletAddress,
-    query: { enabled: isNative },
-  });
-
-  const { data: tokenBal } = useReadContract({
-    address,
-    abi: ERC20_BALANCE_ABI,
-    functionName: 'balanceOf',
-    args: [walletAddress],
-    query: { enabled: !isNative },
-  });
-
-  const balanceFormatted = useMemo(() => {
-    if (isNative && nativeBal) {
-      return parseFloat(formatUnits(nativeBal.value, decimals)).toFixed(4);
-    }
-    if (!isNative && tokenBal !== undefined) {
-      return parseFloat(formatUnits(tokenBal as bigint, decimals)).toFixed(decimals <= 6 ? 2 : 4);
-    }
-    return '--';
-  }, [isNative, nativeBal, tokenBal, decimals]);
-
   const numericBalance = useMemo(() => {
     if (balanceFormatted === '--') return null;
     const parsed = Number.parseFloat(balanceFormatted.replace(/,/g, ''));
@@ -233,37 +194,54 @@ function LpPositionsView({
 export function PortfolioDashboard() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const publicClient = usePublicClient();
   const tokens = getTokens(chainId);
   const [activeTab, setActiveTab] = useState<TabId>('tokens');
   const [mounted, setMounted] = useState(false);
+  const [walletBalances, setWalletBalances] = useState<Record<string, string>>({});
   const stableTokens = useMemo(() => tokens.filter((token) => isStableLikeToken(token.symbol)), [tokens]);
-  const nativeStableToken = stableTokens.find((token) => token.address === '0x0000000000000000000000000000000000000000');
-  const erc20StableTokens = stableTokens.filter((token) => token.address !== '0x0000000000000000000000000000000000000000');
-
-  const { data: nativeStableBalance } = useBalance({
-    address,
-    query: { enabled: !!address && !!nativeStableToken },
-  });
-
-  const { data: stableTokenBalances } = useReadContracts({
-    contracts: address
-      ? erc20StableTokens.map((token) => ({
-          address: token.address,
-          abi: ERC20_BALANCE_ABI,
-          functionName: 'balanceOf',
-          args: [address],
-        }))
-      : [],
-    query: {
-      enabled: !!address && erc20StableTokens.length > 0,
-    },
-  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchWalletBalances = async () => {
+      if (!publicClient || !address) {
+        if (!cancelled) setWalletBalances({});
+        return;
+      }
+
+      try {
+        const balanceEntries = await Promise.all(
+          tokens.map(async (token) => [
+            token.address,
+            await getTokenBalance(publicClient, address, token.address, token.decimals),
+          ] as const)
+        );
+        const balances = Object.fromEntries(balanceEntries);
+
+        if (!cancelled) {
+          setWalletBalances(balances);
+        }
+      } catch (error) {
+        console.error('Failed to fetch portfolio balances', error);
+        if (!cancelled) {
+          setWalletBalances({});
+        }
+      }
+    };
+
+    fetchWalletBalances();
+    const intervalId = setInterval(fetchWalletBalances, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [address, publicClient, tokens]);
 
   const tabs: { id: TabId; label: string; icon: string }[] = [
     { id: 'tokens', label: 'Tokens', icon: 'token' },
@@ -271,21 +249,12 @@ export function PortfolioDashboard() {
   ];
 
   const totalStableValue = useMemo(() => {
-    let total = 0;
-
-    if (nativeStableToken && nativeStableBalance) {
-      total += Number(formatUnits(nativeStableBalance.value, nativeStableToken.decimals));
-    }
-
-    stableTokenBalances?.forEach((result, index) => {
-      if (result.status !== 'success') return;
-      const token = erc20StableTokens[index];
-      if (!token) return;
-      total += Number(formatUnits(result.result as bigint, token.decimals));
-    });
-
-    return total;
-  }, [erc20StableTokens, nativeStableBalance, nativeStableToken, stableTokenBalances]);
+    return stableTokens.reduce((sum, token) => {
+      const rawBalance = walletBalances[token.address] ?? '0';
+      const numericBalance = Number.parseFloat(rawBalance);
+      return Number.isFinite(numericBalance) ? sum + numericBalance : sum;
+    }, 0);
+  }, [stableTokens, walletBalances]);
 
   const totalStableValueDisplay = useMemo(() => {
     return totalStableValue.toLocaleString('en-US', {
@@ -293,6 +262,8 @@ export function PortfolioDashboard() {
       maximumFractionDigits: 2,
     });
   }, [totalStableValue]);
+
+  if (!mounted) return null;
 
   if (!isConnected || !address) {
     return (
@@ -390,10 +361,8 @@ export function PortfolioDashboard() {
                         key={token.address}
                         symbol={token.symbol}
                         name={token.name}
-                        address={token.address}
-                        decimals={token.decimals}
                         colorClass={TOKEN_COLORS[i % TOKEN_COLORS.length]}
-                        walletAddress={address}
+                        balanceFormatted={walletBalances[token.address] ?? '--'}
                       />
                     ))}
                   </tbody>

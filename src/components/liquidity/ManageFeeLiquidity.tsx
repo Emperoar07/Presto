@@ -223,6 +223,7 @@ export function ManageFeeLiquidity({
     !!feeToSetter &&
     feeToSetter.toLowerCase() === address.toLowerCase();
   const modeTitle = isTempoChain ? 'Tempo Fee Liquidity' : isArcTestnet ? 'Arc Stable Liquidity' : 'Liquidity Controls';
+  const canRenderMaintenance = showMaintenance && !!pool;
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50/50 dark:border-white/10 dark:from-slate-950 dark:via-slate-950 dark:to-cyan-950/20">
@@ -443,7 +444,7 @@ export function ManageFeeLiquidity({
         </div>
       )}
 
-      {showMaintenance && (
+      {canRenderMaintenance && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
