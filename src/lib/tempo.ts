@@ -1,6 +1,7 @@
-import { useReadContract, useWriteContract, useWatchContractEvent, usePublicClient, useChainId } from 'wagmi';
+import { useReadContract, useReadContracts, useWriteContract, useWatchContractEvent, usePublicClient, useChainId } from 'wagmi';
 import { encodeFunctionData, parseAbi } from 'viem';
 import { useState, useEffect } from 'react';
+import { getContractAddresses, HUB_AMM_ABI, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
 
 // --- Configuration ---
 
@@ -371,35 +372,74 @@ export const Hooks = {
     amm: {
         usePool: ({ userToken, validatorToken }: { userToken: `0x${string}`; validatorToken: `0x${string}` }) => {
             const chainId = useChainId();
-            const { data, ...rest } = useReadContract({
+            const isTempoChain = isTempoNativeChain(chainId);
+            const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
+
+            const tempoPool = useReadContract({
                 address: getFeeManagerAddressForChain(chainId),
                 abi: FEE_AMM_ABI,
                 functionName: 'getPool',
                 args: [userToken, validatorToken],
                 query: {
-                    enabled: !!userToken && !!validatorToken,
+                    enabled: isTempoChain && !!userToken && !!validatorToken,
                 }
             });
-            
-            // Map array result to object if needed, or rely on ABI structure
-            // ABI returns (uint, uint), viem returns [uint, uint] or object depending on config.
-            // Assuming array: [reserveUserToken, reserveValidatorToken]
-            const formattedData = data ? {
-                reserveUserToken: (data as readonly [bigint, bigint])[0],
-                reserveValidatorToken: (data as readonly [bigint, bigint])[1],
+
+            const arcPool = useReadContracts({
+                contracts: [
+                    {
+                        address: arcHubAddress,
+                        abi: HUB_AMM_ABI,
+                        functionName: 'tokenReserves',
+                        args: [userToken],
+                    },
+                    {
+                        address: arcHubAddress,
+                        abi: HUB_AMM_ABI,
+                        functionName: 'pathReserves',
+                        args: [userToken],
+                    },
+                ],
+                query: {
+                    enabled: !isTempoChain && arcHubAddress !== ZERO_ADDRESS && !!userToken,
+                }
+            });
+
+            if (isTempoChain) {
+                const formattedData = tempoPool.data ? {
+                    reserveUserToken: (tempoPool.data as readonly [bigint, bigint])[0],
+                    reserveValidatorToken: (tempoPool.data as readonly [bigint, bigint])[1],
+                } : undefined;
+
+                return { data: formattedData, ...tempoPool };
+            }
+
+            const arcData = arcPool.data ? {
+                reserveUserToken: (arcPool.data[0]?.result as bigint | undefined) ?? 0n,
+                reserveValidatorToken: (arcPool.data[1]?.result as bigint | undefined) ?? 0n,
             } : undefined;
 
-            return { data: formattedData, ...rest };
+            return {
+                data: arcData,
+                isLoading: arcPool.isLoading,
+                error: arcPool.error,
+                refetch: arcPool.refetch,
+            };
         },
         useLiquidityBalance: ({ address, userToken, validatorToken }: { address?: `0x${string}`; userToken: `0x${string}`; validatorToken: `0x${string}` }) => {
              const chainId = useChainId();
+             const isTempoChain = isTempoNativeChain(chainId);
+             const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
+
              return useReadContract({
-                address: getFeeManagerAddressForChain(chainId),
-                abi: FEE_AMM_ABI,
+                address: isTempoChain ? getFeeManagerAddressForChain(chainId) : arcHubAddress,
+                abi: isTempoChain ? FEE_AMM_ABI : HUB_AMM_ABI,
                 functionName: 'liquidityOf',
-                args: address ? [userToken, validatorToken, address] : undefined,
+                args: address
+                    ? (isTempoChain ? [userToken, validatorToken, address] : [userToken, address])
+                    : undefined,
                 query: {
-                    enabled: !!address && !!userToken && !!validatorToken,
+                    enabled: !!address && !!userToken && !!validatorToken && (isTempoChain || arcHubAddress !== ZERO_ADDRESS),
                     refetchInterval: 10000,
                 }
             });

@@ -4,7 +4,7 @@ import { TransactionsExplorer } from '@/components/transactions/TransactionsExpl
 
 export default function TransactionsPage() {
   return (
-    <div className="flex flex-col items-center px-6 py-10 md:py-14">
+    <div className="flex flex-col items-center px-6 py-5 md:py-7">
       <div className="w-full max-w-5xl">
         <TransactionsExplorer />
       </div>

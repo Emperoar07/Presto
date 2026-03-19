@@ -41,7 +41,7 @@ export default function AnalyticsPage() {
 
   if (!isTempoChain) {
     return (
-      <main className="flex flex-col items-center px-4 py-10 md:py-14">
+      <main className="flex flex-col items-center px-4 py-5 md:py-7">
         <div className="w-full max-w-3xl rounded-2xl glass-panel p-8 text-center shadow-xl">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Analytics</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -67,7 +67,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <main className="flex flex-col items-center px-4 py-10 md:py-14">
+    <main className="flex flex-col items-center px-4 py-5 md:py-7">
       <div className="w-full max-w-4xl flex flex-col gap-6 animate-slide-up">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Analytics</h1>

@@ -140,7 +140,7 @@ export function ManageFeeLiquidity({
         address,
         userToken as `0x${string}`,
         validatorToken as `0x${string}`,
-        parseUnits(amount, userTokenDecimals),
+        parseUnits(amount, isTempoChain ? validatorTokenDecimals : userTokenDecimals),
         (stage: 'approving' | 'adding') => {
           if (stage === 'approving') {
             setIsApproving(true);

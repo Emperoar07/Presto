@@ -31,7 +31,7 @@ function LiquidityLoadingSkeleton() {
 
 export default function LiquidityPage() {
   return (
-    <main className="flex flex-col items-center px-4 py-10 md:py-14">
+    <main className="flex flex-col items-center px-4 py-5 md:py-7">
       <div className="w-full max-w-6xl animate-slide-up">
         <LiquidityCard />
       </div>

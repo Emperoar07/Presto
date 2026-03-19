@@ -5,7 +5,7 @@ import { SwapCardEnhanced } from '@/components/swap/SwapCardEnhanced';
 
 export default function SwapPage() {
   return (
-    <main className="flex flex-col items-center px-4 py-10 md:py-14">
+    <main className="flex flex-col items-center px-4 py-5 md:py-7">
       <div className="w-full max-w-[480px] space-y-5 animate-slide-up">
         <SwapCardEnhanced />
 

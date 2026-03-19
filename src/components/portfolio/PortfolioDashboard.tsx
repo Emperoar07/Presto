@@ -238,7 +238,7 @@ export function PortfolioDashboard() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-5 md:py-7">
       <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="flex flex-col justify-center gap-4 rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:col-span-2">
           <div className="flex items-center justify-between">

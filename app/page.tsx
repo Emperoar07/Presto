@@ -16,12 +16,8 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-2">
-              <div className={`w-7 h-7 bg-brand rounded-twelve flex items-center justify-center ${isDark ? 'neon-glow-dark' : 'neon-glow-light'}`}>
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" />
-                </svg>
-              </div>
-              <span className="text-xl font-extrabold tracking-tight">Presto<span className="text-brand">DEX</span></span>
+              <span className="material-symbols-outlined text-3xl text-primary">toll</span>
+              <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">PrestoDEX</span>
             </div>
             <div className={`hidden md:flex items-center space-x-6 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
               <Link href="/swap" className="hover:text-brand transition-colors">Swap</Link>
