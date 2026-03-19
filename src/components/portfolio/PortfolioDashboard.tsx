@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAccount, useChainId, usePublicClient } from 'wagmi';
+import { formatUnits, parseAbi } from 'viem';
 import Link from 'next/link';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
 import { getExplorerTxUrl } from '@/lib/explorer';
 import { Hooks } from '@/lib/tempo';
-import { getContractAddresses, isArcChain, ZERO_ADDRESS } from '@/config/contracts';
+import { getContractAddresses, getFeeManagerAddress, HUB_AMM_ABI, isArcChain, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
 import { getTokenBalance } from '@/lib/tempoClient';
 
 const TOKEN_COLORS = [
@@ -17,6 +18,11 @@ const TOKEN_COLORS = [
   'bg-orange-500',
   'bg-pink-500',
 ];
+
+const TEMPO_LIQUIDITY_ABI = parseAbi([
+  'function getPool(address userToken, address validatorToken) external view returns (uint128 reserveUserToken, uint128 reserveValidatorToken)',
+  'function liquidityOf(address userToken, address validatorToken, address provider) external view returns (uint256)',
+]);
 
 const isStableLikeToken = (symbol: string) => {
   const upper = symbol.toUpperCase();
@@ -124,6 +130,13 @@ function LpPositionRow({
   );
 }
 
+type LpPositionSnapshot = {
+  tokenAddress: string;
+  pairLabel: string;
+  lpBalance: number;
+  estimatedValue: number;
+};
+
 function LpPositionsView({
   chainId,
   tokens,
@@ -199,7 +212,9 @@ export function PortfolioDashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('tokens');
   const [mounted, setMounted] = useState(false);
   const [walletBalances, setWalletBalances] = useState<Record<string, string>>({});
+  const [liquiditySnapshots, setLiquiditySnapshots] = useState<LpPositionSnapshot[]>([]);
   const stableTokens = useMemo(() => tokens.filter((token) => isStableLikeToken(token.symbol)), [tokens]);
+  const hubToken = useMemo(() => getHubToken(chainId), [chainId]);
 
   useEffect(() => {
     setMounted(true);
@@ -243,6 +258,118 @@ export function PortfolioDashboard() {
     };
   }, [address, publicClient, tokens]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchLiquiditySnapshots = async () => {
+      if (!publicClient || !address || !hubToken) {
+        if (!cancelled) setLiquiditySnapshots([]);
+        return;
+      }
+
+      try {
+        const nextSnapshots = await Promise.all(
+          tokens
+            .filter((token) => !isHubToken(token, chainId))
+            .map(async (token) => {
+              if (isTempoNativeChain(chainId)) {
+                const [liquidityRaw, poolData] = await Promise.all([
+                  publicClient.readContract({
+                    address: getFeeManagerAddress(chainId),
+                    abi: TEMPO_LIQUIDITY_ABI,
+                    functionName: 'liquidityOf',
+                    args: [token.address, hubToken.address, address],
+                  }) as Promise<bigint>,
+                  publicClient.readContract({
+                    address: getFeeManagerAddress(chainId),
+                    abi: TEMPO_LIQUIDITY_ABI,
+                    functionName: 'getPool',
+                    args: [token.address, hubToken.address],
+                  }) as Promise<readonly [bigint, bigint]>,
+                ]);
+
+                const lpBalance = Number(formatUnits(liquidityRaw, 18));
+                if (!Number.isFinite(lpBalance) || lpBalance <= 0) return null;
+
+                const reserveUser = Number(formatUnits(poolData[0], token.decimals));
+                const reserveHub = Number(formatUnits(poolData[1], hubToken.decimals));
+                const estimatedTotalShares = poolData[1] > 0n ? Number(formatUnits(poolData[1] * 2n, 18)) : 0;
+                const shareRatio = estimatedTotalShares > 0 ? lpBalance / estimatedTotalShares : 0;
+                const estimatedValue = shareRatio > 0 ? (reserveUser + reserveHub) * shareRatio : 0;
+
+                return {
+                  tokenAddress: token.address,
+                  pairLabel: `${token.symbol} / ${hubToken.symbol}`,
+                  lpBalance,
+                  estimatedValue,
+                } satisfies LpPositionSnapshot;
+              }
+
+              const [liquidityRaw, reserveUserRaw, reserveHubRaw, totalSharesRaw] = await Promise.all([
+                publicClient.readContract({
+                  address: getContractAddresses(chainId).HUB_AMM_ADDRESS,
+                  abi: HUB_AMM_ABI,
+                  functionName: 'liquidityOf',
+                  args: [token.address, address],
+                }) as Promise<bigint>,
+                publicClient.readContract({
+                  address: getContractAddresses(chainId).HUB_AMM_ADDRESS,
+                  abi: HUB_AMM_ABI,
+                  functionName: 'tokenReserves',
+                  args: [token.address],
+                }) as Promise<bigint>,
+                publicClient.readContract({
+                  address: getContractAddresses(chainId).HUB_AMM_ADDRESS,
+                  abi: HUB_AMM_ABI,
+                  functionName: 'pathReserves',
+                  args: [token.address],
+                }) as Promise<bigint>,
+                publicClient.readContract({
+                  address: getContractAddresses(chainId).HUB_AMM_ADDRESS,
+                  abi: HUB_AMM_ABI,
+                  functionName: 'totalShares',
+                  args: [token.address],
+                }) as Promise<bigint>,
+              ]);
+
+              const lpBalance = Number(formatUnits(liquidityRaw, 18));
+              if (!Number.isFinite(lpBalance) || lpBalance <= 0) return null;
+
+              const reserveUser = Number(formatUnits(reserveUserRaw, token.decimals));
+              const reserveHub = Number(formatUnits(reserveHubRaw, hubToken.decimals));
+              const totalShares = Number(formatUnits(totalSharesRaw, 18));
+              const shareRatio = totalShares > 0 ? lpBalance / totalShares : 0;
+              const estimatedValue = shareRatio > 0 ? (reserveUser + reserveHub) * shareRatio : 0;
+
+              return {
+                tokenAddress: token.address,
+                pairLabel: `${token.symbol} / ${hubToken.symbol}`,
+                lpBalance,
+                estimatedValue,
+              } satisfies LpPositionSnapshot;
+            })
+        );
+
+        if (!cancelled) {
+          setLiquiditySnapshots(nextSnapshots.filter((item): item is LpPositionSnapshot => !!item));
+        }
+      } catch (error) {
+        console.error('Failed to fetch liquidity snapshots', error);
+        if (!cancelled) {
+          setLiquiditySnapshots([]);
+        }
+      }
+    };
+
+    fetchLiquiditySnapshots();
+    const intervalId = setInterval(fetchLiquiditySnapshots, 12000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [address, chainId, hubToken, publicClient, tokens]);
+
   const tabs: { id: TabId; label: string; icon: string }[] = [
     { id: 'tokens', label: 'Tokens', icon: 'token' },
     { id: 'lp', label: 'LP Positions', icon: 'water_drop' },
@@ -256,12 +383,20 @@ export function PortfolioDashboard() {
     }, 0);
   }, [stableTokens, walletBalances]);
 
+  const totalLiquidityValue = useMemo(() => {
+    return liquiditySnapshots.reduce((sum, snapshot) => sum + snapshot.estimatedValue, 0);
+  }, [liquiditySnapshots]);
+
+  const portfolioTotalValue = useMemo(() => {
+    return totalStableValue + totalLiquidityValue;
+  }, [totalLiquidityValue, totalStableValue]);
+
   const totalStableValueDisplay = useMemo(() => {
-    return totalStableValue.toLocaleString('en-US', {
+    return portfolioTotalValue.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
-  }, [totalStableValue]);
+  }, [portfolioTotalValue]);
 
   if (!mounted) return null;
 
@@ -298,7 +433,7 @@ export function PortfolioDashboard() {
             <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">total value</span>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {tokens.length} assets tracked on the connected network.
+            {tokens.length} assets tracked plus ${totalLiquidityValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} in provided liquidity.
           </p>
           <div className="mt-2 flex gap-2">
             <Link
@@ -372,7 +507,35 @@ export function PortfolioDashboard() {
           )}
 
           {activeTab === 'lp' && (
-            <LpPositionsView chainId={chainId} tokens={tokens} walletAddress={address} />
+            <div className="space-y-4">
+              <LpPositionsView chainId={chainId} tokens={tokens} walletAddress={address} />
+              {liquiditySnapshots.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Liquidity Value</h3>
+                    <span className="text-sm font-semibold text-primary">
+                      ${totalLiquidityValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {liquiditySnapshots.map((snapshot) => (
+                      <div
+                        key={snapshot.tokenAddress}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/40"
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{snapshot.pairLabel}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{snapshot.lpBalance.toFixed(4)} LP</p>
+                        </div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                          ${snapshot.estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
         </div>

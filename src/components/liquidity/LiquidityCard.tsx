@@ -24,6 +24,52 @@ const ERC20_ALLOWANCE_ABI = parseAbi([
   'function balanceOf(address owner) external view returns (uint256)',
 ]);
 
+function ProvidedLiquidityRow({
+  token,
+  hubToken,
+  walletAddress,
+  isActive,
+  onSelect,
+}: {
+  token: Token;
+  hubToken: Token;
+  walletAddress?: `0x${string}`;
+  isActive: boolean;
+  onSelect: (token: Token) => void;
+}) {
+  const { data: liquidity } = (Hooks.amm.useLiquidityBalance
+    ? Hooks.amm.useLiquidityBalance({
+        address: walletAddress,
+        userToken: token.address as `0x${string}`,
+        validatorToken: hubToken.address as `0x${string}`,
+      })
+    : { data: null }) as { data: bigint | null };
+
+  const formattedBalance = liquidity ? Number(formatUnits(liquidity, 18)) : 0;
+
+  if (formattedBalance <= 0) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(token)}
+      className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all ${
+        isActive
+          ? 'border-primary/30 bg-primary/10'
+          : 'border-slate-200 bg-white/75 hover:border-primary/20 dark:border-white/10 dark:bg-white/[0.04]'
+      }`}
+    >
+      <div>
+        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          {token.symbol} / {hubToken.symbol}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Provided liquidity</p>
+      </div>
+      <p className="text-sm font-bold text-slate-900 dark:text-white">{formattedBalance.toFixed(4)} LP</p>
+    </button>
+  );
+}
+
 export function LiquidityCard() {
   const chainId = useChainId();
   const isTempoChain = isTempoNativeChain(chainId);
@@ -289,6 +335,35 @@ export function LiquidityCard() {
                 </button>
               </div>
             </div>
+
+            {isConnected && address && (
+              <div className="mb-6 rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Your Provided Pairs
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      Select any pair where you currently hold LP shares.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-3">
+                  {tokens
+                    .filter((token) => !isHubToken(token, chainId))
+                    .map((token) => (
+                      <ProvidedLiquidityRow
+                        key={token.address}
+                        token={token}
+                        hubToken={pathToken}
+                        walletAddress={address}
+                        isActive={selectedToken.address.toLowerCase() === token.address.toLowerCase()}
+                        onSelect={setSelectedToken}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
 
             <div className={`grid gap-5 ${isTempoChain ? 'xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.72fr)]' : 'grid-cols-1'}`}>
               <ManageFeeLiquidity
