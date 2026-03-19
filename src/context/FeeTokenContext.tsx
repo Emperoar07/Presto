@@ -3,10 +3,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useChainId } from 'wagmi';
 import { getTokens, Token } from '@/config/tokens';
+import { isArcChain } from '@/config/contracts';
 
 interface FeeTokenContextType {
   feeToken: Token | undefined;
   setFeeToken: (token: Token) => void;
+  /** Whether the current chain has a single gas token (no fee token choice) */
+  isSingleGasToken: boolean;
 }
 
 const FeeTokenContext = createContext<FeeTokenContextType | undefined>(undefined);
@@ -14,17 +17,24 @@ const FeeTokenContext = createContext<FeeTokenContextType | undefined>(undefined
 export function FeeTokenProvider({ children }: { children: React.ReactNode }) {
   const chainId = useChainId();
   const tokens = getTokens(chainId);
-  // Default to pathUSD (usually first or specific symbol)
   const [feeToken, setFeeToken] = useState<Token | undefined>(undefined);
+  // Arc uses USDC as native gas — no fee token selector needed
+  const isSingleGasToken = isArcChain(chainId);
 
   // Initialize or update default if chain changes
   useEffect(() => {
-    const defaultToken = tokens.find(t => t.symbol === 'pathUSD') || tokens[0];
-    setFeeToken(defaultToken);
+    if (isArcChain(chainId)) {
+      // Arc: default to USDC (always first / only hub token)
+      const usdcToken = tokens.find(t => t.symbol === 'USDC') || tokens[0];
+      setFeeToken(usdcToken);
+    } else {
+      const defaultToken = tokens.find(t => t.symbol === 'pathUSD') || tokens[0];
+      setFeeToken(defaultToken);
+    }
   }, [chainId, tokens]);
 
   return (
-    <FeeTokenContext.Provider value={{ feeToken, setFeeToken }}>
+    <FeeTokenContext.Provider value={{ feeToken, setFeeToken, isSingleGasToken }}>
       {children}
     </FeeTokenContext.Provider>
   );

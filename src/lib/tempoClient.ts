@@ -1,16 +1,11 @@
 import { formatUnits, parseAbi, type WalletClient, type PublicClient, maxUint256 } from 'viem';
 import { writeContractWithRetry } from '@/lib/txRetry';
 import { readContractWithFallback } from '@/lib/rpc';
+import { getContractAddresses, getDexAddress, getFeeManagerAddress, ZERO_ADDRESS } from '@/config/contracts';
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-
-const DEFAULT_DEX_ADDRESS = '0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A';
-const TEMPO_PRECOMPILE_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000';
-const FEE_MANAGER_ADDRESS = '0xfeec000000000000000000000000000000000000';
 const TEMPO_PATH_USD = '0x20c0000000000000000000000000000000000000';
 
-export const getDexAddressForChain = (chainId?: number) =>
-  chainId === 42431 ? TEMPO_PRECOMPILE_DEX_ADDRESS : DEFAULT_DEX_ADDRESS;
+export const getDexAddressForChain = (chainId?: number) => getDexAddress(chainId);
 
 type ChainAware = { chain?: { id?: number } } | null | undefined;
 
@@ -661,8 +656,8 @@ export async function addFeeLiquidity(
 
   // Use different contracts and ABIs based on chain
   const targetAddress = isTempoChain
-    ? FEE_MANAGER_ADDRESS
-    : DEFAULT_DEX_ADDRESS;
+    ? getFeeManagerAddress(resolvedChainId)
+    : getContractAddresses(resolvedChainId).HUB_AMM_ADDRESS;
 
   onStage?.('approving');
   if (validatorToken !== ZERO_ADDRESS) {

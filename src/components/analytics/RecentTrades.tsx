@@ -19,16 +19,16 @@ export function RecentTrades({ pairAddress, tokenA, tokenB }: RecentTradesProps)
     const listHeight = Math.min(360, trades.length * rowHeight);
 
     if (isLoading && trades.length === 0) {
-        return <div className="p-6 text-center text-zinc-500">Loading trades...</div>;
+        return <div className="p-6 text-center text-slate-500 dark:text-slate-400">Loading trades...</div>;
     }
 
     if (trades.length === 0) {
-        return <div className="p-6 text-center text-zinc-500">No trades yet.</div>;
+        return <div className="p-6 text-center text-slate-500 dark:text-slate-400">No trades yet.</div>;
     }
 
     return (
         <div>
-            <div className="grid grid-cols-5 gap-2 px-4 py-3 text-xs text-zinc-500 uppercase bg-zinc-50 dark:bg-zinc-900/50">
+            <div className="grid grid-cols-5 gap-2 px-4 py-3 text-xs text-slate-500 dark:text-slate-400 uppercase token-input-bg">
                 <span>Type</span>
                 <span>Price ({tokenB.symbol})</span>
                 <span>Amount ({tokenA.symbol})</span>
@@ -41,7 +41,7 @@ export function RecentTrades({ pairAddress, tokenA, tokenB }: RecentTradesProps)
                 rowHeight={rowHeight}
                 keyExtractor={(trade) => `${trade.hash}-${trade.blockNumber}`}
                 renderRow={(trade) => (
-                    <div className="grid grid-cols-5 gap-2 px-4 py-3 text-sm border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <div className="grid grid-cols-5 gap-2 px-4 py-3 text-sm border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                         <span className={`font-medium ${trade.type === 'Buy' ? 'text-green-500' : 'text-red-500'}`}>
                             {trade.type}
                         </span>

@@ -35,6 +35,11 @@ module.exports = {
       url: "https://rpc.moderato.tempo.xyz",
       chainId: 42431,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+    arc: {
+      url: "https://rpc.testnet.arc.network",
+      chainId: 5042002,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     }
   },
   paths: {

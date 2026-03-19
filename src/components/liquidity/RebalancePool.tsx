@@ -66,22 +66,22 @@ export function RebalancePool({
   };
 
   return (
-    <div className="p-4 rounded-xl bg-black/20 border border-white/5 text-sm space-y-3 mt-4">
+    <div className="p-4 rounded-xl token-input-bg border border-slate-200 dark:border-slate-800 text-sm space-y-3 mt-4">
         <div className="flex justify-between items-center">
-             <h3 className="font-bold text-white">Pool Rebalancing</h3>
-             <span className="text-xs text-[#00F3FF]">Restore Reserves</span>
+             <h3 className="font-bold text-slate-900 dark:text-white">Pool Rebalancing</h3>
+             <span className="text-xs text-primary">Restore Reserves</span>
         </div>
       
-      <div className="flex justify-between text-xs text-zinc-300">
+      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
           <span>User Reserves:</span>
           <span>{pool ? formatUnits(pool.reserveUserToken, userTokenDecimals) : '0'}</span>
       </div>
-      <div className="flex justify-between text-xs text-zinc-300">
+      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
           <span>Validator Reserves:</span>
           <span>{pool ? formatUnits(pool.reserveValidatorToken, validatorTokenDecimals) : '0'}</span>
       </div>
       {!canRebalance && (
-        <div className="text-[11px] text-zinc-500">
+        <div className="text-[11px] text-slate-500 dark:text-slate-400">
           Enter an amount to swap user reserves back into balance.
         </div>
       )}
@@ -92,14 +92,14 @@ export function RebalancePool({
           value={amountOut}
           onChange={(e) => setAmountOut(e.target.value)}
           placeholder="Amount out"
-          className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-[#00F3FF]/50"
+          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 token-input-bg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-primary/50"
         />
         <button
           type="button"
           onClick={() => {
             if (pool) setAmountOut(formatUnits(pool.reserveUserToken, userTokenDecimals));
           }}
-          className="px-2 py-2 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-white/30 text-xs"
+          className="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/30 text-xs"
         >
           Max
         </button>
@@ -109,7 +109,7 @@ export function RebalancePool({
         type="button" 
         onClick={handleRebalance}
         disabled={!canRebalance || rebalance.isPending}
-        className="w-full py-2 bg-[#BC13FE]/20 hover:bg-[#BC13FE]/30 text-[#BC13FE] border border-[#BC13FE]/50 font-bold rounded-lg transition-all disabled:opacity-50 text-xs"
+        className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 font-bold rounded-lg transition-all disabled:opacity-50 text-xs"
       >
         {rebalance.isPending ? 'Rebalancing...' : 'Rebalance Pool'}
       </button>

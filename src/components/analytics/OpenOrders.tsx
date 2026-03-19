@@ -97,31 +97,31 @@ export const OpenOrders = () => {
     }, [orders, tokens]);
 
     return (
-        <div className="w-full max-w-4xl p-6 rounded-2xl shadow-2xl border border-white/10 bg-black/40 backdrop-blur-md mt-6">
+        <div className="w-full max-w-4xl p-6 glass-panel rounded-2xl shadow-xl mt-6">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Open Orders</h2>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Open Orders</h2>
                 <button 
                     onClick={fetchOrders}
-                    className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm"
+                    className="px-3 py-1 rounded-lg token-input-bg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-sm text-slate-700 dark:text-slate-300"
                 >
                     Refresh
                 </button>
             </div>
 
             {loading && orders.length === 0 ? (
-                <div className="text-zinc-400">Loading...</div>
+                <div className="text-slate-500 dark:text-slate-400">Loading...</div>
             ) : orders.length === 0 ? (
-                <div className="text-zinc-400">No open orders</div>
+                <div className="text-slate-500 dark:text-slate-400">No open orders</div>
             ) : (
                 <div>
-                    <div className="grid grid-cols-5 gap-2 px-4 py-2 text-zinc-500 uppercase font-bold text-xs">
+                    <div className="grid grid-cols-5 gap-2 px-4 py-2 text-slate-500 dark:text-slate-400 uppercase font-bold text-xs">
                         <span>Token</span>
                         <span>Type</span>
                         <span>Tick</span>
                         <span>Amount</span>
                         <span>Action</span>
                     </div>
-                    <div className="border-t border-white/5">
+                    <div className="border-t border-slate-200 dark:border-slate-800">
                         <VirtualList
                             items={displayOrders}
                             height={listHeight}
@@ -130,8 +130,8 @@ export const OpenOrders = () => {
                             renderRow={(item) => {
                                 const order = item.order;
                                 return (
-                                    <div className="grid grid-cols-5 gap-2 px-4 py-2 text-sm text-zinc-300 items-center hover:bg-white/5">
-                                        <span className="font-medium text-white">
+                                    <div className="grid grid-cols-5 gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 items-center hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                        <span className="font-medium text-slate-900 dark:text-white">
                                             {item.tokenSymbol}
                                         </span>
                                         <span>

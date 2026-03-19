@@ -1,6 +1,8 @@
 import { hardhat, baseSepolia } from 'wagmi/chains';
 import { parseAbi } from 'viem';
 
+const DEFAULT_CHAIN_ID = 5042002;
+
 // ============================================================================
 // ABIs - Contract interface definitions (do not modify during deployment)
 // ============================================================================
@@ -95,6 +97,11 @@ export const TEMPO_FEE_MANAGER_ADDRESS = '0xfeec00000000000000000000000000000000
 export const isTempoNativeChain = (chainId?: number): boolean => chainId === 42431;
 
 /**
+ * Check if chain is Arc network
+ */
+export const isArcChain = (chainId?: number): boolean => chainId === 5042002;
+
+/**
  * Get the DEX address for a specific chain
  */
 export const getDexAddress = (chainId?: number): `0x${string}` => {
@@ -151,6 +158,13 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
     STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
     HUB_AMM_ADDRESS: "0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A",
     WETH_ADDRESS: ZERO_ADDRESS
+  },
+  [5042002]: { // Arc Testnet — HUB_AMM_ADDRESS set after deployment
+    ROUTER_ADDRESS: ZERO_ADDRESS,
+    FACTORY_ADDRESS: ZERO_ADDRESS,
+    STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
+    HUB_AMM_ADDRESS: "0x5794a8284A29493871Fbfa3c4f343D42001424D6",
+    WETH_ADDRESS: ZERO_ADDRESS
   }
 };
 
@@ -172,8 +186,8 @@ const getEnvAddress = (key: string): `0x${string}` | undefined => {
  * - NEXT_PUBLIC_HUB_AMM_ADDRESS_<CHAIN_ID> (chain-specific override)
  */
 export const getContractAddresses = (chainId?: number): ContractAddresses => {
-  const id = chainId || hardhat.id;
-  const defaults = DEFAULT_CHAIN_CONTRACTS[id] || DEFAULT_CHAIN_CONTRACTS[hardhat.id];
+  const id = chainId || DEFAULT_CHAIN_ID;
+  const defaults = DEFAULT_CHAIN_CONTRACTS[id] || DEFAULT_CHAIN_CONTRACTS[DEFAULT_CHAIN_ID];
 
   // Check for environment variable overrides
   const hubAmmOverride = getEnvAddress(`NEXT_PUBLIC_HUB_AMM_ADDRESS_${id}`)

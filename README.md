@@ -1,65 +1,49 @@
-# PrestoDEX (Tempo Mini Dex)
+# PrestoDEX
 
-A high-performance decentralized exchange built on the Tempo blockchain featuring a Hub-and-Spoke AMM model with pathUSD as the central routing token.
+A decentralized exchange frontend for Tempo and Arc testnets, with Tempo-native fee routing and an Arc deployment path for stable liquidity.
 
 ## Features
 
-- **Instant Swaps** - Swap tokens with 0.3% fee using automated market maker
-- **Hub-and-Spoke AMM** - All tokens pair with pathUSD for efficient routing
-- **Liquidity Provision** - Add/remove liquidity and earn trading fees
-- **Multi-hop Routing** - Automatic routing through pathUSD for token-to-token swaps
-- **Real-time Analytics** - Track pool metrics, volume, and TVL
-- **Mobile Responsive** - Full mobile support with hamburger navigation
-- **GPU-Optimized UI** - Smooth animations with hardware acceleration
+- Instant swaps
+- Hub-and-spoke routing on Tempo
+- Stable liquidity management on Tempo and Arc
+- Chain-aware analytics and activity views
+- Mobile-responsive frontend
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16, React 18, TailwindCSS
-- **Blockchain**: Tempo Network (Chain ID: 42431)
-- **Smart Contracts**: Solidity 0.8.20, Hardhat
-- **Wallet**: RainbowKit, wagmi, viem
-- **Charts**: Recharts (lazy-loaded)
+- Frontend: Next.js 16, React 18, Tailwind CSS
+- Blockchain: Tempo Testnet, Arc Testnet, Base Sepolia, Hardhat
+- Smart Contracts: Solidity 0.8.20, Hardhat
+- Wallet: RainbowKit, wagmi, viem
+- Charts: Recharts
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
+- npm
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/Emperoar07/tempo-mini-dapp.git
-cd tempo-mini-dapp
-
-# Install dependencies
+git clone <your-repo-url>
+cd tempo-mini-dex
 npm install
-
-# Copy environment file
 cp .env.example .env
-# Edit .env with your configuration
-
-# Run development server
 npm run dev
 ```
 
 ### Environment Variables
 
-Key environment variables (see `.env.example` for full list):
+Key environment variables:
 
 ```bash
-# Production mode (shows "Live" badge instead of "Testnet")
 NEXT_PUBLIC_PRODUCTION_MODE=false
-
-# Contract address overrides
 NEXT_PUBLIC_HUB_AMM_ADDRESS=0x...
-
-# WalletConnect Project ID
+NEXT_PUBLIC_HUB_AMM_ADDRESS_5042002=0x...
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
-
-# Private key for deployment (never commit!)
 PRIVATE_KEY=your_private_key
 ```
 
@@ -67,126 +51,56 @@ PRIVATE_KEY=your_private_key
 
 ```bash
 # Development
-npm run dev          # Start development server
+npm run dev
 
-# Building
-npm run build        # Build for production
-npm start            # Start production server
+# Build
+npm run build
+npm start
 
 # Testing
-npm test             # Run all tests (74 tests)
-npm run test:coverage # Run tests with coverage
+npm test
+npm run test:coverage
 
-# Smart Contracts
-npm run compile      # Compile Solidity contracts
-npm run deploy:local # Deploy to local Hardhat network
-npm run deploy:hub   # Deploy Hub AMM to local network
+# Contracts
+npm run compile
+npm run deploy:local
+npm run deploy:hub
+npx hardhat run scripts/deploy-arc.ts --network arc
+
+# Indexing
+npm run indexer
 ```
 
 ## Testing
 
-The project includes comprehensive test coverage:
-
-- **44 Unit Tests** - Core AMM functionality
-- **30 Security Tests** - Reentrancy, access control, slippage protection
-
 ```bash
-# Run all tests
 npm test
-
-# Expected output: 74 passing
 ```
 
-## Smart Contracts
-
-### TempoHubAMM
-
-The main AMM contract implementing:
-
-- **Hub-and-Spoke Model**: All tokens pair with pathUSD
-- **Constant Product Formula**: x * y = k with 0.3% fee
-- **First LP Protection**: Minimum liquidity locked to prevent inflation attacks
-- **Pausable**: Emergency pause functionality for owner
-- **Slippage Protection**: minAmountOut parameter on all swaps
-- **Deadline Protection**: Transactions expire after deadline
-
-### Security Features
-
-- **ReentrancyGuard**: Prevents reentrancy attacks
-- **Ownable**: Access control for admin functions
-- **Pausable**: Emergency stop mechanism
-- **Token Whitelist** (StableVault): Only approved tokens can be swapped
-- **Exact Approvals**: Uses exact amounts instead of unlimited approvals
+Expected output: all tests passing.
 
 ## Architecture
 
+```text
+app/                Next.js app router pages
+src/components/     Shared UI and feature components
+src/config/         Chain, token, and contract configuration
+src/hooks/          Chain-aware React hooks
+src/lib/            RPC, explorer, and contract helpers
+contracts/          Solidity contracts
+scripts/            Deployment and indexing scripts
+data/               Local deployment and analytics snapshots
 ```
-src/
-├── app/                    # Next.js app router pages
-│   ├── swap/              # Swap interface
-│   ├── liquidity/         # Liquidity management
-│   └── analytics/         # Analytics dashboard
-├── components/
-│   ├── common/            # Shared components (Header, Background, Skeleton)
-│   ├── swap/              # Swap-specific components
-│   ├── liquidity/         # Liquidity components
-│   └── analytics/         # Analytics components
-├── lib/
-│   ├── tempo.ts           # Tempo blockchain hooks
-│   ├── tempoClient.ts     # Contract interactions
-│   └── orderbook.ts       # Orderbook utilities
-└── config/
-    └── contracts.ts       # Contract addresses per chain
-
-contracts/
-├── TempoHubAMM.sol        # Main AMM contract
-├── StableVault.sol        # Vault with token whitelist
-└── mocks/                 # Test tokens
-```
-
-## Performance Optimizations
-
-- **GPU-Accelerated Background**: Uses `transform: translateZ(0)` and radial gradients
-- **Dynamic Imports**: Heavy components (Recharts) loaded on demand
-- **Memoized Components**: React.memo for Header and navigation
-- **Loading Skeletons**: Smooth loading states for better UX
-- **Reduced Motion Support**: Respects user preferences
-
-## Production Deployment
-
-1. Set environment variables:
-   ```bash
-   NEXT_PUBLIC_PRODUCTION_MODE=true
-   NEXT_PUBLIC_HUB_AMM_ADDRESS=<deployed_contract>
-   ```
-
-2. Build and deploy:
-   ```bash
-   npm run build
-   npm start
-   ```
-
-3. The header badge will show "Live" with a green pulse indicator.
 
 ## Network Support
 
 | Network | Chain ID | Status |
 |---------|----------|--------|
-| Tempo Moderato | 42431 | Supported |
+| Tempo Testnet | 42431 | Supported |
+| Arc Testnet | 5042002 | Pending deployment |
 | Base Sepolia | 84532 | Supported |
 | Hardhat Local | 31337 | Development |
 
 ## License
 
 MIT
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Run tests: `npm test`
-4. Submit a pull request
-
----
-
-Built on [Tempo](https://tempo.xyz) by | [emperoar007()XB)](https://x.com/emperoar007)

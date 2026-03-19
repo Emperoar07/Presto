@@ -1,91 +1,63 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { TokenModal } from '../common/TokenModal';
-import { Orderbook } from './Orderbook';
-import { Token, getTokens } from '@/config/tokens';
-import { ManageFeeLiquidity } from './ManageFeeLiquidity';
-import { useAccount, useChainId, useWalletClient, usePublicClient } from 'wagmi';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { BaseError, ContractFunctionRevertedError, formatUnits, parseAbi, parseUnits } from 'viem';
+import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
-import { Hooks } from '@/lib/tempo';
-import { getDexAddressForChain, getDexBalancesBatch, placeOrder, getTokenBalancesBatch, toUint128 } from '@/lib/tempoClient';
-import { useFeeToken } from '@/context/FeeTokenContext';
+import { TokenModal } from '../common/TokenModal';
+import { ManageFeeLiquidity } from './ManageFeeLiquidity';
 import { DexAccount } from './DexAccount';
-import type { PublicClient } from 'viem';
+import { Token, getHubToken, getTokens, isHubToken } from '@/config/tokens';
+import { getContractAddresses, isArcChain, isTempoNativeChain, ZERO_ADDRESS as CONTRACT_ZERO_ADDRESS } from '@/config/contracts';
+import { Hooks } from '@/lib/tempo';
+import { getDexAddressForChain, getDexBalancesBatch, getTokenBalancesBatch, placeOrder, toUint128 } from '@/lib/tempoClient';
+import { useFeeToken } from '@/context/FeeTokenContext';
 import { TxToast } from '@/components/common/TxToast';
 import { isUserCancellation } from '@/lib/errorHandling';
+import type { PublicClient } from 'viem';
 
-// Move ABIs outside component to prevent re-creation on every render
-const DEX_PLACE_ABI = parseAbi([
-  'function place(address token, uint128 amount, bool isBid, int16 tick) external returns (uint128 id)',
-]);
-const DEX_PLACE_FLIP_ABI = parseAbi([
-  'function placeFlip(address token, uint128 amount, bool isBid, int16 tick, int16 flipTick) external returns (uint128 id)',
-]);
+const DEX_PLACE_ABI = parseAbi(['function place(address token, uint128 amount, bool isBid, int16 tick) external returns (uint128 id)']);
+const DEX_PLACE_FLIP_ABI = parseAbi(['function placeFlip(address token, uint128 amount, bool isBid, int16 tick, int16 flipTick) external returns (uint128 id)']);
 const ERC20_ALLOWANCE_ABI = parseAbi([
   'function allowance(address owner, address spender) external view returns (uint256)',
   'function balanceOf(address owner) external view returns (uint256)',
 ]);
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export function LiquidityCard() {
-  const showOrderDebug = process.env.NEXT_PUBLIC_DEBUG_ORDERS === 'true';
   const chainId = useChainId();
-  // Memoize tokens to prevent unnecessary re-fetches
+  const isTempoChain = isTempoNativeChain(chainId);
+  const isArcTestnet = isArcChain(chainId);
+  const contractAddresses = getContractAddresses(chainId);
+  const hasHubAmmDeployment = isTempoChain || contractAddresses.HUB_AMM_ADDRESS !== CONTRACT_ZERO_ADDRESS;
+  const supportsLimitOrders = isTempoChain;
   const tokens = useMemo(() => getTokens(chainId), [chainId]);
-  const { address } = useAccount();
-  const { isConnected } = useAccount();
+  const pathToken = getHubToken(chainId) || tokens[0];
+  const [selectedToken, setSelectedToken] = useState<Token>(tokens.find((t) => !isHubToken(t, chainId)) || tokens[1]);
+  const quoteToken = tokens.find((t) => t.id && t.id === selectedToken.quoteTokenId) || pathToken;
+  const [activeTab, setActiveTab] = useState<'fee' | 'order'>(supportsLimitOrders ? 'order' : 'fee');
+  const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const { feeToken } = useFeeToken();
   const walletChainId = (walletClient as { chain?: { id?: number } } | null)?.chain?.id;
   const publicChainId = (publicClient as { chain?: { id?: number } } | null)?.chain?.id;
 
-  const [activeTab, setActiveTab] = useState<'fee' | 'order'>('order');
-
-  // Token State
-  const [selectedToken, setSelectedToken] = useState<Token>(tokens.find(t => t.symbol !== 'pathUSD') || tokens[1]); 
-  const pathToken = tokens.find(t => t.symbol === 'pathUSD') || tokens[0];
-  const quoteToken = tokens.find(t => t.id && t.id === selectedToken.quoteTokenId) || pathToken;
-
-  // Reset tokens on chain change
-  useEffect(() => {
-    const nextToken = tokens.find(t => t.symbol !== 'pathUSD') || tokens[1];
-    setSelectedToken(nextToken);
-  }, [chainId, tokens]);
-
-  // Balances - with debounce and stale request handling
   const [tokenBalance, setTokenBalance] = useState('0.00');
   const [pathBalance, setPathBalance] = useState('0.00');
   const balanceRequestId = useRef(0);
-
-  useEffect(() => {
-    const fetchBalances = async () => {
-      if (!publicClient || !address) return;
-      const currentRequestId = ++balanceRequestId.current;
-
-      const balances = await getTokenBalancesBatch(publicClient, address, [
-        { address: selectedToken.address, decimals: selectedToken.decimals },
-        { address: quoteToken.address, decimals: quoteToken.decimals },
-      ]);
-
-      // Discard stale responses
-      if (currentRequestId !== balanceRequestId.current) return;
-
-      setTokenBalance(balances[selectedToken.address] ?? '0.00');
-      setPathBalance(balances[quoteToken.address] ?? '0.00');
-    };
-
-    // Debounce balance fetches
-    const timer = setTimeout(fetchBalances, 200);
-    return () => clearTimeout(timer);
-  }, [publicClient, address, selectedToken.address, selectedToken.decimals, quoteToken.address, quoteToken.decimals]);
-
-  // FEE LIQUIDITY STATE
   const [lpAmount, setLpAmount] = useState('');
-  
+  const [orderAmount, setOrderAmount] = useState('');
+  const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
+  const [tick, setTick] = useState('0');
+  const [isFlip, setIsFlip] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [depositTokenAddress, setDepositTokenAddress] = useState<string>(quoteToken.address);
+  const [orderDebug, setOrderDebug] = useState<{ message: string; data?: string; params?: Record<string, unknown> } | null>(null);
+  const [dexSpendBalance, setDexSpendBalance] = useState('0');
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+
   const burnLiquidity = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
   const { data: lpBalance } = (Hooks.amm.useLiquidityBalance
     ? Hooks.amm.useLiquidityBalance({
@@ -95,349 +67,257 @@ export function LiquidityCard() {
       })
     : { data: null }) as { data: bigint | null };
 
-  // ORDER LIQUIDITY STATE
-  const [orderAmount, setOrderAmount] = useState('');
-  const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
-  const [tick, setTick] = useState('0');
-  const [isFlip, setIsFlip] = useState(false);
-  const [isOrdering, setIsOrdering] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
-  const [depositTokenAddress, setDepositTokenAddress] = useState<string>(quoteToken.address);
-  const [orderDebug, setOrderDebug] = useState<{
-    message: string;
-    data?: string;
-    params?: Record<string, unknown>;
-  } | null>(null);
-  const [dexSpendBalance, setDexSpendBalance] = useState('0');
-  const [dexBalances, setDexBalances] = useState<Record<string, string>>({});
-
-  // Optimized: Only fetch balances for relevant tokens, with debounce
-  const dexBalanceRequestId = useRef(0);
   useEffect(() => {
-    const fetchRelevantDexBalances = async () => {
+    const nextToken = tokens.find((t) => !isHubToken(t, chainId)) || tokens[1];
+    setSelectedToken(nextToken);
+  }, [chainId, tokens]);
+
+  useEffect(() => {
+    if (!supportsLimitOrders && activeTab === 'order') setActiveTab('fee');
+  }, [activeTab, supportsLimitOrders]);
+
+  useEffect(() => {
+    const fetchBalances = async () => {
       if (!publicClient || !address) return;
-      const currentRequestId = ++dexBalanceRequestId.current;
+      const currentRequestId = ++balanceRequestId.current;
+      const balances = await getTokenBalancesBatch(publicClient, address, [
+        { address: selectedToken.address, decimals: selectedToken.decimals },
+        { address: quoteToken.address, decimals: quoteToken.decimals },
+      ]);
+      if (currentRequestId !== balanceRequestId.current) return;
+      setTokenBalance(balances[selectedToken.address] ?? '0.00');
+      setPathBalance(balances[quoteToken.address] ?? '0.00');
+    };
+    const timer = setTimeout(fetchBalances, 200);
+    return () => clearTimeout(timer);
+  }, [address, publicClient, quoteToken.address, quoteToken.decimals, selectedToken.address, selectedToken.decimals]);
 
-      // Only fetch balances for tokens we actually need
-      const relevantTokens = [selectedToken, quoteToken].filter(
-        (token, index, self) => self.findIndex(t => t.address === token.address) === index
-      );
-
+  useEffect(() => {
+    const fetchDexBalances = async () => {
+      if (!publicClient || !address) return;
+      const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
       const dexMap = await getDexBalancesBatch(
         publicClient,
         address,
-        relevantTokens.map((token) => ({ address: token.address, decimals: token.decimals })),
+        [{ address: spendToken.address, decimals: spendToken.decimals }],
         chainId
       );
-
-      // Discard stale responses
-      if (currentRequestId !== dexBalanceRequestId.current) return;
-
-      const formattedMap: Record<string, string> = {};
-      Object.entries(dexMap).forEach(([key, value]) => {
-        formattedMap[key] = value.formatted;
-      });
-      setDexBalances(prev => ({ ...prev, ...formattedMap }));
-      const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
       setDexSpendBalance(dexMap[spendToken.address]?.formatted ?? '0.00');
     };
-
-    // Debounce DEX balance fetches
-    const timer = setTimeout(fetchRelevantDexBalances, 300);
+    const timer = setTimeout(fetchDexBalances, 250);
     return () => clearTimeout(timer);
-  }, [publicClient, address, isOrdering, chainId, orderType, selectedToken, quoteToken]);
+  }, [address, chainId, orderType, publicClient, quoteToken, selectedToken]);
 
   useEffect(() => {
     const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
     setDepositTokenAddress(spendToken.address);
-  }, [orderType, selectedToken, quoteToken]);
-  
+  }, [orderType, quoteToken, selectedToken]);
+
   const handleRemoveFeeLiquidity = () => {
-      if (!address || !lpAmount) return;
-      burnLiquidity.mutate({
-          userTokenAddress: selectedToken.address,
-          validatorTokenAddress: pathToken.address,
-          liquidityAmount: parseUnits(lpAmount, 18), 
-          to: address,
-          feeToken: feeToken?.address || pathToken.address,
-      });
+    if (!address || !lpAmount) return;
+    burnLiquidity.mutate({
+      userTokenAddress: selectedToken.address,
+      validatorTokenAddress: pathToken.address,
+      liquidityAmount: parseUnits(lpAmount, 18),
+      to: address,
+      feeToken: feeToken?.address || pathToken.address,
+    });
   };
 
   const getRevertReason = (error: unknown) => {
-      if (error instanceof BaseError) {
-          const revertError = error.walk((err) => err instanceof ContractFunctionRevertedError);
-          if (revertError instanceof ContractFunctionRevertedError) {
-              return revertError.shortMessage ?? revertError.message;
-          }
-          return error.shortMessage ?? error.message;
-      }
-      if (error instanceof Error) return error.message;
-      return 'Unknown error';
+    if (error instanceof BaseError) {
+      const revertError = error.walk((err) => err instanceof ContractFunctionRevertedError);
+      if (revertError instanceof ContractFunctionRevertedError) return revertError.shortMessage ?? revertError.message;
+      return error.shortMessage ?? error.message;
+    }
+    if (error instanceof Error) return error.message;
+    return 'Unknown error';
   };
 
   const getRevertData = (error: unknown) => {
-      const anyError = error as { data?: string; cause?: unknown };
-      if (anyError?.data && typeof anyError.data === 'string') return anyError.data;
-      const cause = anyError?.cause as { data?: string; cause?: unknown } | undefined;
-      if (cause?.data && typeof cause.data === 'string') return cause.data;
-      const nested = cause?.cause as { data?: string } | undefined;
-      if (nested?.data && typeof nested.data === 'string') return nested.data;
-      return undefined;
-  };
-
-  const checkCrossedOrder = async (tickVal: number, type: 'buy' | 'sell') => {
-      try {
-          const response = await fetch(`/api/orderbook?token=${selectedToken.address}&depth=1&chainId=${chainId}`);
-          if (!response.ok) return null;
-          const data = (await response.json()) as { bids: { tick: number }[]; asks: { tick: number }[] };
-          const bestBid = data.bids?.[0]?.tick;
-          const bestAsk = data.asks?.[0]?.tick;
-          if (type === 'buy' && typeof bestAsk === 'number' && tickVal >= bestAsk) {
-              return `Buy tick ${tickVal} crosses best ask ${bestAsk}`;
-          }
-          if (type === 'sell' && typeof bestBid === 'number' && tickVal <= bestBid) {
-              return `Sell tick ${tickVal} crosses best bid ${bestBid}`;
-          }
-          return null;
-      } catch {
-          return null;
-      }
+    const anyError = error as { data?: string; cause?: unknown };
+    if (anyError?.data && typeof anyError.data === 'string') return anyError.data;
+    const cause = anyError?.cause as { data?: string; cause?: unknown } | undefined;
+    if (cause?.data && typeof cause.data === 'string') return cause.data;
+    const nested = cause?.cause as { data?: string } | undefined;
+    return nested?.data;
   };
 
   const handlePlaceOrder = async () => {
-      if (!orderAmount || !walletClient || !publicClient || !address) return;
-      if (chainId !== 42431) {
-          toast.error('Orderbook is only supported on Tempo testnet');
-          return;
-      }
-      if (selectedToken.symbol === 'pathUSD') {
-          toast.error('pathUSD cannot be used as the base token for limit orders');
-          return;
-      }
-      if (walletChainId && walletChainId !== chainId) {
-          toast.error('Wrong network selected');
-          return;
-      }
-      if (publicChainId && publicChainId !== chainId) {
-          toast.error('Network mismatch');
-          return;
-      }
-      const amount = parseUnits(orderAmount, selectedToken.decimals);
-      if (amount <= 0n) {
-          toast.error('Amount must be greater than zero');
-          return;
+    if (!orderAmount || !walletClient || !publicClient || !address) return;
+    if (chainId !== 42431) return toast.error('Orderbook is only supported on Tempo testnet');
+    if (isHubToken(selectedToken, chainId)) return toast.error(`${selectedToken.symbol} cannot be used as the base token for limit orders`);
+    if (walletChainId && walletChainId !== chainId) return toast.error('Wrong network selected');
+    if (publicChainId && publicChainId !== chainId) return toast.error('Network mismatch');
+
+    const amount = parseUnits(orderAmount, selectedToken.decimals);
+    if (amount <= 0n) return toast.error('Amount must be greater than zero');
+
+    setIsApproving(false);
+    setIsOrdering(true);
+    setOrderDebug(null);
+
+    try {
+      const tickVal = Number.parseInt(tick, 10) || 0;
+      if (tickVal % 10 !== 0) return toast.error('Tick must be a multiple of 10');
+      if (tickVal < -2000 || tickVal > 2000) return toast.error('Tick must be between -2000 and 2000');
+      const isBid = orderType === 'buy';
+      const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
+      const spendAmount = parseUnits(orderAmount, spendToken.decimals);
+
+      if (spendToken.address !== CONTRACT_ZERO_ADDRESS) {
+        const balance = (await publicClient.readContract({
+          address: spendToken.address as `0x${string}`,
+          abi: ERC20_ALLOWANCE_ABI,
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`],
+        })) as bigint;
+        if (balance < spendAmount) return toast.error('Insufficient wallet balance for this order');
       }
 
+      const flipTick = isFlip ? (isBid ? tickVal + 10 : tickVal - 10) : undefined;
+      const placeArgs = [selectedToken.address, toUint128(amount), isBid, tickVal] as const;
+
+      if (showOrderDebug) {
+        try {
+          if (isFlip && typeof flipTick === 'number') {
+            await publicClient.simulateContract({
+              address: getDexAddressForChain(chainId),
+              abi: DEX_PLACE_FLIP_ABI,
+              functionName: 'placeFlip',
+              args: [...placeArgs, flipTick],
+              account: address as `0x${string}`,
+            });
+          } else {
+            await publicClient.simulateContract({
+              address: getDexAddressForChain(chainId),
+              abi: DEX_PLACE_ABI,
+              functionName: 'place',
+              args: placeArgs,
+              account: address as `0x${string}`,
+            });
+          }
+        } catch (e) {
+          setOrderDebug({
+            message: getRevertReason(e),
+            data: getRevertData(e),
+            params: { token: selectedToken.address, amount: amount.toString(), isBid, tick: tickVal, flipTick },
+          });
+          return toast.error(`Order simulation failed: ${getRevertReason(e)}`);
+        }
+      }
+
+      const hash = await placeOrder(
+        walletClient,
+        publicClient as unknown as PublicClient,
+        address,
+        selectedToken.address,
+        amount,
+        isBid,
+        tickVal,
+        isFlip,
+        (stage) => setIsApproving(stage === 'approving'),
+        chainId,
+        flipTick
+      );
+      toast.custom(() => <TxToast hash={hash} title="Order submitted" />);
+      setOrderAmount('');
+    } catch (e: unknown) {
+      if (!isUserCancellation(e)) {
+        const msg = e instanceof Error ? e.message : 'Order placement failed';
+        toast.error(msg.length > 200 ? `${msg.slice(0, 200)}...` : msg);
+      }
+    } finally {
+      setIsOrdering(false);
       setIsApproving(false);
-      setIsOrdering(true);
-      setOrderDebug(null);
-      try {
-          const tickVal = isNaN(parseInt(tick)) ? 0 : parseInt(tick);
-          if (tickVal % 10 !== 0) {
-              toast.error('Tick must be a multiple of 10');
-              return;
-          }
-          if (tickVal < -2000 || tickVal > 2000) {
-              toast.error('Tick must be between -2000 and 2000');
-              return;
-          }
-          const crossed = await checkCrossedOrder(tickVal, orderType);
-          if (crossed) {
-              toast(crossed, { icon: '⚠️' });
-              setOrderDebug({ message: crossed, params: { tick: tickVal, side: orderType } });
-          }
-          const isBid = orderType === 'buy';
-          const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
-          const tokenToSpend = spendToken.address;
-          const spendAmount = parseUnits(orderAmount, spendToken.decimals);
-          if (tokenToSpend !== ZERO_ADDRESS) {
-              const balance = (await publicClient.readContract({
-                  address: tokenToSpend as `0x${string}`,
-                  abi: ERC20_ALLOWANCE_ABI,
-                  functionName: 'balanceOf',
-                  args: [address as `0x${string}`]
-              })) as bigint;
-              if (balance < spendAmount) {
-                  toast.error('Insufficient wallet balance for this order');
-                  return;
-              }
-          }
-          const flipTick = isFlip ? (isBid ? tickVal + 10 : tickVal - 10) : undefined;
-          if (showOrderDebug) {
-              try {
-                  if (tokenToSpend !== ZERO_ADDRESS) {
-                      const allowance = (await publicClient.readContract({
-                          address: tokenToSpend as `0x${string}`,
-                          abi: ERC20_ALLOWANCE_ABI,
-                          functionName: 'allowance',
-                          args: [address as `0x${string}`, getDexAddressForChain(chainId)],
-                      })) as bigint;
-                      if (allowance < spendAmount) {
-                          const params = {
-                              token: selectedToken.address,
-                              amount: amount.toString(),
-                              isBid,
-                              tick: tickVal,
-                              flipTick,
-                              spendToken: tokenToSpend,
-                              spendAmount: spendAmount.toString(),
-                              dex: getDexAddressForChain(chainId),
-                              allowance: allowance.toString(),
-                          };
-                          setOrderDebug({ message: 'Approval required; skipping simulation', params });
-                      } else if (isFlip) {
-                          if (typeof flipTick !== 'number' || flipTick < -2000 || flipTick > 2000) {
-                              toast.error('Flip tick is out of bounds');
-                              return;
-                          }
-                          await publicClient.simulateContract({
-                              address: getDexAddressForChain(chainId),
-                              abi: DEX_PLACE_FLIP_ABI,
-                              functionName: 'placeFlip',
-                              args: [selectedToken.address, toUint128(amount), isBid, tickVal, flipTick],
-                              account: address as `0x${string}`
-                          });
-                      } else {
-                          await publicClient.simulateContract({
-                              address: getDexAddressForChain(chainId),
-                              abi: DEX_PLACE_ABI,
-                              functionName: 'place',
-                              args: [selectedToken.address, toUint128(amount), isBid, tickVal],
-                              account: address as `0x${string}`
-                          });
-                      }
-                  } else if (isFlip) {
-                      if (typeof flipTick !== 'number' || flipTick < -2000 || flipTick > 2000) {
-                          toast.error('Flip tick is out of bounds');
-                          return;
-                      }
-                      await publicClient.simulateContract({
-                          address: getDexAddressForChain(chainId),
-                          abi: DEX_PLACE_FLIP_ABI,
-                          functionName: 'placeFlip',
-                          args: [selectedToken.address, toUint128(amount), isBid, tickVal, flipTick],
-                          account: address as `0x${string}`
-                      });
-                  } else {
-                      await publicClient.simulateContract({
-                          address: getDexAddressForChain(chainId),
-                          abi: DEX_PLACE_ABI,
-                          functionName: 'place',
-                          args: [selectedToken.address, toUint128(amount), isBid, tickVal],
-                          account: address as `0x${string}`
-                      });
-                  }
-              } catch (e) {
-                  const reason = getRevertReason(e);
-                  const data = getRevertData(e);
-                  const params = {
-                      token: selectedToken.address,
-                      amount: amount.toString(),
-                      isBid,
-                      tick: tickVal,
-                      flipTick,
-                      spendToken: tokenToSpend,
-                      spendAmount: spendAmount.toString(),
-                      dex: getDexAddressForChain(chainId),
-                  };
-                  setOrderDebug({ message: reason, data, params });
-                  console.error('Order simulation failed', { reason, data, params, error: e });
-                  toast.error(`Order simulation failed: ${reason}${data ? ` (data: ${data})` : ''}`);
-                  return;
-              }
-          }
-          const hash = await placeOrder(
-            walletClient,
-            publicClient as unknown as PublicClient,
-            address,
-            selectedToken.address,
-            amount,
-            isBid,
-            tickVal,
-            isFlip,
-            (stage) => {
-              if (stage === 'approving') {
-                setIsApproving(true);
-              } else {
-                setIsApproving(false);
-              }
-            },
-            chainId,
-            flipTick
-          );
-          toast.custom(() => <TxToast hash={hash} title="Order submitted" />);
-          setOrderAmount('');
-      } catch (e: unknown) {
-          if (isUserCancellation(e)) {
-              return;
-          }
-          console.error(e);
-          const msg = e instanceof Error ? e.message : 'Order placement failed';
-          const detail = msg.length > 200 ? `${msg.slice(0, 200)}...` : msg;
-          toast.error(detail);
-      } finally {
-           setIsOrdering(false);
-           setIsApproving(false);
-       }
-   };
-
-  // Modal State
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-md">
-      {/* Glass Card Container */}
-      <div className="relative w-full group">
-        {/* Outer glow effect */}
-        <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-[#BC13FE]/20 via-[#00F3FF]/20 to-[#BC13FE]/20 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500" />
-
-        {/* Main card */}
-        <div className="relative p-6 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-          {/* Tabs */}
-          <div className="flex gap-2 mb-6 p-1.5 rounded-2xl bg-white/[0.03] border border-white/5">
-            <button
-              onClick={() => setActiveTab('fee')}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                activeTab === 'fee'
-                  ? 'bg-gradient-to-r from-[#00F3FF]/15 to-[#BC13FE]/15 text-white border border-[#00F3FF]/30 shadow-[0_0_15px_rgba(0,243,255,0.15)]'
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-              }`}
-            >
-              Fee Liquidity
-            </button>
-            <button
-              onClick={() => setActiveTab('order')}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                activeTab === 'order'
-                  ? 'bg-gradient-to-r from-[#00F3FF]/15 to-[#BC13FE]/15 text-white border border-[#00F3FF]/30 shadow-[0_0_15px_rgba(0,243,255,0.15)]'
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-              }`}
-            >
-              Orderbook (Limit)
-            </button>
+    <div className="w-full">
+      <div className="glass-panel overflow-hidden rounded-[28px] p-5 shadow-xl md:p-7">
+        {!hasHubAmmDeployment && (
+          <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+            Arc liquidity contracts are not configured in this environment yet, so pool actions are shown in preview mode only.
           </div>
+        )}
 
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#BC13FE]/20 to-[#00F3FF]/20 flex items-center justify-center border border-white/10">
-              {activeTab === 'fee' ? (
-                <svg className="w-4 h-4 text-[#BC13FE]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              )}
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              {isArcTestnet ? 'Arc Stable Liquidity' : 'Tempo Fee Liquidity'}
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">{activeTab === 'fee' ? 'Manage Fee Liquidity' : 'Place Limit Order'}</h2>
-              <p className="text-[10px] text-zinc-500">{activeTab === 'fee' ? 'Add or remove liquidity' : 'Set your price'}</p>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {isArcTestnet ? 'Stable liquidity workspace' : 'Fee liquidity workspace'}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                {isArcTestnet ? `Keep ${pathToken.symbol} liquidity organized around the Arc hub model.` : `Manage ${pathToken.symbol}-routed fee pools and maintenance from one surface.`}
+              </p>
             </div>
           </div>
+          <div className="flex gap-2 rounded-2xl border border-slate-200 bg-slate-100/90 p-1.5 dark:border-white/5 dark:bg-white/[0.03]">
+            <button
+              onClick={() => setActiveTab('fee')}
+              className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'fee' ? 'border border-primary/20 bg-white text-primary shadow-sm dark:bg-white/10' : 'text-slate-500 dark:text-slate-400'}`}
+            >
+              {isArcTestnet ? 'Stable Liquidity' : 'Fee Liquidity'}
+            </button>
+            {supportsLimitOrders && (
+              <button
+                onClick={() => setActiveTab('order')}
+                className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'order' ? 'border border-primary/20 bg-white text-primary shadow-sm dark:bg-white/10' : 'text-slate-500 dark:text-slate-400'}`}
+              >
+                Place Limit Order
+              </button>
+            )}
+          </div>
+        </div>
 
-          {activeTab === 'fee' && (
-            <div className="space-y-5">
+        {activeTab === 'fee' && (
+          <>
+            <div className="mb-6 grid gap-3 md:grid-cols-2">
+              {[
+                { label: 'Mode', value: isTempoChain ? 'Fee-routed pools' : isArcTestnet ? 'Stable hub pools' : 'Adaptive liquidity' },
+                { label: 'Hub asset', value: pathToken.symbol },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-slate-200 bg-white/75 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-900 dark:text-white">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-6 rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Pool Pair
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Choose the asset you want to pair against {pathToken.symbol}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTokenModalOpen(true)}
+                  className="inline-flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-primary/30 dark:border-white/10 dark:bg-slate-950/40"
+                >
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Active pair
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                      {selectedToken.symbol} / {pathToken.symbol}
+                    </p>
+                  </div>
+                  <span className="material-symbols-outlined text-base text-slate-400">expand_more</span>
+                </button>
+              </div>
+            </div>
+
+            <div className={`grid gap-5 ${isTempoChain ? 'xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.72fr)]' : 'grid-cols-1'}`}>
               <ManageFeeLiquidity
                 userToken={selectedToken.address}
                 validatorToken={pathToken.address}
@@ -445,227 +325,196 @@ export function LiquidityCard() {
                 validatorTokenDecimals={pathToken.decimals}
                 userTokenSymbol={selectedToken.symbol}
                 validatorTokenSymbol={pathToken.symbol}
-                showMaintenance
+                showMaintenance={isTempoChain}
               />
 
-              {/* Remove Liquidity Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-medium text-zinc-400">Remove Liquidity</span>
-                  <span className="text-[10px] text-zinc-600">LP burn uses validator ratio</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Amount</span>
-                    <span className="text-[10px] text-zinc-500">
-                      Available: <span className="text-zinc-400">{lpBalance ? Number(formatUnits(lpBalance, 18)).toFixed(4) : '0'}</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={lpAmount}
-                      onChange={(e) => setLpAmount(e.target.value)}
-                      placeholder="0.0"
-                      className="w-full bg-transparent text-xl font-bold text-white outline-none placeholder-zinc-700"
-                    />
+              {isTempoChain && (
+                <div className="space-y-5">
+                  <div className="rounded-[28px] border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Remove Liquidity</p>
+                        <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Exit fee-side position</h3>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/[0.03]">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">LP available</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{lpBalance ? Number(formatUnits(lpBalance, 18)).toFixed(4) : '0.0000'}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                      <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                        <span>Amount</span>
+                        <button type="button" onClick={() => lpBalance && setLpAmount(formatUnits(lpBalance, 18))} className="rounded-full border border-primary/20 px-2.5 py-1 text-primary hover:bg-primary/10">
+                          Max
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={lpAmount}
+                        onChange={(e) => setLpAmount(e.target.value)}
+                        placeholder="0.0"
+                        className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700"
+                      />
+                    </div>
                     <button
-                      type="button"
-                      onClick={() => {
-                        if (lpBalance) setLpAmount(formatUnits(lpBalance, 18));
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 text-xs transition-all"
+                      onClick={handleRemoveFeeLiquidity}
+                      disabled={burnLiquidity.isPending || !lpAmount}
+                      className="mt-5 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500 transition-all hover:bg-red-500/15 disabled:opacity-40 dark:text-red-400"
                     >
-                      Max
+                      {burnLiquidity.isPending ? 'Removing...' : 'Remove Liquidity'}
                     </button>
                   </div>
-                  <button
-                    onClick={handleRemoveFeeLiquidity}
-                    disabled={burnLiquidity.isPending || !lpAmount}
-                    className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/15 border border-red-500/30 text-red-400 font-semibold text-sm rounded-xl transition-all disabled:opacity-40"
-                  >
-                    {burnLiquidity.isPending ? 'Removing...' : 'Remove Liquidity'}
-                  </button>
-                </div>
-              </div>
-              <DexAccount />
-            </div>
-          )}
 
-          {activeTab === 'order' && (
-            <div className="space-y-4">
-              {/* Order Type */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setOrderType('buy')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                    orderType === 'buy'
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
-                      : 'bg-white/[0.03] text-zinc-500 border border-white/5 hover:bg-white/5 hover:text-zinc-300'
-                  }`}
-                >
-                  Buy {selectedToken.symbol}
-                </button>
-                <button
-                  onClick={() => setOrderType('sell')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                    orderType === 'sell'
-                      ? 'bg-red-500/15 text-red-400 border border-red-500/40'
-                      : 'bg-white/[0.03] text-zinc-500 border border-white/5 hover:bg-white/5 hover:text-zinc-300'
-                  }`}
-                >
-                  Sell {selectedToken.symbol}
-                </button>
-              </div>
-
-              {/* DEX Balance */}
-              <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-wide">DEX Balance</span>
-                  <span className="text-xs font-medium text-zinc-300">{Number(dexSpendBalance).toFixed(4)}</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[quoteToken, selectedToken]
-                    .filter((token, index, self) =>
-                      self.findIndex(t => t.address === token.address) === index
-                    )
-                    .map((token, index) => (
-                      <button
-                        key={`${token.address}-${index}`}
-                        type="button"
-                        onClick={() => setDepositTokenAddress(token.address)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all ${
-                          depositTokenAddress === token.address
-                            ? 'bg-[#00F3FF]/10 text-[#00F3FF] border border-[#00F3FF]/30'
-                            : 'bg-white/5 text-zinc-500 border border-white/5 hover:text-zinc-300'
-                        }`}
-                      >
-                        {token.symbol}
-                      </button>
-                    ))}
-                </div>
-                <div className="text-[10px] text-zinc-600">
-                  Orders use DEX balance first; flip execution requires DEX balance
-                </div>
-              </div>
-
-              {/* Order Details */}
-              <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Order Details</span>
-                  <span className="text-[10px] text-zinc-500">
-                    Wallet: <span className="text-zinc-400">{orderType === 'sell' ? Number(tokenBalance).toFixed(4) : `${Number(pathBalance).toFixed(4)} ${quoteToken.symbol}`}</span>
-                  </span>
-                </div>
-
-                {/* Amount Input */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={orderAmount}
-                    onChange={(e) => setOrderAmount(e.target.value)}
-                    placeholder="0.0"
-                    className="w-full bg-transparent text-xl font-bold text-white outline-none placeholder-zinc-700"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const max = orderType === 'buy' ? pathBalance : tokenBalance;
-                      if (max && Number(max) > 0) setOrderAmount(max);
-                    }}
-                    className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-zinc-400 hover:text-white text-[10px] transition-all"
-                  >
-                    Max
-                  </button>
-                  <button
-                    onClick={() => setIsTokenModalOpen(true)}
-                    className="flex items-center gap-1 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-all border border-white/10 hover:border-white/20"
-                  >
-                    <span className="text-sm font-medium text-white">{selectedToken.symbol}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500">
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Price Tick */}
-                <div className="pt-2 border-t border-white/5">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Price Tick</span>
-                    <span className="text-[10px] text-zinc-600">0 = 1:1 peg</span>
+                  <div className="rounded-[28px] border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">DEX Account</p>
+                        <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Operational balances</h3>
+                      </div>
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                        Tempo only
+                      </span>
+                    </div>
+                    <DexAccount className="p-0" />
                   </div>
-                  <input
-                    type="number"
-                    value={tick}
-                    onChange={(e) => setTick(e.target.value)}
-                    className="w-full bg-transparent text-lg font-bold text-white outline-none placeholder-zinc-700"
-                  />
-                  <p className="text-[10px] text-zinc-600 mt-1">Higher tick = higher price</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'order' && supportsLimitOrders && (
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                { label: 'Order mode', value: orderType === 'buy' ? 'Bid' : 'Ask' },
+                { label: 'Base asset', value: selectedToken.symbol },
+                { label: 'Funding balance', value: Number(dexSpendBalance).toFixed(4) },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-slate-200 bg-white/75 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{item.label}</p>
+                  <p className="mt-2 text-lg font-bold text-slate-900 dark:text-white">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+              Tempo limit orders are funded from your DEX balance and priced with ticks around the stable 1:1 center. Build the order on the left, then sanity-check funding and optional flip behavior on the right.
+            </div>
+
+            <div className="rounded-[28px] border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="flex gap-2">
+                <button onClick={() => setOrderType('buy')} className={`flex-1 rounded-xl py-2.5 text-sm font-semibold ${orderType === 'buy' ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border border-slate-200 bg-slate-100 text-slate-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-slate-400'}`}>Buy {selectedToken.symbol}</button>
+                <button onClick={() => setOrderType('sell')} className={`flex-1 rounded-xl py-2.5 text-sm font-semibold ${orderType === 'sell' ? 'border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400' : 'border border-slate-200 bg-slate-100 text-slate-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-slate-400'}`}>Sell {selectedToken.symbol}</button>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Order Amount</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Wallet: {orderType === 'sell' ? Number(tokenBalance).toFixed(4) : `${Number(pathBalance).toFixed(4)} ${quoteToken.symbol}`}</span>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <input type="text" value={orderAmount} onChange={(e) => setOrderAmount(e.target.value)} placeholder="0.0" className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700" />
+                      <button type="button" onClick={() => { const max = orderType === 'buy' ? pathBalance : tokenBalance; if (max && Number(max) > 0) setOrderAmount(max); }} className="rounded-full border border-primary/20 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/10">Max</button>
+                      <button onClick={() => setIsTokenModalOpen(true)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 dark:border-white/10 dark:bg-white/[0.06] dark:text-white">{selectedToken.symbol}<span className="material-symbols-outlined text-sm text-slate-400">expand_more</span></button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Price Tick</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">0 = 1:1 peg</span>
+                    </div>
+                    <input type="number" value={tick} onChange={(e) => setTick(e.target.value)} className="w-full bg-transparent text-2xl font-semibold tracking-tight text-slate-900 outline-none dark:text-white" />
+                    <div className="mt-3 flex items-center gap-2">
+                      {[0, 10, 20, 30].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setTick(String(preset))}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                            tick === String(preset)
+                              ? 'border border-primary/30 bg-primary/10 text-primary'
+                              : 'border border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-400'
+                          }`}
+                        >
+                          {preset > 0 ? `+${preset}` : `${preset}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">DEX Balance</span>
+                      <span className="text-sm font-medium text-slate-900 dark:text-white">{Number(dexSpendBalance).toFixed(4)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[quoteToken, selectedToken].filter((token, index, self) => self.findIndex((t) => t.address === token.address) === index).map((token, index) => (
+                        <button key={`${token.address}-${index}`} type="button" onClick={() => setDepositTokenAddress(token.address)} className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ${depositTokenAddress === token.address ? 'border border-primary/30 bg-primary/10 text-primary' : 'border border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-400'}`}>
+                          {token.symbol}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Orders use DEX balance first; flip execution requires DEX balance.</p>
+                  </div>
+                  <label className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                    <input type="checkbox" checked={isFlip} onChange={(e) => setIsFlip(e.target.checked)} className="h-4 w-4 rounded border-slate-300 bg-white text-primary focus:ring-primary/50 dark:border-slate-700 dark:bg-black/40" />
+                    <div className="flex-1">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Flip Order</span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-500">Auto-reverse when filled to earn spread.</p>
+                    </div>
+                  </label>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Execution Summary</p>
+                    <div className="mt-3 space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">Funding asset</span>
+                        <span className="font-medium text-slate-900 dark:text-white">{orderType === 'buy' ? quoteToken.symbol : selectedToken.symbol}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">Base asset</span>
+                        <span className="font-medium text-slate-900 dark:text-white">{selectedToken.symbol}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">Flip enabled</span>
+                        <span className="font-medium text-slate-900 dark:text-white">{isFlip ? 'Yes' : 'No'}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Flip Order Toggle */}
-              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-all">
-                <input
-                  type="checkbox"
-                  id="flipOrder"
-                  checked={isFlip}
-                  onChange={(e) => setIsFlip(e.target.checked)}
-                  className="w-4 h-4 rounded border-zinc-700 bg-black/40 text-[#00F3FF] focus:ring-[#00F3FF]/50"
-                />
-                <div className="flex-1">
-                  <span className="text-xs text-zinc-300 font-medium">Flip Order</span>
-                  <p className="text-[10px] text-zinc-600">Auto-reverse when filled to earn spread</p>
-                </div>
-              </label>
-
-              {/* Place Order Button */}
               {!isConnected ? (
-                <div className="w-full [&_button]:w-full [&_button]:py-3 [&_button]:rounded-2xl [&_button]:font-bold [&_button]:text-sm [&_button]:bg-gradient-to-r [&_button]:from-[#00F3FF] [&_button]:to-[#BC13FE] [&_button]:text-black [&_button]:hover:opacity-90 [&_button]:transition-all [&_button]:shadow-[0_0_20px_rgba(0,243,255,0.2)]">
+                <div className="mt-5 w-full [&_button]:w-full [&_button]:rounded-2xl [&_button]:bg-primary [&_button]:py-3 [&_button]:text-sm [&_button]:font-bold [&_button]:text-white [&_button]:hover:bg-primary/90 [&_button]:dark:text-background-dark">
                   <ConnectButton />
                 </div>
               ) : (
-                <button
-                  onClick={handlePlaceOrder}
-                  disabled={isOrdering || !orderAmount}
-                  className={`w-full py-3 rounded-2xl font-bold text-sm transition-all disabled:opacity-40 shadow-[0_0_20px_rgba(0,243,255,0.2)] hover:shadow-[0_0_30px_rgba(0,243,255,0.3)] ${
-                    orderType === 'buy'
-                      ? 'bg-gradient-to-r from-emerald-500 to-[#00F3FF] text-black'
-                      : 'bg-gradient-to-r from-red-500 to-[#BC13FE] text-white'
-                  }`}
-                >
-                  {isApproving
-                    ? `Approving ${orderType === 'buy' ? quoteToken.symbol : selectedToken.symbol}...`
-                    : isOrdering
-                    ? 'Placing Order...'
-                    : `Place ${orderType === 'buy' ? 'Buy' : 'Sell'} Order`}
+                <button onClick={handlePlaceOrder} disabled={isOrdering || !orderAmount} className={`mt-5 w-full rounded-2xl py-3 text-sm font-bold text-white transition-all disabled:opacity-40 ${orderType === 'buy' ? 'bg-emerald-500 hover:bg-emerald-500/90' : 'bg-red-500 hover:bg-red-500/90'}`}>
+                  {isApproving ? `Approving ${orderType === 'buy' ? quoteToken.symbol : selectedToken.symbol}...` : isOrdering ? 'Placing Order...' : `Place ${orderType === 'buy' ? 'Buy' : 'Sell'} Order`}
                 </button>
               )}
 
-              {showOrderDebug && orderDebug && (
-                <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-red-400 text-[10px] space-y-1">
+              {orderDebug && (
+                <div className="mt-4 space-y-1 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-[10px] text-red-500 dark:text-red-400">
                   <div>{orderDebug.message}</div>
-                  {orderDebug.data && <div className="font-mono break-all">data: {orderDebug.data}</div>}
-                  {orderDebug.params && (
-                    <pre className="text-[10px] text-red-300 whitespace-pre-wrap">
-                      {JSON.stringify(orderDebug.params, null, 2)}
-                    </pre>
-                  )}
+                  {orderDebug.data && <div className="break-all font-mono">data: {orderDebug.data}</div>}
                 </div>
               )}
-
-              <Orderbook baseToken={selectedToken} quoteToken={quoteToken} />
             </div>
-          )}
+          </div>
+        )}
 
-          <TokenModal
-            isOpen={isTokenModalOpen}
-            onClose={() => setIsTokenModalOpen(false)}
-            onSelect={setSelectedToken}
-            selectedToken={selectedToken}
-            filterTokens={(token) => token.symbol !== 'pathUSD'}
-          />
-        </div>
+        <TokenModal
+          isOpen={isTokenModalOpen}
+          onClose={() => setIsTokenModalOpen(false)}
+          onSelect={setSelectedToken}
+          selectedToken={selectedToken}
+          filterTokens={(token) => !isHubToken(token, chainId)}
+        />
       </div>
     </div>
   );

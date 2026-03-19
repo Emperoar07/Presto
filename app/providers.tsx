@@ -9,6 +9,7 @@ import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { config } from '@/config/wagmi';
 import { FeeTokenProvider } from '@/context/FeeTokenContext';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 const queryClient = new QueryClient();
 
@@ -17,9 +18,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
-          <FeeTokenProvider>
-            {children}
-          </FeeTokenProvider>
+          <ThemeProvider>
+            <FeeTokenProvider>
+              {children}
+            </FeeTokenProvider>
+          </ThemeProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

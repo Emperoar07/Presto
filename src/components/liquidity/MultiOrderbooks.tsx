@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useChainId } from 'wagmi';
-import { Token, getTokens } from '@/config/tokens';
+import { Token, getTokens, getHubToken, isHubToken } from '@/config/tokens';
 import { formatUnitsFixed } from '@/lib/format';
 import { getExplorerTxUrl } from '@/lib/explorer';
 
@@ -13,8 +13,8 @@ type OrderbookData = { bids: OrderbookEntry[]; asks: OrderbookEntry[]; recentTra
 export function MultiOrderbooks() {
   const chainId = useChainId();
   const tokens = getTokens(chainId);
-  const baseTokens = tokens.filter((token) => token.symbol !== 'pathUSD');
-  const quoteToken = tokens.find((token) => token.symbol === 'pathUSD') ?? tokens[0];
+  const baseTokens = tokens.filter((token) => !isHubToken(token, chainId));
+  const quoteToken = getHubToken(chainId) ?? tokens[0];
 
   const [data, setData] = useState<Record<string, OrderbookData | null>>({});
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ export function MultiOrderbooks() {
       const entries = await Promise.all(
         baseTokens.map(async (token) => {
           try {
-            const response = await fetch(`/api/orderbook?token=${token.address}&depth=5`);
+            const response = await fetch(`/api/orderbook?token=${token.address}&depth=5&chainId=${chainId}`);
             if (!response.ok) return [token.address, null] as const;
             const payload = (await response.json()) as OrderbookData;
             return [token.address, payload] as const;
@@ -50,7 +50,7 @@ export function MultiOrderbooks() {
       active = false;
       clearInterval(interval);
     };
-  }, [baseTokens]);
+  }, [baseTokens, chainId]);
 
   return (
     <div className="w-full rounded-2xl border border-white/10 bg-black/40 p-6 shadow-2xl backdrop-blur-md">

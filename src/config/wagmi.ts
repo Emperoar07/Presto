@@ -13,11 +13,29 @@ import {
   baseSepolia,
 } from 'wagmi/chains';
 import { tempoModerato } from 'viem/chains';
-import { fallback, http } from 'viem';
-import { getTempoRpcUrls, getBaseSepoliaRpcUrls } from '@/lib/rpc';
+import { defineChain, fallback, http } from 'viem';
+import { getTempoRpcUrls, getBaseSepoliaRpcUrls, getArcTestnetRpcUrls } from '@/lib/rpc';
+
+export const arcTestnet = defineChain({
+  id: 5042002,
+  name: 'Arc Testnet',
+  nativeCurrency: {
+    name: 'USDC',
+    symbol: 'USDC',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: { http: ['https://rpc.testnet.arc.network'] },
+  },
+  blockExplorers: {
+    default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' },
+  },
+  testnet: true,
+});
 
 const tempoRpcUrls = getTempoRpcUrls();
 const baseSepoliaRpcUrls = getBaseSepoliaRpcUrls();
+const arcTestnetRpcUrls = getArcTestnetRpcUrls();
 
 const tempoTransport =
   tempoRpcUrls.length > 1
@@ -28,6 +46,11 @@ const baseSepoliaTransport =
   baseSepoliaRpcUrls.length > 1
     ? fallback(baseSepoliaRpcUrls.map((url) => http(url, { timeout: 8000 })))
     : http(baseSepoliaRpcUrls[0] ?? baseSepolia.rpcUrls.default.http[0], { timeout: 8000 });
+
+const arcTestnetTransport =
+  arcTestnetRpcUrls.length > 1
+    ? fallback(arcTestnetRpcUrls.map((url) => http(url, { timeout: 8000 })))
+    : http(arcTestnetRpcUrls[0], { timeout: 8000 });
 
 const projectId = '3a8170812b534d0ff9d794f19a901d64';
 
@@ -59,9 +82,10 @@ const connectors = connectorsForWallets(
 
 export const config = createConfig({
   connectors,
-  chains: [tempoModerato, baseSepolia],
+  chains: [arcTestnet, tempoModerato, baseSepolia],
   ssr: true,
   transports: {
+    [arcTestnet.id]: arcTestnetTransport,
     [tempoModerato.id]: tempoTransport,
     [baseSepolia.id]: baseSepoliaTransport,
   },

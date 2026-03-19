@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { HUB_AMM_ABI, getContractAddresses } from '@/config/contracts';
-import { Token, getTokens } from '@/config/tokens';
+import { Token, getTokens, getHubToken } from '@/config/tokens';
 import { parseUnits, formatUnits } from 'viem';
 import { useChainId } from 'wagmi';
 
@@ -73,8 +73,7 @@ export function useHubSwap(
 
 export function useHubLiquidity(token: Token) {
     const chainId = useChainId();
-    const tokens = getTokens(chainId);
-    const pathToken = tokens.find((t) => t.symbol === 'pathUSD');
+    const pathToken = getHubToken(chainId);
     const { HUB_AMM_ADDRESS } = getContractAddresses(chainId);
     const { writeContract, data: hash, isPending, error } = useWriteContract();
   

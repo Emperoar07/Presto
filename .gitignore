@@ -7,6 +7,7 @@ artifacts
 cache
 devserver.log
 devserver.err.log
+devserver.out.log
 .DS_Store
 .env.local
 .env.development.local
@@ -15,3 +16,8 @@ devserver.err.log
 .env
 .env.*
 !.env.example
+.playwright-cli/
+arcscan_*.html
+output_synthra_*.png
+synthra_universal_router.sol
+tsconfig.tsbuildinfo

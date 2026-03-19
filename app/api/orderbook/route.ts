@@ -29,7 +29,28 @@ export async function GET(request: Request) {
       getOrderbookData(token, depth, 3000, chainId),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Orderbook timeout')), timeoutMs)),
     ]);
-    const response = NextResponse.json(data);
+    // Serialize bigints as strings — JSON.stringify cannot handle bigint natively,
+    // and the client-side code already converts them back with BigInt(amount)
+    const serialized = {
+      bids: data.bids.map((b) => ({ tick: b.tick, amount: b.amount.toString() })),
+      asks: data.asks.map((a) => ({ tick: a.tick, amount: a.amount.toString() })),
+      recentTrades: data.recentTrades.map((t) => ({
+        price: t.price,
+        amount: t.amount.toString(),
+        side: t.side,
+        hash: t.hash,
+        block: t.block.toString(),
+      })),
+      cancelledOrders: data.cancelledOrders.map((c) => ({
+        orderId: c.orderId,
+        price: c.price,
+        amount: c.amount.toString(),
+        isBid: c.isBid,
+        hash: c.hash,
+        block: c.block.toString(),
+      })),
+    };
+    const response = NextResponse.json(serialized);
     response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
     return response;
   } catch (error) {

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getTokens } from '@/config/tokens';
 import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContracts } from 'wagmi';
@@ -12,7 +13,6 @@ import { TxToast } from '@/components/common/TxToast';
 import { SlippageSettings } from './SlippageSettings';
 import {
   calculatePriceImpact,
-  getPriceImpactColor,
   getPriceImpactWarning,
   requiresPriceImpactConfirmation,
   formatPriceImpact,
@@ -22,11 +22,13 @@ import { parseContractError, logError, isUserCancellation } from '@/lib/errorHan
 import {
   HUB_AMM_ABI,
   TEMPO_DEX_ABI,
+  isArcChain,
   isTempoNativeChain,
   getDexAddress
 } from '@/config/contracts';
 import { writeContractWithRetry } from '@/lib/txRetry';
 import { readContractWithFallback, invalidateQuoteCache } from '@/lib/rpc';
+import { TokenModal } from '@/components/common/TokenModal';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
@@ -38,12 +40,13 @@ export function SwapCardEnhanced() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
-  const { feeToken, setFeeToken } = useFeeToken();
+  const { feeToken, setFeeToken, isSingleGasToken } = useFeeToken();
 
   const [inputAmount, setInputAmount] = useState('');
   const [outputAmount, setOutputAmount] = useState('');
   const [exactField, setExactField] = useState<'input' | 'output'>('input');
   const [isSwapping, setIsSwapping] = useState(false);
+  const [swapStage, setSwapStage] = useState<'idle' | 'approving' | 'swapping'>('idle');
 
   // Token State
   const [inputTokenAddress, setInputTokenAddress] = useState(tokens[0]?.address);
@@ -53,6 +56,8 @@ export function SwapCardEnhanced() {
   const [slippageTolerance, setSlippageTolerance] = useState(DEFAULT_SLIPPAGE);
   const [deadline, setDeadline] = useState(DEFAULT_DEADLINE);
   const [showSettings, setShowSettings] = useState(false);
+  const [showInputTokenModal, setShowInputTokenModal] = useState(false);
+  const [showOutputTokenModal, setShowOutputTokenModal] = useState(false);
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -90,6 +95,7 @@ export function SwapCardEnhanced() {
 
   // Get the correct DEX address and ABI based on chain
   const isTempoChain = isTempoNativeChain(chainId);
+  const isArcTestnet = isArcChain(chainId);
   const dexAddress = getDexAddress(chainId);
   const dexAbi = isTempoChain ? TEMPO_DEX_ABI : HUB_AMM_ABI;
 
@@ -142,7 +148,19 @@ export function SwapCardEnhanced() {
       {
         address: dexAddress as `0x${string}`,
         abi: HUB_AMM_ABI,
+        functionName: 'pathReserves',
+        args: [inputTokenAddress],
+      },
+      {
+        address: dexAddress as `0x${string}`,
+        abi: HUB_AMM_ABI,
         functionName: 'tokenReserves',
+        args: [outputTokenAddress],
+      },
+      {
+        address: dexAddress as `0x${string}`,
+        abi: HUB_AMM_ABI,
+        functionName: 'pathReserves',
         args: [outputTokenAddress],
       },
     ],
@@ -152,7 +170,9 @@ export function SwapCardEnhanced() {
   });
 
   const inputReserves = reservesData?.[0]?.result as bigint | undefined;
-  const outputReserves = reservesData?.[1]?.result as bigint | undefined;
+  const inputPathReserves = reservesData?.[1]?.result as bigint | undefined;
+  const outputReserves = reservesData?.[2]?.result as bigint | undefined;
+  const outputPathReserves = reservesData?.[3]?.result as bigint | undefined;
 
   // Safe parse function
   const safeParseUnits = (value: string, decimals: number) => {
@@ -165,6 +185,35 @@ export function SwapCardEnhanced() {
   };
 
   const amountIn = exactField === 'input' && inputAmount ? safeParseUnits(inputAmount, inputToken.decimals) : 0n;
+
+  const calculateArcSpotOutput = useCallback((amount: bigint) => {
+    if (amount <= 0n) return 0n;
+
+    const inputIsHub = !inputToken.quoteTokenId;
+    const outputIsHub = !outputToken.quoteTokenId;
+
+    if (inputIsHub && outputReserves && outputPathReserves && outputPathReserves > 0n) {
+      return (amount * outputReserves) / outputPathReserves;
+    }
+
+    if (outputIsHub && inputReserves && inputPathReserves && inputReserves > 0n) {
+      return (amount * inputPathReserves) / inputReserves;
+    }
+
+    if (inputReserves && inputPathReserves && outputReserves && outputPathReserves && inputReserves > 0n && outputPathReserves > 0n) {
+      const hubAmount = (amount * inputPathReserves) / inputReserves;
+      return (hubAmount * outputReserves) / outputPathReserves;
+    }
+
+    return 0n;
+  }, [
+    inputPathReserves,
+    inputReserves,
+    inputToken.quoteTokenId,
+    outputPathReserves,
+    outputReserves,
+    outputToken.quoteTokenId,
+  ]);
 
   // Quote fetching with price impact
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -217,13 +266,18 @@ export function SwapCardEnhanced() {
 
           setOutputAmount(formatUnits(result, outputToken.decimals));
 
-          // Calculate price impact (only for non-Tempo chains where we have reserves)
-          if (!isTempoChain && inputReserves && outputReserves) {
-            const impact = calculatePriceImpact(
-              amount,
-              inputReserves as bigint,
-              outputReserves as bigint
-            );
+          // Calculate price impact using the correct reserve model per chain
+          if (!isTempoChain && isArcTestnet) {
+            const spotOutput = calculateArcSpotOutput(amount);
+            if (spotOutput > 0n && result > 0n) {
+              const quoteDelta = spotOutput > result ? spotOutput - result : 0n;
+              const impact = (Number(quoteDelta) / Number(spotOutput)) * 100;
+              setPriceImpact(impact > 0.01 ? impact : 0);
+            } else {
+              setPriceImpact(0);
+            }
+          } else if (!isTempoChain && inputReserves && outputReserves) {
+            const impact = calculatePriceImpact(amount, inputReserves, outputReserves);
             setPriceImpact(impact);
           } else {
             // For Tempo chain, estimate price impact from quote vs input
@@ -251,7 +305,7 @@ export function SwapCardEnhanced() {
 
     const timer = setTimeout(fetchQuote, 400); // Optimized debounce with caching
     return () => clearTimeout(timer);
-  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain]);
+  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain, isArcTestnet, inputReserves, outputReserves, calculateArcSpotOutput]);
 
 
   // Swap execution
@@ -267,7 +321,13 @@ export function SwapCardEnhanced() {
       return;
     }
 
+    if (needsConfirmation) {
+      const confirmed = window.confirm('This swap has high price impact. Are you sure you want to continue?');
+      if (!confirmed) return;
+    }
+
     setIsSwapping(true);
+    setSwapStage('approving');
 
     try {
       const amount = parseUnits(inputAmount, inputToken.decimals);
@@ -299,6 +359,7 @@ export function SwapCardEnhanced() {
             amount
           );
         }
+        setSwapStage('swapping');
         // Tempo DEX uses swapExactAmountIn (no deadline parameter, uses uint128)
         hash = await writeContractWithRetry(
           walletClient,
@@ -326,6 +387,16 @@ export function SwapCardEnhanced() {
         // HubAMM uses swap with deadline
         const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadline * 60));
 
+        await approveToken(
+          walletClient,
+          publicClient,
+          address,
+          inputToken.address,
+          dexAddress,
+          amount
+        );
+
+        setSwapStage('swapping');
         hash = await writeContractWithRetry(
           walletClient,
           publicClient ?? undefined,
@@ -372,6 +443,7 @@ export function SwapCardEnhanced() {
       }
     } finally {
       setIsSwapping(false);
+      setSwapStage('idle');
     }
   };
 
@@ -384,113 +456,130 @@ export function SwapCardEnhanced() {
     return requiresPriceImpactConfirmation(priceImpact);
   }, [priceImpact]);
 
+  const inputUsdEstimate = inputAmount && Number(inputAmount) > 0 ? `~ $${Number(inputAmount).toFixed(2)}` : '';
+  const outputUsdEstimate = outputAmount && Number(outputAmount) > 0 ? `~ $${Number(outputAmount).toFixed(2)}` : '';
+  const feeDescription = isArcTestnet
+    ? ''
+    : 'Tempo routes fee preferences through stablecoin balances.';
   return (
     <>
       {/* Glass Card Container */}
-      <div className="relative w-full max-w-xl group">
-        {/* Outer glow effect */}
-        <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-[#00F3FF]/20 via-[#BC13FE]/20 to-[#00F3FF]/20 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500" />
-
+      <div className="relative w-full max-w-[480px]">
         {/* Main card */}
-        <div className="relative p-6 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-          {/* Header */}
+        <div className="glass-panel rounded-2xl p-4 md:p-6 shadow-xl relative">
+          {/* Header Controls */}
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00F3FF]/20 to-[#BC13FE]/20 flex items-center justify-center border border-white/10">
-                <svg className="w-5 h-5 text-[#00F3FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Swap</h2>
-                <p className="text-xs text-zinc-500">Instant swaps on Tempo</p>
-              </div>
+            <div className="flex gap-4">
+              <button className="text-lg font-bold border-b-2 border-primary pb-1 text-slate-900 dark:text-white">Swap</button>
             </div>
-
             <div className="flex items-center gap-2">
-              {/* Fee Token */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-                <span className="text-[10px] text-zinc-500 uppercase">Fee:</span>
-                <select
-                  value={feeToken?.address}
-                  onChange={(e) => {
-                    const token = tokens.find(t => t.address === e.target.value);
-                    if (token) setFeeToken(token);
-                  }}
-                  className="bg-transparent text-xs text-zinc-300 outline-none cursor-pointer"
-                >
-                  {tokens.map(t => (
-                    <option key={t.address} value={t.address} className="bg-zinc-900 text-zinc-300">
-                      {t.symbol}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Settings button */}
+              {!isSingleGasToken ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <span className="text-[10px] text-slate-500 uppercase">Fee:</span>
+                  <select
+                    value={feeToken?.address}
+                    onChange={(e) => {
+                      const token = tokens.find(t => t.address === e.target.value);
+                      if (token) setFeeToken(token);
+                    }}
+                    className="bg-transparent text-xs text-slate-700 dark:text-slate-300 outline-none cursor-pointer"
+                  >
+                    {tokens.map(t => (
+                      <option key={t.address} value={t.address} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-300">
+                        {t.symbol}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <button
+                onClick={fetchBalances}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400"
+              >
+                <span className="material-symbols-outlined text-xl">refresh</span>
+              </button>
+              <Link
+                href="/analytics"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400"
+                aria-label="Open analytics"
+              >
+                <span className="material-symbols-outlined text-xl">bar_chart</span>
+              </Link>
               <button
                 onClick={() => setShowSettings(true)}
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200"
-                aria-label="Settings"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400"
               >
-                <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <span className="material-symbols-outlined text-xl">settings</span>
               </button>
             </div>
           </div>
 
           <div className="space-y-2">
-            {/* Input Field */}
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-              <div className="flex justify-between mb-3">
-                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">You Pay</span>
-                <span className="text-xs text-zinc-500 flex items-center gap-1.5">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  {isBalanceLoading ? '...' : Number(balanceIn).toFixed(4)}
-                  <button
-                    type="button"
-                    onClick={fetchBalances}
-                    className="p-0.5 rounded text-zinc-500 hover:text-[#00F3FF] transition-colors"
-                    aria-label="Refresh"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
-                      <path d="M21 3v6h-6"/>
-                    </svg>
-                  </button>
+            {/* Input Section: From */}
+            <div className="token-input-bg rounded-xl p-4 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors mb-2">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">From</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  Balance: {isBalanceLoading ? '...' : Number(balanceIn).toFixed(4)} {inputToken.symbol}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex justify-between items-center">
                 <input
                   type="text"
                   value={inputAmount}
                   onChange={(e) => {
-                    setInputAmount(e.target.value);
-                    setExactField('input');
+                    const val = e.target.value;
+                    // Allow only numbers and a single decimal point
+                    if (/^\d*\.?\d*$/.test(val)) {
+                      setInputAmount(val);
+                      setExactField('input');
+                    }
                   }}
                   placeholder="0.0"
-                  className="w-full bg-transparent text-2xl font-bold text-white outline-none placeholder-zinc-700"
+                  className="bg-transparent border-none focus:ring-0 text-2xl md:text-3xl font-semibold text-slate-900 dark:text-white w-full p-0 placeholder:text-slate-300 dark:placeholder:text-slate-700"
                 />
-                <select
-                  value={inputTokenAddress}
-                  onChange={(e) => setInputTokenAddress(e.target.value as `0x${string}`)}
-                  className="bg-white/5 text-white text-sm font-medium rounded-xl px-3 py-2 outline-none border border-white/10 hover:border-[#00F3FF]/50 focus:border-[#00F3FF] transition-colors cursor-pointer"
+                {isArcTestnet ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowInputTokenModal(true)}
+                    className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold uppercase text-slate-900 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+                  >
+                    <span>{inputToken.symbol}</span>
+                    <span className="material-symbols-outlined text-base text-slate-400">keyboard_arrow_down</span>
+                  </button>
+                ) : (
+                  <select
+                    value={inputTokenAddress}
+                    onChange={(e) => setInputTokenAddress(e.target.value as `0x${string}`)}
+                    className="flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors rounded-full px-3 py-1.5 border border-slate-200 dark:border-slate-700 shadow-sm font-bold text-slate-900 dark:text-white uppercase text-sm cursor-pointer outline-none"
+                  >
+                    {tokens.map(t => (
+                      <option key={t.address} value={t.address} disabled={t.address === outputTokenAddress} className="bg-white dark:bg-slate-900">
+                        {t.symbol}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  {inputUsdEstimate}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputAmount(balanceIn);
+                    setExactField('input');
+                  }}
+                  className="text-xs font-bold text-primary hover:text-primary/80 uppercase tracking-wider"
                 >
-                  {tokens.map(t => (
-                    <option key={t.address} value={t.address} disabled={t.address === outputTokenAddress} className="bg-zinc-900">
-                      {t.symbol}
-                    </option>
-                  ))}
-                </select>
+                  Max
+                </button>
               </div>
             </div>
 
             {/* Switch Button */}
-            <div className="flex justify-center -my-1 relative z-10">
+            <div className="flex justify-center -my-3 relative z-10">
               <button
                 onClick={() => {
                   const tempToken = inputTokenAddress;
@@ -500,90 +589,119 @@ export function SwapCardEnhanced() {
                   setOutputAmount('');
                   setExactField('input');
                 }}
-                className="p-2 rounded-xl bg-black/60 hover:bg-[#00F3FF]/10 border border-white/10 hover:border-[#00F3FF]/50 transition-all duration-200 shadow-lg group/btn"
-                aria-label="Switch tokens"
+                className="bg-white dark:bg-slate-900 border-4 border-white dark:border-[#0f172a] text-primary hover:scale-110 transition-transform rounded-xl p-2 shadow-lg"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-zinc-500 group-hover/btn:text-[#00F3FF] transition-colors"
-                >
-                  <path d="m3 16 4 4 4-4"/>
-                  <path d="M7 20V4"/>
-                  <path d="m21 8-4-4-4 4"/>
-                  <path d="M17 4v16"/>
-                </svg>
+                <span className="material-symbols-outlined text-2xl font-bold">south</span>
               </button>
             </div>
 
-            {/* Output Field */}
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-              <div className="flex justify-between mb-3">
-                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">You Receive</span>
-                <span className="text-xs text-zinc-500 flex items-center gap-1.5">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  {isBalanceLoading ? '...' : Number(balanceOut).toFixed(4)}
+            {/* Input Section: To */}
+            <div className="token-input-bg rounded-xl p-4 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">To</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  Balance: {isBalanceLoading ? '...' : Number(balanceOut).toFixed(4)} {outputToken.symbol}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex justify-between items-center">
                 <input
                   type="text"
                   value={quoteLoading ? '...' : outputAmount}
                   readOnly
                   placeholder="0.0"
-                  className={`w-full bg-transparent text-2xl font-bold outline-none placeholder-zinc-700 ${quoteLoading ? 'text-zinc-600 animate-pulse' : 'text-white'}`}
+                  className={`bg-transparent border-none focus:ring-0 text-2xl md:text-3xl font-semibold w-full p-0 placeholder:text-slate-300 dark:placeholder:text-slate-700 ${quoteLoading ? 'text-slate-400 animate-pulse' : 'text-slate-900 dark:text-white'}`}
                 />
-                <select
-                  value={outputTokenAddress}
-                  onChange={(e) => setOutputTokenAddress(e.target.value as `0x${string}`)}
-                  className="bg-white/5 text-white text-sm font-medium rounded-xl px-3 py-2 outline-none border border-white/10 hover:border-[#00F3FF]/50 focus:border-[#00F3FF] transition-colors cursor-pointer"
-                >
-                  {tokens.map(t => (
-                    <option key={t.address} value={t.address} disabled={t.address === inputTokenAddress} className="bg-zinc-900">
-                      {t.symbol}
-                    </option>
-                  ))}
-                </select>
+                {isArcTestnet ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowOutputTokenModal(true)}
+                    className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-sm font-bold uppercase text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 dark:text-background-dark"
+                  >
+                    <span>{outputToken.symbol}</span>
+                    <span className="material-symbols-outlined text-base">keyboard_arrow_down</span>
+                  </button>
+                ) : (
+                  <select
+                    value={outputTokenAddress}
+                    onChange={(e) => setOutputTokenAddress(e.target.value as `0x${string}`)}
+                    className="flex items-center gap-2 bg-primary text-white dark:text-background-dark hover:bg-primary/90 transition-colors rounded-full px-3 py-1.5 shadow-md shadow-primary/20 font-bold uppercase text-sm cursor-pointer outline-none"
+                  >
+                    {tokens.map(t => (
+                      <option key={t.address} value={t.address} disabled={t.address === inputTokenAddress} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-300">
+                        {t.symbol}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="mt-1">
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  {outputUsdEstimate}
+                </span>
               </div>
             </div>
 
-            {/* Price Impact Display */}
-            {priceImpact > 0 && (
-              <div className={`p-3 rounded-xl border ${
-                priceImpact < 1 ? 'bg-emerald-500/5 border-emerald-500/20' :
-                priceImpact < 3 ? 'bg-amber-500/5 border-amber-500/20' :
-                priceImpact < 5 ? 'bg-orange-500/5 border-orange-500/20' :
-                'bg-red-500/5 border-red-500/20'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Price Impact</span>
-                  <span className={`text-xs font-semibold ${getPriceImpactColor(priceImpact)}`}>
+            {feeDescription && (
+              <div className="mt-4 rounded-xl border border-slate-200/80 bg-white/40 px-3 py-2 text-xs text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                {feeDescription}
+              </div>
+            )}
+
+            {/* Transaction Details */}
+            {(inputAmount && outputAmount) && (
+              <div className="mt-6 space-y-3 px-1">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                    <span>Price Impact</span>
+                    <span className="material-symbols-outlined text-xs">info</span>
+                  </div>
+                  <span className={`font-medium ${priceImpact < 1 ? 'text-emerald-600 dark:text-emerald-500' : priceImpact < 3 ? 'text-amber-500' : 'text-red-500'}`}>
                     {formatPriceImpact(priceImpact)}
                   </span>
                 </div>
-                {priceImpactWarning && (
-                  <p className={`text-[10px] mt-1.5 ${getPriceImpactColor(priceImpact)}`}>
-                    {priceImpactWarning}
-                  </p>
-                )}
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                    <span>Minimum Received</span>
+                    <span className="material-symbols-outlined text-xs">info</span>
+                  </div>
+                  <span className="text-slate-700 dark:text-slate-200 font-medium">
+                    {outputAmount ? Number(Number(outputAmount) * (1 - slippageTolerance / 100)).toFixed(4) : '0'} {outputToken.symbol}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                    <span>Slippage Tolerance</span>
+                    <span className="material-symbols-outlined text-xs">info</span>
+                  </div>
+                  <span className="text-slate-700 dark:text-slate-200 font-medium">{slippageTolerance}%</span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 dark:text-slate-500">
+                      1 {inputToken.symbol} = {inputAmount && outputAmount && Number(inputAmount) > 0 ? (Number(outputAmount) / Number(inputAmount)).toFixed(4) : '...'} {outputToken.symbol}
+                    </span>
+                    <button className="text-primary flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">swap_horiz</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Price Impact Warning */}
+            {priceImpactWarning && (
+              <div className={`p-3 rounded-xl border text-xs ${
+                priceImpact < 3 ? 'bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400' :
+                'bg-red-500/5 border-red-500/20 text-red-600 dark:text-red-400'
+              }`}>
+                {priceImpactWarning}
               </div>
             )}
 
             {/* Error Message */}
             {quoteError && (
-              <div className="p-3 bg-red-500/5 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div className="p-3 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-xs flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">error</span>
                 {(quoteError?.message?.includes('InsufficientLiquidity') || quoteError?.message?.includes('reverted'))
                   ? 'Not enough liquidity available.'
                   : 'Error fetching quote.'}
@@ -592,7 +710,7 @@ export function SwapCardEnhanced() {
 
             {/* Swap Button */}
             {!isConnected ? (
-              <div className="w-full [&_button]:w-full [&_button]:py-3.5 [&_button]:rounded-2xl [&_button]:font-bold [&_button]:text-base [&_button]:bg-gradient-to-r [&_button]:from-[#00F3FF] [&_button]:to-[#BC13FE] [&_button]:text-black [&_button]:hover:opacity-90 [&_button]:transition-all [&_button]:shadow-[0_0_20px_rgba(0,243,255,0.2)]">
+              <div className="w-full mt-6 [&_button]:w-full [&_button]:py-4 [&_button]:rounded-xl [&_button]:font-bold [&_button]:text-lg [&_button]:bg-primary [&_button]:text-white [&_button]:dark:text-background-dark [&_button]:hover:bg-primary/90 [&_button]:transition-all [&_button]:shadow-xl [&_button]:shadow-primary/20">
                 <ConnectButton />
               </div>
             ) : (
@@ -603,36 +721,21 @@ export function SwapCardEnhanced() {
                   quoteLoading ||
                   !inputAmount ||
                   !outputAmount ||
-                  !!quoteError ||
-                  (needsConfirmation && !confirm('This swap has high price impact. Are you sure you want to continue?'))
+                  !!quoteError
                 }
-                className="w-full py-3.5 rounded-2xl font-bold text-base bg-gradient-to-r from-[#00F3FF] to-[#BC13FE] text-black hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,243,255,0.2)] hover:shadow-[0_0_30px_rgba(0,243,255,0.3)]"
+                className="w-full mt-6 bg-primary hover:bg-primary/90 text-white dark:text-background-dark font-bold py-4 rounded-xl text-lg transition-all shadow-xl shadow-primary/20 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isSwapping ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Swapping...
+                    {swapStage === 'approving' ? 'Approving...' : 'Swapping...'}
                   </span>
-                ) : needsConfirmation ? 'Swap Anyway (High Impact)' : 'Swap'}
+                ) : needsConfirmation ? 'Swap Anyway (High Impact)' : 'Swap Tokens'}
               </button>
             )}
-
-            {/* Transaction Details */}
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="text-[10px] text-zinc-500 space-y-1.5">
-                <div className="flex justify-between">
-                  <span>Slippage Tolerance</span>
-                  <span className="text-zinc-400">{slippageTolerance}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Transaction Deadline</span>
-                  <span className="text-zinc-400">{deadline} min</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -646,6 +749,25 @@ export function SwapCardEnhanced() {
         deadline={deadline}
         onDeadlineChange={setDeadline}
       />
+
+      {isArcTestnet && (
+        <>
+          <TokenModal
+            isOpen={showInputTokenModal}
+            onClose={() => setShowInputTokenModal(false)}
+            selectedToken={inputToken}
+            onSelect={(token) => setInputTokenAddress(token.address)}
+            filterTokens={(token) => token.address !== outputTokenAddress}
+          />
+          <TokenModal
+            isOpen={showOutputTokenModal}
+            onClose={() => setShowOutputTokenModal(false)}
+            selectedToken={outputToken}
+            onSelect={(token) => setOutputTokenAddress(token.address)}
+            filterTokens={(token) => token.address !== inputTokenAddress}
+          />
+        </>
+      )}
     </>
   );
 }

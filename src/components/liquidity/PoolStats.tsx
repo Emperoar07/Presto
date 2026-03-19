@@ -26,32 +26,58 @@ export function PoolStats({
   userShares,
   inputAmount,
 }: PoolStatsProps) {
-  // Calculate pool share percentage
+  const formatMetric = (value: number, fractionDigits = 2) => {
+    if (!Number.isFinite(value)) return '--';
+
+    if (Math.abs(value) >= 1_000_000) {
+      return new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 2,
+      }).format(value);
+    }
+
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: fractionDigits,
+    });
+  };
+
   const poolSharePercent = useMemo(() => {
     if (!totalShares || totalShares === 0n || !userShares) return 0;
     return Number((userShares * 10000n) / totalShares) / 100;
   }, [totalShares, userShares]);
 
-  // Calculate TVL
-  const tvl = useMemo(() => {
-    if (!reserveValidatorToken) return '0';
-    // Assuming validator token is a stablecoin, TVL ≈ 2x validator reserves
-    const validatorValue = Number(formatUnits(reserveValidatorToken, validatorTokenDecimals));
-    return (validatorValue * 2).toFixed(2);
+  const userReserveValue = useMemo(() => {
+    if (!reserveUserToken) return 0;
+    return Number(formatUnits(reserveUserToken, userTokenDecimals));
+  }, [reserveUserToken, userTokenDecimals]);
+
+  const validatorReserveValue = useMemo(() => {
+    if (!reserveValidatorToken) return 0;
+    return Number(formatUnits(reserveValidatorToken, validatorTokenDecimals));
   }, [reserveValidatorToken, validatorTokenDecimals]);
 
-  // Calculate pool ratio
+  const tvl = useMemo(() => {
+    if (!validatorReserveValue) return 0;
+    return validatorReserveValue * 2;
+  }, [validatorReserveValue]);
+
+  const userReserveDisplay = useMemo(() => {
+    return formatMetric(userReserveValue, 4);
+  }, [userReserveValue]);
+
+  const validatorReserveDisplay = useMemo(() => {
+    return formatMetric(validatorReserveValue, 4);
+  }, [validatorReserveValue]);
+
   const poolRatio = useMemo(() => {
     if (!reserveUserToken || !reserveValidatorToken || reserveUserToken === 0n) {
       return null;
     }
-    const userReserve = Number(formatUnits(reserveUserToken, userTokenDecimals));
-    const validatorReserve = Number(formatUnits(reserveValidatorToken, validatorTokenDecimals));
-    if (userReserve === 0) return null;
-    return validatorReserve / userReserve;
-  }, [reserveUserToken, reserveValidatorToken, userTokenDecimals, validatorTokenDecimals]);
+    if (userReserveValue === 0) return null;
+    return validatorReserveValue / userReserveValue;
+  }, [reserveUserToken, reserveValidatorToken, userReserveValue, validatorReserveValue]);
 
-  // Estimate LP tokens to receive
   const estimatedLpTokens = useMemo(() => {
     if (!inputAmount || !reserveValidatorToken || reserveValidatorToken === 0n || !totalShares) {
       return null;
@@ -64,11 +90,9 @@ export function PoolStats({
       const currentTotalShares = Number(formatUnits(totalShares, 18));
 
       if (validatorReserve === 0) {
-        // First LP provider
         return inputValue.toFixed(4);
       }
 
-      // LP tokens = (input / reserve) * totalShares
       const lpTokens = (inputValue / validatorReserve) * currentTotalShares;
       return lpTokens.toFixed(4);
     } catch {
@@ -76,7 +100,6 @@ export function PoolStats({
     }
   }, [inputAmount, reserveValidatorToken, totalShares, validatorTokenDecimals]);
 
-  // Estimate pool share after adding liquidity
   const estimatedPoolShare = useMemo(() => {
     if (!estimatedLpTokens || !totalShares) return null;
     const newLp = parseFloat(estimatedLpTokens);
@@ -90,58 +113,89 @@ export function PoolStats({
 
   return (
     <div className="space-y-4">
-      {/* Pool Overview Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 rounded-lg bg-black/30 border border-white/5">
-          <div className="text-xs text-zinc-500 mb-1">TVL</div>
-          <div className="text-lg font-bold text-white">${tvl}</div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">TVL</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">${formatMetric(tvl)}</p>
         </div>
-        <div className="p-3 rounded-lg bg-black/30 border border-white/5">
-          <div className="text-xs text-zinc-500 mb-1">Your Pool Share</div>
-          <div className="text-lg font-bold text-[#00F3FF]">{poolSharePercent.toFixed(2)}%</div>
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Your Share</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-primary">{poolSharePercent.toFixed(2)}%</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Pool Ratio</p>
+          <p className="mt-2 text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+            {poolRatio ? `1 ${userTokenSymbol} ~ ${poolRatio.toFixed(4)} ${validatorTokenSymbol}` : '--'}
+          </p>
         </div>
       </div>
 
-      {/* Pool Reserves */}
-      <div className="p-3 rounded-lg bg-black/30 border border-white/5">
-        <div className="text-xs text-zinc-500 mb-2">Pool Reserves</div>
-        <div className="flex justify-between text-sm">
-          <span className="text-zinc-400">{userTokenSymbol}</span>
-          <span className="text-white font-medium">
-            {reserveUserToken ? Number(formatUnits(reserveUserToken, userTokenDecimals)).toFixed(4) : '0'}
-          </span>
-        </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span className="text-zinc-400">{validatorTokenSymbol}</span>
-          <span className="text-white font-medium">
-            {reserveValidatorToken ? Number(formatUnits(reserveValidatorToken, validatorTokenDecimals)).toFixed(4) : '0'}
-          </span>
-        </div>
-        {poolRatio && (
-          <div className="mt-2 pt-2 border-t border-white/5 text-xs text-zinc-500">
-            1 {userTokenSymbol} ≈ {poolRatio.toFixed(4)} {validatorTokenSymbol}
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Reserve Breakdown</p>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-300">
+              Live pool balances
+            </span>
           </div>
-        )}
-      </div>
+          <div className="grid gap-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-slate-950/40">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-start">
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">User-side reserve</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{userTokenSymbol}</p>
+                </div>
+                <div className="min-w-0 sm:text-right">
+                  <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{userReserveDisplay}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Exact balance:
+                  </p>
+                  <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                    {userReserveValue.toLocaleString('en-US', { maximumFractionDigits: 6 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-slate-950/40">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-start">
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Hub-side reserve</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{validatorTokenSymbol}</p>
+                </div>
+                <div className="min-w-0 sm:text-right">
+                  <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{validatorReserveDisplay}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Exact balance:
+                  </p>
+                  <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                    {validatorReserveValue.toLocaleString('en-US', { maximumFractionDigits: 6 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      {/* LP Preview - only show when input amount is provided */}
-      {inputAmount && parseFloat(inputAmount) > 0 && (
-        <div className="p-3 rounded-lg bg-[#00F3FF]/5 border border-[#00F3FF]/20">
-          <div className="text-xs text-[#00F3FF] mb-2 font-medium">LP Preview</div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">Est. LP Tokens</span>
-              <span className="text-white font-medium">{estimatedLpTokens || '—'}</span>
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">LP Preview</p>
+          {inputAmount && parseFloat(inputAmount) > 0 ? (
+            <div className="mt-3 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Est. LP Tokens</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{estimatedLpTokens || '--'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">New Pool Share</span>
+                <span className="font-semibold text-primary">{estimatedPoolShare ? `${estimatedPoolShare}%` : '--'}</span>
+              </div>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-zinc-400">New Pool Share</span>
-              <span className="text-[#00F3FF] font-medium">
-                {estimatedPoolShare ? `${estimatedPoolShare}%` : '—'}
-              </span>
-            </div>
-          </div>
+          ) : (
+            <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Enter a deposit amount to preview expected LP tokens and your next pool share.
+            </p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

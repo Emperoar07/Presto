@@ -79,22 +79,28 @@ export function DexAccount({ className }: { className?: string }) {
 
     if (!address) return null;
 
+    const wrapperClassName = className ?? 'max-w-md mt-6';
+    const isEmbedded = !!className;
+
     return (
-        <div className={`w-full p-6 rounded-2xl shadow-2xl border border-white/10 bg-black/40 backdrop-blur-md ${className ?? 'max-w-md mt-6'}`}>
+        <div className={`w-full ${isEmbedded ? 'rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40' : 'glass-panel rounded-2xl p-6 shadow-xl'} ${wrapperClassName}`}>
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-white">Unclaimed DEX Earnings</h3>
+                <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">DEX Earnings</p>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Unclaimed balances</h3>
+                </div>
                 <button 
                     onClick={fetchBalances}
-                    className="text-xs text-zinc-500 hover:text-white transition-colors"
+                    className="rounded-full border border-primary/20 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
                 >
                     Refresh
                 </button>
             </div>
             
             {loading && Object.keys(balances).length === 0 ? (
-                <div className="text-zinc-500 text-sm text-center py-4">Loading balances...</div>
+                <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-4">Loading balances...</div>
             ) : !hasFunds ? (
-                <div className="text-zinc-500 text-sm text-center py-4">No unclaimed funds.</div>
+                <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-4">No unclaimed funds.</div>
             ) : (
                 <div className="space-y-3">
                     {tokens.map(token => {
@@ -102,15 +108,15 @@ export function DexAccount({ className }: { className?: string }) {
                         if (!entry || entry.raw === 0n) return null;
                         
                         return (
-                            <div key={token.address} className="flex justify-between items-center bg-black/20 p-3 rounded-lg border border-white/5">
+                            <div key={token.address} className="flex justify-between items-center rounded-xl border border-slate-200 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.05]">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-zinc-200 font-medium">{token.symbol}</span>
-                                    <span className="text-zinc-400 text-sm">{Number(entry.formatted).toFixed(4)}</span>
+                                    <span className="text-slate-700 dark:text-slate-200 font-medium">{token.symbol}</span>
+                                    <span className="text-slate-500 dark:text-slate-400 text-sm">{Number(entry.formatted).toFixed(4)}</span>
                                 </div>
                                 <button
                                     onClick={() => handleWithdraw(token)}
                                     disabled={withdrawing === token.address}
-                                    className="px-3 py-1 bg-[#00F3FF]/10 text-[#00F3FF] border border-[#00F3FF]/30 rounded-md text-xs hover:bg-[#00F3FF]/20 transition-all disabled:opacity-50"
+                                    className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-all hover:bg-primary/20 disabled:opacity-50"
                                 >
                                     {withdrawing === token.address ? 'Claiming...' : 'Claim / Withdraw'}
                                 </button>

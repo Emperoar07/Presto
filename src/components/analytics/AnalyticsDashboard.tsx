@@ -1,44 +1,106 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TokenModal } from '../common/TokenModal';
-import { Orderbook } from '../liquidity/Orderbook';
-import { Token, getTokens } from '@/config/tokens';
 import { useChainId } from 'wagmi';
-import { formatUnitsFixed } from '@/lib/format';
+import { TokenModal } from '../common/TokenModal';
+import { Token, getHubToken, getTokens, isHubToken } from '@/config/tokens';
 import { Hooks } from '@/lib/tempo';
+import { formatUnitsFixed } from '@/lib/format';
+import { isArcChain, isTempoNativeChain } from '@/config/contracts';
 
 type Trade = { price: number; amount: bigint; side: 'buy' | 'sell'; hash: `0x${string}`; block: bigint };
 type OrderbookEntry = { tick: number; amount: bigint };
+type AggregateAnalytics = {
+  totalVolume?: string;
+  totalTrades?: number;
+  totalLiquidity?: string;
+  lastUpdated?: number | null;
+  message?: string;
+};
 
-export function AnalyticsDashboard({ initialOrderbookView }: { initialOrderbookView?: 'book' | 'trades' | 'transactions' | 'cancelled' }) {
+export function AnalyticsDashboard({
+  initialOrderbookView,
+}: {
+  initialOrderbookView?: 'book' | 'trades' | 'transactions' | 'cancelled';
+}) {
+  void initialOrderbookView;
+
   const chainId = useChainId();
   const tokens = getTokens(chainId);
+  const isTempoChain = isTempoNativeChain(chainId);
+  const isArcTestnet = isArcChain(chainId);
 
-  // Token State
-  const [selectedToken, setSelectedToken] = useState<Token>(tokens.find(t => t.symbol !== 'pathUSD') || tokens[1]);
-  const pathToken = tokens.find(t => t.symbol === 'pathUSD') || tokens[0];
+  const [selectedToken, setSelectedToken] = useState<Token>(
+    tokens.find((t) => !isHubToken(t, chainId)) || tokens[1]
+  );
+  const pathToken = getHubToken(chainId) || tokens[0];
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [aggregate, setAggregate] = useState<AggregateAnalytics | null>(null);
+  const [aggregateLoaded, setAggregateLoaded] = useState(false);
 
-  // Reset tokens on chain change
   useEffect(() => {
-    const nextToken = tokens.find(t => t.symbol !== 'pathUSD') || tokens[1];
+    const nextToken = tokens.find((t) => !isHubToken(t, chainId)) || tokens[1];
     setSelectedToken(nextToken);
   }, [chainId, tokens]);
 
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isTempoChain) {
+      setAggregate(null);
+      setAggregateLoaded(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    fetch('/api/analytics/aggregate')
+      .then((r) => r.json())
+      .then((data: AggregateAnalytics) => {
+        if (cancelled) return;
+        setAggregate(data);
+        setAggregateLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAggregateLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isTempoChain]);
+
   const orderbookHook = (Hooks.dex.useOrderbook
     ? Hooks.dex.useOrderbook({
         token: selectedToken.address as `0x${string}`,
         depth: 25,
       })
-    : { data: null, isLoading: false, status: 'live', pollingMs: 0, lastUpdated: null, error: null }) as {
-      data: { recentTrades: Trade[]; bids: OrderbookEntry[]; asks: OrderbookEntry[] } | null;
-      isLoading: boolean;
-      status: 'live' | 'slow' | 'retrying';
-      pollingMs: number;
-      lastUpdated: number | null;
-      error: string | null;
+    : {
+        data: null,
+        isLoading: false,
+        status: 'live',
+        pollingMs: 0,
+        lastUpdated: null,
+        error: null,
+      }) as {
+    data: { recentTrades: Trade[]; bids: OrderbookEntry[]; asks: OrderbookEntry[] } | null;
+    isLoading: boolean;
+    status: 'live' | 'slow' | 'retrying';
+    pollingMs: number;
+    lastUpdated: number | null;
+    error: string | null;
+  };
+
+  const aggregateStats = useMemo(() => {
+    return {
+      totalVolume: aggregate?.totalVolume ? formatUnitsFixed(BigInt(aggregate.totalVolume), selectedToken.decimals) : '--',
+      totalLiquidity: aggregate?.totalLiquidity ? formatUnitsFixed(BigInt(aggregate.totalLiquidity), selectedToken.decimals) : '--',
+      totalTrades: aggregate?.totalTrades ?? 0,
+      lastUpdated: aggregate?.lastUpdated ?? null,
+      message: aggregate?.message ?? null,
     };
+  }, [aggregate, selectedToken.decimals]);
 
   const snapshotStats = useMemo(() => {
     const trades = (orderbookHook.data?.recentTrades ?? []) as Trade[];
@@ -54,16 +116,12 @@ export function AnalyticsDashboard({ initialOrderbookView }: { initialOrderbookV
       else sellVolume += trade.amount;
     }
 
-    // Calculate spread
     const bestBid = bids.length > 0 ? bids[0].tick : 0;
     const bestAsk = asks.length > 0 ? asks[0].tick : 0;
     const spread = bestAsk > bestBid ? ((bestAsk - bestBid) / 100).toFixed(2) : '0.00';
 
-    // Calculate total liquidity
     let bidLiquidity = 0n;
-    let askLiquidity = 0n;
     for (const bid of bids) bidLiquidity += bid.amount;
-    for (const ask of asks) askLiquidity += ask.amount;
 
     return {
       volume: formatUnitsFixed(volume, selectedToken.decimals),
@@ -72,109 +130,142 @@ export function AnalyticsDashboard({ initialOrderbookView }: { initialOrderbookV
       count: trades.length,
       spread,
       bidLiquidity: formatUnitsFixed(bidLiquidity, selectedToken.decimals),
-      askLiquidity: formatUnitsFixed(askLiquidity, selectedToken.decimals),
       buyPercent: volume > 0n ? Number((buyVolume * 100n) / volume) : 50,
     };
   }, [orderbookHook.data, selectedToken]);
 
-  // Status indicator
   const statusConfig = {
     live: { color: 'bg-emerald-500', text: 'Live' },
     slow: { color: 'bg-yellow-500', text: 'Slow' },
     retrying: { color: 'bg-red-500', text: 'Reconnecting' },
   };
   const status = statusConfig[orderbookHook.status];
+  const supportsOrderbookAnalytics = isTempoChain;
 
   return (
-    <div className="w-full max-w-2xl p-6 rounded-2xl shadow-2xl border border-white/10 bg-black/40 backdrop-blur-md mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="mx-auto w-full max-w-2xl rounded-2xl glass-panel p-6 shadow-xl">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Market Analytics</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`w-2 h-2 rounded-full ${status.color} animate-pulse`} />
-            <span className="text-xs text-zinc-500">{status.text}</span>
-            {orderbookHook.lastUpdated && (
-              <span className="text-xs text-zinc-600">
-                • {Math.floor((Date.now() - orderbookHook.lastUpdated) / 1000)}s ago
-              </span>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Market Analytics</h2>
+          <div className="mt-1 flex items-center gap-2">
+            {supportsOrderbookAnalytics ? (
+              <>
+                <span className={`h-2 w-2 rounded-full ${status.color} animate-pulse`} />
+                <span className="text-xs text-slate-500 dark:text-slate-400">{status.text}</span>
+                {orderbookHook.lastUpdated && (
+                  <span className="text-xs text-slate-500">
+                    • {Math.floor((Date.now() - orderbookHook.lastUpdated) / 1000)}s ago
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {isArcTestnet ? 'Arc stable analytics' : 'Summary mode'}
+                </span>
+              </>
             )}
           </div>
         </div>
 
         <button
-            onClick={() => setIsTokenModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-[#00F3FF]/10 to-[#BC13FE]/10 hover:from-[#00F3FF]/20 hover:to-[#BC13FE]/20 border border-white/10 px-4 py-2 rounded-xl transition-all"
+          onClick={() => setIsTokenModalOpen(true)}
+          className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-4 py-2 transition-all hover:bg-primary/20"
         >
-            <span className="font-semibold text-white">{selectedToken.symbol}</span>
-            <span className="text-zinc-500">/</span>
-            <span className="text-zinc-400">{pathToken.symbol}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400"><path d="m6 9 6 6 6-6"/></svg>
+          <span className="font-semibold text-slate-900 dark:text-white">{selectedToken.symbol}</span>
+          <span className="text-slate-400">/</span>
+          <span className="text-slate-500 dark:text-slate-400">{pathToken.symbol}</span>
+          <span className="material-symbols-outlined text-sm text-slate-400">expand_more</span>
         </button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="p-4 rounded-xl bg-gradient-to-br from-[#00F3FF]/10 to-transparent border border-[#00F3FF]/20">
-          <p className="text-xs text-zinc-400 mb-1">24h Volume</p>
-          <p className="text-lg font-bold text-white">{snapshotStats.volume}</p>
+      {!supportsOrderbookAnalytics && (
+        <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {isArcTestnet
+            ? 'Arc does not expose the same native orderbook analytics flow as Tempo, so this page stays focused on lightweight market summaries.'
+            : 'This network does not support the full Tempo orderbook analytics flow, so only summary metrics are shown here.'}
         </div>
-        <div className="p-4 rounded-xl bg-black/30 border border-white/5">
-          <p className="text-xs text-zinc-400 mb-1">Spread</p>
-          <p className="text-lg font-bold text-white">{snapshotStats.spread}%</p>
+      )}
+
+      {aggregateStats.message && (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+          {aggregateStats.message}
         </div>
-        <div className="p-4 rounded-xl bg-black/30 border border-white/5">
-          <p className="text-xs text-zinc-400 mb-1">Trades</p>
-          <p className="text-lg font-bold text-white">{snapshotStats.count}</p>
+      )}
+
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">
+            {supportsOrderbookAnalytics ? 'Snapshot Volume' : 'Indexed Volume'}
+          </p>
+          <p className="text-lg font-bold text-slate-900 dark:text-white">
+            {supportsOrderbookAnalytics ? snapshotStats.volume : '--'}
+          </p>
         </div>
-        <div className="p-4 rounded-xl bg-black/30 border border-white/5">
-          <p className="text-xs text-zinc-400 mb-1">Bid Liquidity</p>
-          <p className="text-lg font-bold text-emerald-400">{snapshotStats.bidLiquidity}</p>
+        <div className="rounded-xl border border-slate-200 p-4 token-input-bg dark:border-slate-800">
+          <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">
+            {supportsOrderbookAnalytics ? 'Spread' : 'Indexed Liquidity'}
+          </p>
+          <p className="text-lg font-bold text-slate-900 dark:text-white">
+            {supportsOrderbookAnalytics ? `${snapshotStats.spread}%` : '--'}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 p-4 token-input-bg dark:border-slate-800">
+          <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">
+            {supportsOrderbookAnalytics ? 'Trades' : 'Indexed Trades'}
+          </p>
+          <p className="text-lg font-bold text-slate-900 dark:text-white">
+            {supportsOrderbookAnalytics ? snapshotStats.count : '--'}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 p-4 token-input-bg dark:border-slate-800">
+          <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">
+            {supportsOrderbookAnalytics ? 'Bid Liquidity' : 'Last Updated'}
+          </p>
+          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+            {supportsOrderbookAnalytics
+              ? snapshotStats.bidLiquidity
+              : aggregateLoaded
+                ? '--'
+                : '...'}
+          </p>
         </div>
       </div>
 
-      {/* Buy/Sell Ratio Bar */}
-      <div className="mb-6">
-        <div className="flex justify-between text-xs mb-2">
-          <span className="text-emerald-400">Buy {snapshotStats.buyVolume}</span>
-          <span className="text-red-400">Sell {snapshotStats.sellVolume}</span>
-        </div>
-        <div className="h-2 rounded-full bg-red-500/30 overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
-            style={{ width: `${snapshotStats.buyPercent}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Token Info */}
-      <div className="bg-black/20 border border-white/5 p-4 rounded-xl mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-xs text-zinc-500 mb-1">Contract</p>
-            <p className="font-mono text-xs text-[#00F3FF] break-all">{selectedToken.address}</p>
+      {supportsOrderbookAnalytics && (
+        <div className="mb-6">
+          <div className="mb-2 flex justify-between text-xs">
+            <span className="text-emerald-400">Buy {snapshotStats.buyVolume}</span>
+            <span className="text-red-400">Sell {snapshotStats.sellVolume}</span>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-zinc-500 mb-1">Decimals</p>
-            <p className="font-mono text-sm text-white">{selectedToken.decimals}</p>
+          <div className="h-2 overflow-hidden rounded-full bg-red-500/30">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+              style={{ width: `${snapshotStats.buyPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6 rounded-xl border border-slate-200 p-4 token-input-bg dark:border-slate-800">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">Contract</p>
+            <p className="break-all font-mono text-xs text-primary">{selectedToken.address}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">Decimals</p>
+            <p className="font-mono text-sm text-slate-900 dark:text-white">{selectedToken.decimals}</p>
           </div>
         </div>
       </div>
 
-      {/* Reusing Orderbook component which now includes Trades and Cancelled Orders */}
-      <Orderbook
-        baseToken={selectedToken}
-        quoteToken={pathToken}
-        initialView={initialOrderbookView}
-        prefetched={{
-          data: orderbookHook.data as any,
-          isLoading: orderbookHook.isLoading,
-          status: orderbookHook.status,
-          pollingMs: orderbookHook.pollingMs,
-          lastUpdated: orderbookHook.lastUpdated,
-          error: orderbookHook.error,
-        }}
-      />
+      {!supportsOrderbookAnalytics && (
+        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+          Live orderbook analytics are only available on Tempo testnet.
+        </div>
+      )}
 
       <TokenModal
         isOpen={isTokenModalOpen}

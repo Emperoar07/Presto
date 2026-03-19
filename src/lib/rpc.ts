@@ -60,6 +60,19 @@ export const getBaseSepoliaRpcUrls = () => {
   return [];
 };
 
+export const ARC_TESTNET_RPC_DEFAULTS = [
+  'https://rpc.testnet.arc.network',
+  'https://rpc.blockdaemon.testnet.arc.network',
+  'https://rpc.drpc.testnet.arc.network',
+  'https://rpc.quicknode.testnet.arc.network',
+];
+
+export const getArcTestnetRpcUrls = () => {
+  const explicit = process.env.ARC_TESTNET_RPC_URLS || process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL;
+  if (explicit) return splitUrls(explicit);
+  return ARC_TESTNET_RPC_DEFAULTS;
+};
+
 let tempoClients: { url: string; client: PublicClient }[] | null = null;
 
 export const getTempoPublicClients = () => {

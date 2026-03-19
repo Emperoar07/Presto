@@ -13,14 +13,14 @@ export function TxToast({ hash, title = 'Transaction submitted' }: TxToastProps)
   const url = getExplorerTxUrl(chainId, hash);
 
   return (
-    <div className="rounded-lg border border-white/10 bg-black/80 px-4 py-3 shadow-xl backdrop-blur-md">
-      <div className="text-sm text-white">{title}</div>
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 shadow-xl backdrop-blur-md">
+      <div className="text-sm text-slate-900 dark:text-white">{title}</div>
       {url && (
         <a
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="mt-1 inline-flex text-xs text-[#00F3FF] hover:text-[#7CFFFE]"
+          className="mt-1 inline-flex text-xs text-primary hover:text-primary/80"
         >
           View on explorer
         </a>
