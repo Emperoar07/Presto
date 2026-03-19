@@ -41,7 +41,7 @@ export const AppHeader = memo(function AppHeader() {
     { href: '/portfolio', label: 'Portfolio' },
     { href: '/analytics', label: 'Analytics' },
     { href: '/transactions', label: 'Activity' },
-  ];
+  ].filter((link) => link.href !== '/analytics' || isTempoNativeChain(chainId));
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
   const supportedChains = [arcTestnet, tempoModerato, baseSepolia];

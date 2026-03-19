@@ -70,6 +70,19 @@ export const HUB_AMM_ABI = parseAbi([
   "function owner() external view returns (address)"
 ]);
 
+export const ARC_STABLESWAP_ABI = parseAbi([
+  "function addLiquidity(uint256[] amounts, uint256 minLpOut, uint256 deadline) external returns (uint256 lpOut)",
+  "function removeLiquidity(uint256 lpAmount, uint256[] minAmountsOut, uint256 deadline) external returns (uint256[] memory amountsOut)",
+  "function removeLiquidityOneToken(uint256 lpAmount, address tokenOut, uint256 minAmountOut, uint256 deadline) external returns (uint256 amountOut)",
+  "function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external returns (uint256 amountOut)",
+  "function getQuote(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256 amountOut)",
+  "function getVirtualPrice() external view returns (uint256)",
+  "function getSupportedTokens() external view returns (address[] memory)",
+  "function getTokenCount() external view returns (uint256)",
+  "function isSupportedToken(address token) external view returns (bool)",
+  "function tokenDecimals(address token) external view returns (uint8)"
+]);
+
 /**
  * Tempo Native DEX ABI - For Tempo chain precompile at 0xdec0...
  * This is the native DEX on Tempo blockchain
@@ -133,6 +146,7 @@ type ContractAddresses = {
   FACTORY_ADDRESS: `0x${string}`;
   STABLE_VAULT_ADDRESS: `0x${string}`;
   HUB_AMM_ADDRESS: `0x${string}`;
+  ARC_STABLESWAP_ADDRESS: `0x${string}`;
   WETH_ADDRESS: `0x${string}`;
 };
 
@@ -143,6 +157,7 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
     FACTORY_ADDRESS: ZERO_ADDRESS,
     STABLE_VAULT_ADDRESS: "0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A",
     HUB_AMM_ADDRESS: "0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A",
+    ARC_STABLESWAP_ADDRESS: ZERO_ADDRESS,
     WETH_ADDRESS: ZERO_ADDRESS
   },
   [baseSepolia.id]: {
@@ -150,6 +165,7 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
     FACTORY_ADDRESS: "0xF62c03E08c275fC201A5C786D187DAF8Ef292311",
     STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
     HUB_AMM_ADDRESS: ZERO_ADDRESS,
+    ARC_STABLESWAP_ADDRESS: ZERO_ADDRESS,
     WETH_ADDRESS: "0x4200000000000000000000000000000000000006"
   },
   [42431]: { // Tempo Testnet (Moderato)
@@ -157,6 +173,7 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
     FACTORY_ADDRESS: ZERO_ADDRESS,
     STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
     HUB_AMM_ADDRESS: "0x0816AF96DE0f19CdcC83F717E5f65aeE1373A54A",
+    ARC_STABLESWAP_ADDRESS: ZERO_ADDRESS,
     WETH_ADDRESS: ZERO_ADDRESS
   },
   [5042002]: { // Arc Testnet — HUB_AMM_ADDRESS set after deployment
@@ -164,6 +181,7 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
     FACTORY_ADDRESS: ZERO_ADDRESS,
     STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
     HUB_AMM_ADDRESS: "0x5794a8284A29493871Fbfa3c4f343D42001424D6",
+    ARC_STABLESWAP_ADDRESS: ZERO_ADDRESS,
     WETH_ADDRESS: ZERO_ADDRESS
   }
 };
@@ -184,6 +202,8 @@ const getEnvAddress = (key: string): `0x${string}` | undefined => {
  * Supports environment variable overrides:
  * - NEXT_PUBLIC_HUB_AMM_ADDRESS (global override)
  * - NEXT_PUBLIC_HUB_AMM_ADDRESS_<CHAIN_ID> (chain-specific override)
+ * - NEXT_PUBLIC_ARC_STABLESWAP_ADDRESS (global override)
+ * - NEXT_PUBLIC_ARC_STABLESWAP_ADDRESS_<CHAIN_ID> (chain-specific override)
  */
 export const getContractAddresses = (chainId?: number): ContractAddresses => {
   const id = chainId || DEFAULT_CHAIN_ID;
@@ -192,10 +212,13 @@ export const getContractAddresses = (chainId?: number): ContractAddresses => {
   // Check for environment variable overrides
   const hubAmmOverride = getEnvAddress(`NEXT_PUBLIC_HUB_AMM_ADDRESS_${id}`)
     || getEnvAddress('NEXT_PUBLIC_HUB_AMM_ADDRESS');
+  const arcStableSwapOverride = getEnvAddress(`NEXT_PUBLIC_ARC_STABLESWAP_ADDRESS_${id}`)
+    || getEnvAddress('NEXT_PUBLIC_ARC_STABLESWAP_ADDRESS');
 
   return {
     ...defaults,
-    ...(hubAmmOverride && { HUB_AMM_ADDRESS: hubAmmOverride })
+    ...(hubAmmOverride && { HUB_AMM_ADDRESS: hubAmmOverride }),
+    ...(arcStableSwapOverride && { ARC_STABLESWAP_ADDRESS: arcStableSwapOverride })
   };
 };
 

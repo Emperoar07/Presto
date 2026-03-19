@@ -302,13 +302,6 @@ export function TransactionsExplorer() {
         </div>
       </div>
 
-      {notice && (
-        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
-          <span className="material-symbols-outlined text-base">info</span>
-          <span>{notice}</span>
-        </div>
-      )}
-
       {error && (
         <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
           <svg className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

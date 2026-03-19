@@ -277,17 +277,19 @@ export function LiquidityCard() {
 
         {activeTab === 'fee' && (
           <>
-            <div className="mb-6 grid gap-3 md:grid-cols-2">
-              {[
-                { label: 'Mode', value: isTempoChain ? 'Fee-routed pools' : isArcTestnet ? 'Stable hub pools' : 'Adaptive liquidity' },
-                { label: 'Hub asset', value: pathToken.symbol },
-              ].map((item) => (
-                <div key={item.label} className="rounded-2xl border border-slate-200 bg-white/75 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-900 dark:text-white">{item.value}</p>
-                </div>
-              ))}
-            </div>
+            {isTempoChain && (
+              <div className="mb-6 grid gap-3 md:grid-cols-2">
+                {[
+                  { label: 'Mode', value: 'Fee-routed pools' },
+                  { label: 'Hub asset', value: pathToken.symbol },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-slate-200 bg-white/75 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{item.label}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-900 dark:text-white">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="mb-6 rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

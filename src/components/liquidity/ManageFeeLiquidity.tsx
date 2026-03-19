@@ -6,7 +6,7 @@ import { Hooks } from '@/lib/tempo';
 import { MonitorSwaps } from './MonitorSwaps';
 import { RebalancePool } from './RebalancePool';
 import { PoolStats } from './PoolStats';
-import { addFeeLiquidity, getTokenBalance } from '@/lib/tempoClient';
+import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
 import type { PublicClient } from 'viem';
 import { FACTORY_ABI, getContractAddresses, isArcChain, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
@@ -40,7 +40,9 @@ export function ManageFeeLiquidity({
   const [amount, setAmount] = useState('');
   const [isApproving, setIsApproving] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [userTokenBalance, setUserTokenBalance] = useState('0');
   const [validatorTokenBalance, setValidatorTokenBalance] = useState('0');
+  const [requiredPathAmount, setRequiredPathAmount] = useState('0');
   const [feeTo, setFeeTo] = useState<string>('');
   const [feeToSetter, setFeeToSetter] = useState<string>('');
   const [feeToInput, setFeeToInput] = useState('');
@@ -48,13 +50,42 @@ export function ManageFeeLiquidity({
 
   useEffect(() => {
     const fetchBalance = async () => {
-      if (publicClient && address && validatorToken) {
-        const bal = await getTokenBalance(publicClient, address, validatorToken, validatorTokenDecimals);
-        setValidatorTokenBalance(bal);
+      if (publicClient && address && validatorToken && userToken) {
+        const [userBal, validatorBal] = await Promise.all([
+          getTokenBalance(publicClient, address, userToken, userTokenDecimals),
+          getTokenBalance(publicClient, address, validatorToken, validatorTokenDecimals),
+        ]);
+        setUserTokenBalance(userBal);
+        setValidatorTokenBalance(validatorBal);
       }
     };
     fetchBalance();
-  }, [publicClient, address, validatorToken, validatorTokenDecimals, isAdding]);
+  }, [publicClient, address, userToken, userTokenDecimals, validatorToken, validatorTokenDecimals, isAdding]);
+
+  useEffect(() => {
+    const fetchRequirement = async () => {
+      if (!publicClient || !amount || Number(amount) <= 0 || !userToken || !validatorToken || isTempoChain) {
+        setRequiredPathAmount('0');
+        return;
+      }
+
+      try {
+        const pathRequired = await quoteHubLiquidityPathAmount(
+          publicClient as PublicClient,
+          userToken,
+          validatorToken,
+          parseUnits(amount, userTokenDecimals),
+          chainId
+        );
+        setRequiredPathAmount(formatUnits(pathRequired, validatorTokenDecimals));
+      } catch (error) {
+        console.error('Failed to quote Arc paired liquidity amount', error);
+        setRequiredPathAmount('0');
+      }
+    };
+
+    fetchRequirement();
+  }, [amount, chainId, isTempoChain, publicClient, userToken, userTokenDecimals, validatorToken, validatorTokenDecimals]);
 
   useEffect(() => {
     const fetchFeeTo = async () => {
@@ -109,7 +140,7 @@ export function ManageFeeLiquidity({
         address,
         userToken as `0x${string}`,
         validatorToken as `0x${string}`,
-        parseUnits(amount, validatorTokenDecimals),
+        parseUnits(amount, userTokenDecimals),
         (stage: 'approving' | 'adding') => {
           if (stage === 'approving') {
             setIsApproving(true);
@@ -173,7 +204,7 @@ export function ManageFeeLiquidity({
   const modeDescription = isTempoChain
     ? `${validatorTokenSymbol} acts as the validator-side asset for Tempo fee pools and supports fee-routed execution.`
     : isArcTestnet
-      ? `${validatorTokenSymbol} acts as the stable hub asset on Arc, so the panel stays focused on clean stablecoin liquidity operations.`
+      ? `${validatorTokenSymbol} acts as the stable hub asset on Arc while you size deposits with ${userTokenSymbol}.`
       : 'Liquidity controls adapt to the connected network and only show supported flows.';
 
   return (
@@ -223,25 +254,37 @@ export function ManageFeeLiquidity({
                     Add Liquidity
                   </p>
                   <h4 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
-                    Deposit {validatorTokenSymbol}
+                    Deposit {isTempoChain ? validatorTokenSymbol : userTokenSymbol}
                   </h4>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Wallet
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                    {Number(validatorTokenBalance).toFixed(4)} {validatorTokenSymbol}
-                  </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/[0.03]">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      {isTempoChain ? 'Wallet' : `${userTokenSymbol} wallet`}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                      {Number(isTempoChain ? validatorTokenBalance : userTokenBalance).toFixed(4)} {isTempoChain ? validatorTokenSymbol : userTokenSymbol}
+                    </p>
+                  </div>
+                  {!isTempoChain && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/[0.03]">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                        {validatorTokenSymbol} wallet
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                        {Number(validatorTokenBalance).toFixed(4)} {validatorTokenSymbol}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/50">
                 <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  <span>Amount</span>
+                  <span>{isTempoChain ? 'Amount' : `${userTokenSymbol} amount`}</span>
                   <button
                     type="button"
-                    onClick={() => setAmount(validatorTokenBalance)}
+                    onClick={() => setAmount(isTempoChain ? validatorTokenBalance : userTokenBalance)}
                     className="rounded-full border border-primary/20 px-2.5 py-1 text-primary transition-colors hover:bg-primary/10"
                   >
                     Max
@@ -256,7 +299,7 @@ export function ManageFeeLiquidity({
                     className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700"
                   />
                   <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
-                    {validatorTokenSymbol}
+                    {isTempoChain ? validatorTokenSymbol : userTokenSymbol}
                   </div>
                 </div>
               </div>
@@ -272,10 +315,18 @@ export function ManageFeeLiquidity({
                   <span className="text-slate-500 dark:text-slate-400">LP position</span>
                   <span className="font-medium text-slate-900 dark:text-white">{lpBalanceDisplay}</span>
                 </div>
+                {!isTempoChain && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">{validatorTokenSymbol} required</span>
+                    <span className="font-medium text-slate-900 dark:text-white">
+                      {Number(requiredPathAmount || '0').toFixed(4)} {validatorTokenSymbol}
+                    </span>
+                  </div>
+                )}
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
                   {isTempoChain
                     ? 'Tempo mints LP shares from the validator-side deposit ratio and uses those shares to support fee-routed pools.'
-                    : `Arc keeps this flow straightforward: supply ${validatorTokenSymbol} against the live pool ratio and manage stable liquidity around the hub asset.`}
+                    : `Arc pairs your ${userTokenSymbol} deposit with ${validatorTokenSymbol} automatically using the live pool ratio, so both approvals are handled before the add transaction.`}
                 </div>
               </div>
 
@@ -284,7 +335,7 @@ export function ManageFeeLiquidity({
                 disabled={isAdding || !amount}
                 className="mt-5 w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-white transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 dark:text-background-dark"
               >
-                {isApproving ? 'Approving...' : isAdding ? 'Adding Liquidity...' : `Add ${validatorTokenSymbol} Liquidity`}
+                {isApproving ? 'Approving...' : isAdding ? 'Adding Liquidity...' : `Add ${isTempoChain ? validatorTokenSymbol : userTokenSymbol} Liquidity`}
               </button>
             </div>
           </div>

@@ -458,9 +458,6 @@ export function SwapCardEnhanced() {
 
   const inputUsdEstimate = inputAmount && Number(inputAmount) > 0 ? `~ $${Number(inputAmount).toFixed(2)}` : '';
   const outputUsdEstimate = outputAmount && Number(outputAmount) > 0 ? `~ $${Number(outputAmount).toFixed(2)}` : '';
-  const feeDescription = isArcTestnet
-    ? ''
-    : 'Tempo routes fee preferences through stablecoin balances.';
   return (
     <>
       {/* Glass Card Container */}
@@ -538,28 +535,14 @@ export function SwapCardEnhanced() {
                   placeholder="0.0"
                   className="bg-transparent border-none focus:ring-0 text-2xl md:text-3xl font-semibold text-slate-900 dark:text-white w-full p-0 placeholder:text-slate-300 dark:placeholder:text-slate-700"
                 />
-                {isArcTestnet ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowInputTokenModal(true)}
-                    className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold uppercase text-slate-900 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
-                  >
-                    <span>{inputToken.symbol}</span>
-                    <span className="material-symbols-outlined text-base text-slate-400">keyboard_arrow_down</span>
-                  </button>
-                ) : (
-                  <select
-                    value={inputTokenAddress}
-                    onChange={(e) => setInputTokenAddress(e.target.value as `0x${string}`)}
-                    className="flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors rounded-full px-3 py-1.5 border border-slate-200 dark:border-slate-700 shadow-sm font-bold text-slate-900 dark:text-white uppercase text-sm cursor-pointer outline-none"
-                  >
-                    {tokens.map(t => (
-                      <option key={t.address} value={t.address} disabled={t.address === outputTokenAddress} className="bg-white dark:bg-slate-900">
-                        {t.symbol}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowInputTokenModal(true)}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold uppercase text-slate-900 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+                >
+                  <span>{inputToken.symbol}</span>
+                  <span className="material-symbols-outlined text-base text-slate-400">keyboard_arrow_down</span>
+                </button>
               </div>
               <div className="flex justify-between mt-1">
                 <span className="text-xs text-slate-400 dark:text-slate-500">
@@ -611,28 +594,14 @@ export function SwapCardEnhanced() {
                   placeholder="0.0"
                   className={`bg-transparent border-none focus:ring-0 text-2xl md:text-3xl font-semibold w-full p-0 placeholder:text-slate-300 dark:placeholder:text-slate-700 ${quoteLoading ? 'text-slate-400 animate-pulse' : 'text-slate-900 dark:text-white'}`}
                 />
-                {isArcTestnet ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowOutputTokenModal(true)}
-                    className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-sm font-bold uppercase text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 dark:text-background-dark"
-                  >
-                    <span>{outputToken.symbol}</span>
-                    <span className="material-symbols-outlined text-base">keyboard_arrow_down</span>
-                  </button>
-                ) : (
-                  <select
-                    value={outputTokenAddress}
-                    onChange={(e) => setOutputTokenAddress(e.target.value as `0x${string}`)}
-                    className="flex items-center gap-2 bg-primary text-white dark:text-background-dark hover:bg-primary/90 transition-colors rounded-full px-3 py-1.5 shadow-md shadow-primary/20 font-bold uppercase text-sm cursor-pointer outline-none"
-                  >
-                    {tokens.map(t => (
-                      <option key={t.address} value={t.address} disabled={t.address === inputTokenAddress} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-300">
-                        {t.symbol}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowOutputTokenModal(true)}
+                  className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-sm font-bold uppercase text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 dark:text-background-dark"
+                >
+                  <span>{outputToken.symbol}</span>
+                  <span className="material-symbols-outlined text-base">keyboard_arrow_down</span>
+                </button>
               </div>
               <div className="mt-1">
                 <span className="text-xs text-slate-400 dark:text-slate-500">
@@ -640,12 +609,6 @@ export function SwapCardEnhanced() {
                 </span>
               </div>
             </div>
-
-            {feeDescription && (
-              <div className="mt-4 rounded-xl border border-slate-200/80 bg-white/40 px-3 py-2 text-xs text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-                {feeDescription}
-              </div>
-            )}
 
             {/* Transaction Details */}
             {(inputAmount && outputAmount) && (
@@ -750,24 +713,20 @@ export function SwapCardEnhanced() {
         onDeadlineChange={setDeadline}
       />
 
-      {isArcTestnet && (
-        <>
-          <TokenModal
-            isOpen={showInputTokenModal}
-            onClose={() => setShowInputTokenModal(false)}
-            selectedToken={inputToken}
-            onSelect={(token) => setInputTokenAddress(token.address)}
-            filterTokens={(token) => token.address !== outputTokenAddress}
-          />
-          <TokenModal
-            isOpen={showOutputTokenModal}
-            onClose={() => setShowOutputTokenModal(false)}
-            selectedToken={outputToken}
-            onSelect={(token) => setOutputTokenAddress(token.address)}
-            filterTokens={(token) => token.address !== inputTokenAddress}
-          />
-        </>
-      )}
+      <TokenModal
+        isOpen={showInputTokenModal}
+        onClose={() => setShowInputTokenModal(false)}
+        selectedToken={inputToken}
+        onSelect={(token) => setInputTokenAddress(token.address)}
+        filterTokens={(token) => token.address !== outputTokenAddress}
+      />
+      <TokenModal
+        isOpen={showOutputTokenModal}
+        onClose={() => setShowOutputTokenModal(false)}
+        selectedToken={outputToken}
+        onSelect={(token) => setOutputTokenAddress(token.address)}
+        filterTokens={(token) => token.address !== inputTokenAddress}
+      />
     </>
   );
 }

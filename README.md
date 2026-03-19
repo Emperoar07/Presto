@@ -1,13 +1,13 @@
 # PrestoDEX
 
-A decentralized exchange frontend for Tempo and Arc testnets, with Tempo-native fee routing and an Arc deployment path for stable liquidity.
+A decentralized exchange frontend for Tempo and Arc testnets, with a live Arc normalized hub AMM, Tempo-native fee routing, and an in-progress Arc stable-swap upgrade path.
 
 ## Features
 
-- Instant swaps
-- Hub-and-spoke routing on Tempo
-- Stable liquidity management on Tempo and Arc
-- Chain-aware analytics and activity views
+- Instant swaps across Tempo and Arc
+- Tempo-native fee routing and limit-order support
+- Live Arc hub liquidity for `USDC`, `EURC`, `USDT`, and `WUSDC`
+- Chain-aware liquidity, portfolio, and activity flows
 - Mobile-responsive frontend
 
 ## Tech Stack
@@ -66,6 +66,8 @@ npm run compile
 npm run deploy:local
 npm run deploy:hub
 npx hardhat run scripts/deploy-arc.ts --network arc
+npm run seed:arc
+npm run seed:arc:pool -- usdt
 
 # Indexing
 npm run indexer
@@ -97,7 +99,7 @@ data/               Local deployment and analytics snapshots
 | Network | Chain ID | Status |
 |---------|----------|--------|
 | Tempo Testnet | 42431 | Supported |
-| Arc Testnet | 5042002 | Pending deployment |
+| Arc Testnet | 5042002 | Live |
 | Base Sepolia | 84532 | Supported |
 | Hardhat Local | 31337 | Development |
 

@@ -49,7 +49,9 @@ const FEE_AMM_ABI = parseAbi([
 // HUB_AMM_ABI for non-Tempo chains
 const HUB_AMM_LIQUIDITY_ABI = parseAbi([
   'function addLiquidity(address userToken, address validatorToken, uint256 amount, uint256 deadline) external returns (uint256 mintedShares)',
-  'function removeLiquidity(address userToken, address validatorToken, uint256 shareAmount, uint256 minUserOut, uint256 minPathOut, uint256 deadline) external returns (uint256 userOut, uint256 pathOut)'
+  'function removeLiquidity(address userToken, address validatorToken, uint256 shareAmount, uint256 minUserOut, uint256 minPathOut, uint256 deadline) external returns (uint256 userOut, uint256 pathOut)',
+  'function tokenReserves(address token) external view returns (uint256)',
+  'function pathReserves(address token) external view returns (uint256)'
 ]);
 
 // Helper: Force uint128
@@ -243,47 +245,6 @@ export async function approveToken(
   return true;
 }
 
-export async function getOpenOrders(client: PublicClient, account: string, chainId?: number) {
-  const resolvedChainId = resolveChainId(chainId, client);
-  const dexAddress = getDexAddressForChain(resolvedChainId);
-  if (!resolvedChainId) {
-    return [];
-  }
-  try {
-    const orders = await client.readContract({
-      address: dexAddress,
-      abi: DEX_ABI,
-      functionName: 'getOrders',
-      args: [account as `0x${string}`]
-    });
-    return orders;
-  } catch (e) {
-    console.error('Failed to fetch open orders', e);
-    return [];
-  }
-}
-
-export async function cancelOrder(
-  client: WalletClient,
-  publicClient: PublicClient,
-  account: string,
-  orderId: bigint,
-  chainId?: number
-) {
-  const resolvedChainId = resolveChainId(chainId, client, publicClient);
-  const dexAddress = getDexAddressForChain(resolvedChainId);
-  const hash = (await client.writeContract({
-    address: dexAddress,
-    abi: DEX_ABI,
-    functionName: 'cancel',
-    args: [orderId],
-    account: account as `0x${string}`,
-    chain: null
-  })) as `0x${string}`;
-  await publicClient.waitForTransactionReceipt({ hash });
-  return hash;
-}
-
 export async function getDexBalance(
   client: PublicClient,
   account: string,
@@ -465,34 +426,6 @@ export async function executeSwap(
   );
 }
 
-export async function simulateSwap(
-  publicClient: PublicClient,
-  account: string,
-  tokenIn: string,
-  tokenOut: string,
-  amountIn: bigint,
-  minAmountOut: bigint = 0n,
-  chainId?: number
-) {
-  const resolvedChainId = resolveChainId(chainId, publicClient);
-  const dexAddress = getDexAddressForChain(resolvedChainId);
-  const isNative = tokenIn === ZERO_ADDRESS;
-  const { result } = await publicClient.simulateContract({
-    address: dexAddress,
-    abi: DEX_ABI,
-    functionName: 'swapExactAmountIn',
-    args: [
-      tokenIn as `0x${string}`,
-      tokenOut as `0x${string}`,
-      toUint128(amountIn),
-      toUint128(minAmountOut)
-    ],
-    account: account as `0x${string}`,
-    value: isNative ? amountIn : 0n
-  });
-  return result;
-}
-
 export async function quoteSwapExactAmountIn(
   publicClient: PublicClient,
   tokenIn: string,
@@ -660,13 +593,14 @@ export async function addFeeLiquidity(
     : getContractAddresses(resolvedChainId).HUB_AMM_ADDRESS;
 
   onStage?.('approving');
-  if (validatorToken !== ZERO_ADDRESS) {
-    await approveToken(client, publicClient, account, validatorToken, targetAddress, amount);
-  }
 
   onStage?.('adding');
 
   if (isTempoChain) {
+    if (validatorToken !== ZERO_ADDRESS) {
+      await approveToken(client, publicClient, account, validatorToken, targetAddress, amount);
+    }
+
     // Tempo chain uses FEE_AMM_ABI.mint
     return client.writeContract({
       address: targetAddress,
@@ -682,6 +616,15 @@ export async function addFeeLiquidity(
       chain: null
     });
   } else {
+    onStage?.('approving');
+    const pathAmount = await quoteHubLiquidityPathAmount(publicClient, userToken, validatorToken, amount, resolvedChainId);
+
+    await approveToken(client, publicClient, account, userToken, targetAddress, amount);
+    if (validatorToken !== ZERO_ADDRESS) {
+      await approveToken(client, publicClient, account, validatorToken, targetAddress, pathAmount);
+    }
+
+    onStage?.('adding');
     // Non-Tempo chains use HUB_AMM_LIQUIDITY_ABI.addLiquidity with deadline
     const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60)); // 20 minutes
     return client.writeContract({
@@ -698,6 +641,62 @@ export async function addFeeLiquidity(
       chain: null
     });
   }
+}
+
+export async function quoteHubLiquidityPathAmount(
+  publicClient: PublicClient,
+  userToken: string,
+  validatorToken: string,
+  userAmount: bigint,
+  chainId?: number
+): Promise<bigint> {
+  const resolvedChainId = resolveChainId(chainId, publicClient);
+  const hubAmmAddress = getContractAddresses(resolvedChainId).HUB_AMM_ADDRESS;
+
+  const [userReserveRaw, pathReserveRaw, userDecimals, pathDecimals] = await Promise.all([
+    publicClient.readContract({
+      address: hubAmmAddress,
+      abi: HUB_AMM_LIQUIDITY_ABI,
+      functionName: 'tokenReserves',
+      args: [userToken as `0x${string}`],
+    }) as Promise<bigint>,
+    publicClient.readContract({
+      address: hubAmmAddress,
+      abi: HUB_AMM_LIQUIDITY_ABI,
+      functionName: 'pathReserves',
+      args: [userToken as `0x${string}`],
+    }) as Promise<bigint>,
+    publicClient.readContract({
+      address: userToken as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'decimals',
+    }) as Promise<number>,
+    publicClient.readContract({
+      address: validatorToken as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'decimals',
+    }) as Promise<number>,
+  ]);
+
+  const normalize = (amount: bigint, decimals: number) => {
+    if (decimals === 18) return amount;
+    return amount * (10n ** BigInt(18 - decimals));
+  };
+  const denormalize = (amount: bigint, decimals: number) => {
+    if (decimals === 18) return amount;
+    return amount / (10n ** BigInt(18 - decimals));
+  };
+
+  const userAmountNormalized = normalize(userAmount, userDecimals);
+  const userReserveNormalized = normalize(userReserveRaw, userDecimals);
+  const pathReserveNormalized = normalize(pathReserveRaw, pathDecimals);
+
+  if (userReserveNormalized === 0n || pathReserveNormalized === 0n) {
+    return denormalize(userAmountNormalized, pathDecimals);
+  }
+
+  const pathNormalized = (userAmountNormalized * pathReserveNormalized) / userReserveNormalized;
+  return denormalize(pathNormalized, pathDecimals);
 }
 
 export async function withdrawDexBalance(

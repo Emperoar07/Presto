@@ -98,7 +98,7 @@ function TokenRow({
   );
 }
 
-type TabId = 'tokens' | 'lp' | 'history';
+type TabId = 'tokens' | 'lp';
 
 function LpPositionRow({
   token,
@@ -219,7 +219,6 @@ export function PortfolioDashboard() {
   const tabs: { id: TabId; label: string; icon: string }[] = [
     { id: 'tokens', label: 'Tokens', icon: 'token' },
     { id: 'lp', label: 'LP Positions', icon: 'water_drop' },
-    { id: 'history', label: 'History', icon: 'history' },
   ];
 
   if (!isConnected || !address) {
@@ -361,18 +360,6 @@ export function PortfolioDashboard() {
             <LpPositionsView chainId={chainId} tokens={tokens} walletAddress={address} />
           )}
 
-          {activeTab === 'history' && (
-            <div className="flex flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-12 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600">history</span>
-              <p className="font-medium text-slate-500 dark:text-slate-400">View your full transaction history</p>
-              <Link
-                href="/transactions"
-                className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-background-dark transition-colors hover:bg-primary/90"
-              >
-                View All Transactions
-              </Link>
-            </div>
-          )}
         </div>
 
         <div className="space-y-4">
