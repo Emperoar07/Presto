@@ -15,6 +15,7 @@ interface SlippageSettingsProps {
 
 const PRESET_SLIPPAGES = [0.1, 0.5, 1.0];
 const DEFAULT_DEADLINE = 20;
+const DEFAULT_SLIPPAGE = 0.5;
 
 export function SlippageSettings({
   isOpen,
@@ -24,8 +25,10 @@ export function SlippageSettings({
   deadline,
   onDeadlineChange,
 }: SlippageSettingsProps) {
+  const safeSlippage = Number.isFinite(slippage) ? slippage : DEFAULT_SLIPPAGE;
+  const safeDeadline = Number.isFinite(deadline) ? deadline : DEFAULT_DEADLINE;
   const [customSlippage, setCustomSlippage] = useState('');
-  const [customDeadline, setCustomDeadline] = useState(deadline.toString());
+  const [customDeadline, setCustomDeadline] = useState(String(safeDeadline));
   const [slippageError, setSlippageError] = useState<string | null>(null);
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
   const [expertMode, setExpertMode] = useState(false);
@@ -33,14 +36,14 @@ export function SlippageSettings({
 
   useEffect(() => {
     if (isOpen) {
-      if (!PRESET_SLIPPAGES.includes(slippage)) {
-        setCustomSlippage(slippage.toString());
+      if (!PRESET_SLIPPAGES.includes(safeSlippage)) {
+        setCustomSlippage(String(safeSlippage));
       } else {
         setCustomSlippage('');
       }
-      setCustomDeadline(deadline.toString());
+      setCustomDeadline(String(safeDeadline));
     }
-  }, [isOpen, slippage, deadline]);
+  }, [isOpen, safeSlippage, safeDeadline]);
 
   const handlePresetSlippage = (value: number) => {
     setCustomSlippage('');
@@ -150,7 +153,7 @@ export function SlippageSettings({
                           key={preset}
                           onClick={() => handlePresetSlippage(preset)}
                           className={`flex h-10 items-center justify-center rounded-lg font-semibold text-sm transition-all ${
-                            slippage === preset && customSlippage === ''
+                            safeSlippage === preset && customSlippage === ''
                               ? 'bg-primary/10 border border-primary/20 text-primary'
                               : 'bg-slate-100 dark:bg-slate-800 border border-transparent text-slate-700 dark:text-slate-300 hover:border-primary/50'
                           }`}
@@ -177,7 +180,7 @@ export function SlippageSettings({
                         {slippageError}
                       </p>
                     )}
-                    {!slippageError && slippage > 1 && (
+                    {!slippageError && safeSlippage > 1 && (
                       <p className="text-xs text-amber-500 flex items-center gap-1">
                         <span className="material-symbols-outlined text-sm">warning</span>
                         Your transaction may be frontrun

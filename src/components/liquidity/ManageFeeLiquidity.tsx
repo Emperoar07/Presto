@@ -127,7 +127,16 @@ export function ManageFeeLiquidity({
       })
     : { data: null }) as { data: bigint | null };
 
-  const estimatedTotalShares = pool?.reserveValidatorToken ? pool.reserveValidatorToken * 2n : null;
+  const { data: totalShares } = (Hooks.amm.useTotalShares
+    ? Hooks.amm.useTotalShares({
+        userToken: userToken as `0x${string}`,
+        validatorToken: validatorToken as `0x${string}`,
+      })
+    : { data: null }) as { data: bigint | null };
+
+  const estimatedTotalShares = isTempoChain
+    ? (pool?.reserveValidatorToken ? pool.reserveValidatorToken * 2n : null)
+    : (totalShares ?? null);
 
   const handleAddLiquidity = async () => {
     if (!address || !amount || !walletClient || !publicClient) return;

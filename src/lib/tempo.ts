@@ -444,6 +444,33 @@ export const Hooks = {
                 }
             });
         },
+        useTotalShares: ({ userToken, validatorToken }: { userToken: `0x${string}`; validatorToken: `0x${string}` }) => {
+            const chainId = useChainId();
+            const isTempoChain = isTempoNativeChain(chainId);
+            const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
+
+            const arcTotalShares = useReadContract({
+                address: arcHubAddress,
+                abi: HUB_AMM_ABI,
+                functionName: 'totalShares',
+                args: [userToken],
+                query: {
+                    enabled: !isTempoChain && arcHubAddress !== ZERO_ADDRESS && !!userToken && !!validatorToken,
+                    refetchInterval: 10000,
+                }
+            });
+
+            if (isTempoChain) {
+                return {
+                    data: null,
+                    isLoading: false,
+                    error: null,
+                    refetch: async () => null,
+                };
+            }
+
+            return arcTotalShares;
+        },
         useMintSync: () => {
              const { writeContract, isPending } = useWriteContract();
              const chainId = useChainId();

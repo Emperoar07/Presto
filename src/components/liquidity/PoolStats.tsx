@@ -26,6 +26,12 @@ export function PoolStats({
   userShares,
   inputAmount,
 }: PoolStatsProps) {
+  const formatCompactPercent = (value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return '0.00%';
+    if (value >= 1000) return '999.99%+';
+    return `${value.toFixed(2)}%`;
+  };
+
   const formatMetric = (value: number, fractionDigits = 2) => {
     if (!Number.isFinite(value)) return '--';
 
@@ -120,7 +126,7 @@ export function PoolStats({
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Your Share</p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-primary">{poolSharePercent.toFixed(2)}%</p>
+          <p className="mt-2 break-words text-xl font-bold tracking-tight text-primary sm:text-2xl">{formatCompactPercent(poolSharePercent)}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Pool Ratio</p>

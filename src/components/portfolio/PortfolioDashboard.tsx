@@ -28,6 +28,17 @@ const TOKEN_COLORS = [
   'bg-pink-500',
 ];
 
+const isStableLikeToken = (symbol: string) => {
+  const upper = symbol.toUpperCase();
+  return (
+    upper.includes('USD') ||
+    upper === 'USDC' ||
+    upper === 'USDT' ||
+    upper === 'EURC' ||
+    upper === 'WUSDC'
+  );
+};
+
 function TokenRow({
   symbol,
   name,
@@ -68,6 +79,17 @@ function TokenRow({
     return '--';
   }, [isNative, nativeBal, tokenBal, decimals]);
 
+  const numericBalance = useMemo(() => {
+    if (balanceFormatted === '--') return null;
+    const parsed = Number.parseFloat(balanceFormatted.replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [balanceFormatted]);
+
+  const priceDisplay = isStableLikeToken(symbol) ? '$1.00' : 'N/A';
+  const valueDisplay = numericBalance === null
+    ? '--'
+    : `$${numericBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
     <tr className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30">
       <td className="px-6 py-4">
@@ -84,7 +106,7 @@ function TokenRow({
         </div>
       </td>
       <td className="px-6 py-4">
-        <p className="text-sm text-slate-700 dark:text-slate-300">--</p>
+        <p className="text-sm text-slate-700 dark:text-slate-300">{priceDisplay}</p>
       </td>
       <td className="px-6 py-4">
         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -92,7 +114,7 @@ function TokenRow({
         </p>
       </td>
       <td className="px-6 py-4 text-right">
-        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">--</p>
+        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{valueDisplay}</p>
       </td>
     </tr>
   );
@@ -104,10 +126,12 @@ function LpPositionRow({
   token,
   validatorToken,
   walletAddress,
+  chainId,
 }: {
   token: Token;
   validatorToken: Token;
   walletAddress: `0x${string}`;
+  chainId: number;
 }) {
   const { data: liquidity } = (Hooks.amm.useLiquidityBalance
     ? Hooks.amm.useLiquidityBalance({
@@ -127,7 +151,9 @@ function LpPositionRow({
         <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
           {token.symbol} / {validatorToken.symbol}
         </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Fee liquidity position</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {isArcChain(chainId) ? 'Stable liquidity position' : 'Fee liquidity position'}
+        </p>
       </div>
       <div className="text-right">
         <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{amount.toFixed(4)}</p>
@@ -193,6 +219,7 @@ function LpPositionsView({
             token={token}
             validatorToken={validatorToken}
             walletAddress={walletAddress}
+            chainId={chainId}
           />
         ))}
         <div className="rounded-xl border border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
@@ -209,6 +236,9 @@ export function PortfolioDashboard() {
   const tokens = getTokens(chainId);
   const [activeTab, setActiveTab] = useState<TabId>('tokens');
   const [mounted, setMounted] = useState(false);
+  const isArcTestnet = isArcChain(chainId);
+  const validatorToken = getHubToken(chainId);
+  const nonHubTokens = tokens.filter((token) => !isHubToken(token, chainId));
 
   useEffect(() => {
     setMounted(true);
@@ -220,6 +250,8 @@ export function PortfolioDashboard() {
     { id: 'tokens', label: 'Tokens', icon: 'token' },
     { id: 'lp', label: 'LP Positions', icon: 'water_drop' },
   ];
+
+  const configuredPoolCount = nonHubTokens.length;
 
   if (!isConnected || !address) {
     return (
@@ -274,23 +306,30 @@ export function PortfolioDashboard() {
 
         <div className="flex flex-col gap-4 rounded-xl border border-primary/20 bg-primary/5 p-6 dark:bg-primary/10">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-bold uppercase tracking-wider text-primary">Rewards &amp; Staking</p>
+            <p className="text-sm font-bold uppercase tracking-wider text-primary">Liquidity Snapshot</p>
             <Link
-              href="/analytics"
+              href={isArcTestnet ? "/transactions" : "/analytics"}
               className="rounded-lg border border-primary/20 p-2 text-primary transition-colors hover:bg-primary/10"
-              aria-label="Open analytics"
+              aria-label={isArcTestnet ? 'Open activity' : 'Open analytics'}
             >
-              <span className="material-symbols-outlined text-base">bar_chart</span>
+              <span className="material-symbols-outlined text-base">{isArcTestnet ? 'swap_horiz' : 'bar_chart'}</span>
             </Link>
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-xs text-slate-500 dark:text-slate-400">Claimable Rewards</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">--</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Configured Pool Pairs</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{configuredPoolCount}</p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-xs text-slate-500 dark:text-slate-400">Staked LP Positions</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">--</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Hub Asset</p>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              {validatorToken?.symbol ?? '--'}
+            </p>
           </div>
+          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {isArcTestnet
+              ? 'Arc does not expose staking or reward modules in this app, so this panel focuses on the deployed stable hub pools and swap activity.'
+              : 'Tempo currently exposes fee-routed liquidity and native activity in this app, without a separate staking or rewards module.'}
+          </p>
           <Link
             href="/liquidity"
             className="mt-auto w-full rounded-xl border-2 border-primary py-2 text-center text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-background-dark"
@@ -376,15 +415,19 @@ export function PortfolioDashboard() {
 
           <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary to-blue-600 p-6 text-background-dark shadow-md">
             <div className="relative z-10">
-              <h4 className="mb-1 text-lg font-bold">Earn Protocol Rewards</h4>
+              <h4 className="mb-1 text-lg font-bold">
+                {isArcTestnet ? 'Manage Arc Stable Liquidity' : 'Manage Tempo Fee Liquidity'}
+              </h4>
               <p className="mb-4 text-xs font-medium opacity-80">
-                Add liquidity to earn a share of all trading fees.
+                {isArcTestnet
+                  ? 'Arc focuses on live stable hub pools and activity rather than a separate rewards module.'
+                  : 'Tempo focuses on fee-routed liquidity and native activity instead of a separate staking surface.'}
               </p>
               <Link
                 href="/liquidity"
                 className="inline-block rounded-xl bg-background-dark px-4 py-2 text-xs font-bold text-white transition-transform active:scale-95"
               >
-                Start Earning
+                Open Liquidity
               </Link>
             </div>
             <div className="absolute -bottom-4 -right-4 opacity-20">
