@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, type RefObject } from 'react';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useChainId, useWalletClient, usePublicClient } from 'wagmi';
 import toast from 'react-hot-toast';
@@ -22,6 +22,8 @@ interface ManageFeeLiquidityProps {
   removeAmount?: string;
   onRemoveAmountChange?: (value: string) => void;
   pairManagementPanel?: ReactNode;
+  addActionRef?: RefObject<HTMLDivElement | null>;
+  removeActionRef?: RefObject<HTMLDivElement | null>;
 }
 
 export function ManageFeeLiquidity({
@@ -35,6 +37,8 @@ export function ManageFeeLiquidity({
   removeAmount = '',
   onRemoveAmountChange,
   pairManagementPanel,
+  addActionRef,
+  removeActionRef,
 }: ManageFeeLiquidityProps) {
   const { address } = useAccount();
   const chainId = useChainId();
@@ -336,7 +340,7 @@ export function ManageFeeLiquidity({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/50">
+              <div ref={addActionRef} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/50">
                 <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   <span>{isTempoChain ? 'Amount' : `${userTokenSymbol} amount`}</span>
                   <button
@@ -405,7 +409,7 @@ export function ManageFeeLiquidity({
               </button>
 
               {!isTempoChain && (
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                <div ref={removeActionRef} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">

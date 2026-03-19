@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useAccount, useChainId, usePublicClient } from 'wagmi';
+import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import { formatUnits, parseAbi } from 'viem';
 import Link from 'next/link';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
 import { getExplorerTxUrl } from '@/lib/explorer';
 import { getContractAddresses, getFeeManagerAddress, HUB_AMM_ABI, isArcChain, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
-import { getTokenBalance } from '@/lib/tempoClient';
+import { addFeeLiquidity, getTokenBalance } from '@/lib/tempoClient';
+import { Hooks } from '@/lib/tempo';
+import toast from 'react-hot-toast';
+import { TxToast } from '@/components/common/TxToast';
 
 const TOKEN_COLORS = [
   'bg-blue-500',
@@ -90,10 +93,196 @@ type TabId = 'tokens' | 'lp';
 
 type LpPositionSnapshot = {
   tokenAddress: string;
+  tokenSymbol: string;
+  tokenDecimals: number;
+  hubTokenAddress: string;
+  hubTokenSymbol: string;
+  hubTokenDecimals: number;
   pairLabel: string;
   lpBalance: number;
   estimatedValue: number;
 };
+
+function LpPositionInlineActions({
+  snapshot,
+}: {
+  snapshot: LpPositionSnapshot;
+}) {
+  const chainId = useChainId();
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const [amount, setAmount] = useState('');
+  const [walletBalance, setWalletBalance] = useState('0');
+  const [requiredHubAmount, setRequiredHubAmount] = useState('0');
+  const [isApproving, setIsApproving] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const burnLiquidity = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchWalletBalance = async () => {
+      if (!publicClient || !address) return;
+      try {
+        const nextBalance = await getTokenBalance(publicClient, address, snapshot.tokenAddress, snapshot.tokenDecimals);
+        if (!cancelled) {
+          setWalletBalance(nextBalance);
+        }
+      } catch (error) {
+        console.error('Failed to fetch LP action wallet balance', error);
+      }
+    };
+
+    fetchWalletBalance();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, publicClient, snapshot.tokenAddress, snapshot.tokenDecimals]);
+
+  useEffect(() => {
+    if (isTempoNativeChain(chainId)) {
+      setRequiredHubAmount(amount);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchRequiredHubAmount = async () => {
+      if (!publicClient || !amount || Number(amount) <= 0) {
+        if (!cancelled) setRequiredHubAmount('0');
+        return;
+      }
+
+      try {
+        const { quoteHubLiquidityPathAmount } = await import('@/lib/tempoClient');
+        const result = await quoteHubLiquidityPathAmount(
+          publicClient,
+          snapshot.tokenAddress,
+          snapshot.hubTokenAddress,
+          parseUnits(amount, snapshot.tokenDecimals),
+          chainId
+        );
+        if (!cancelled) {
+          setRequiredHubAmount(formatUnits(result, snapshot.hubTokenDecimals));
+        }
+      } catch (error) {
+        console.error('Failed to fetch required hub amount', error);
+        if (!cancelled) {
+          setRequiredHubAmount('0');
+        }
+      }
+    };
+
+    fetchRequiredHubAmount();
+    return () => {
+      cancelled = true;
+    };
+  }, [amount, chainId, publicClient, snapshot.hubTokenAddress, snapshot.hubTokenDecimals, snapshot.tokenAddress, snapshot.tokenDecimals]);
+
+  const handleAdd = async () => {
+    if (!address || !walletClient || !publicClient || !amount || Number(amount) <= 0) return;
+
+    setIsAdding(true);
+    setIsApproving(false);
+    try {
+      const hash = await addFeeLiquidity(
+        walletClient,
+        publicClient,
+        address,
+        snapshot.tokenAddress,
+        snapshot.hubTokenAddress,
+        parseUnits(amount, isTempoNativeChain(chainId) ? snapshot.hubTokenDecimals : snapshot.tokenDecimals),
+        (stage) => setIsApproving(stage === 'approving'),
+        chainId
+      );
+      toast.custom(() => <TxToast hash={hash} title="Liquidity added" />);
+      await publicClient.waitForTransactionReceipt({ hash });
+      setAmount('');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to add liquidity';
+      toast.error(msg);
+    } finally {
+      setIsAdding(false);
+      setIsApproving(false);
+    }
+  };
+
+  const handleRemove = (percent: number) => {
+    if (!address || percent <= 0) return;
+    const rawLiquidity = parseUnits(snapshot.lpBalance.toString(), 18);
+    const removeAmount = (rawLiquidity * BigInt(percent)) / 100n;
+    if (removeAmount <= 0n) return;
+
+    burnLiquidity.mutate({
+      userTokenAddress: snapshot.tokenAddress as `0x${string}`,
+      validatorTokenAddress: snapshot.hubTokenAddress as `0x${string}`,
+      liquidityAmount: removeAmount,
+      to: address,
+      feeToken: snapshot.hubTokenAddress as `0x${string}`,
+    });
+  };
+
+  return (
+    <div className="mt-3 space-y-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+            <span>Add {snapshot.tokenSymbol}</span>
+            <button
+              type="button"
+              onClick={() => setAmount(walletBalance)}
+              className="rounded-full border border-primary/20 px-2.5 py-1 text-primary transition-colors hover:bg-primary/10"
+            >
+              Max
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.0"
+              className="w-full bg-transparent text-2xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700"
+            />
+            <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+              {snapshot.tokenSymbol}
+            </div>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>Wallet: {Number(walletBalance || '0').toFixed(4)} {snapshot.tokenSymbol}</span>
+            <span>Hub required: {Number(requiredHubAmount || '0').toFixed(4)} {snapshot.hubTokenSymbol}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={isAdding || !amount || Number(amount) <= 0}
+          className="rounded-full bg-primary px-4 py-3 text-sm font-bold text-background-dark transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isApproving ? 'Approving...' : isAdding ? 'Adding...' : 'Add Liquidity'}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {[25, 50, 100].map((percent) => (
+          <button
+            key={percent}
+            type="button"
+            onClick={() => handleRemove(percent)}
+            disabled={burnLiquidity.isPending}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+              percent === 100
+                ? 'border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/15 dark:text-red-400'
+                : 'border border-slate-200 text-slate-700 hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-200'
+            }`}
+          >
+            {burnLiquidity.isPending ? 'Removing...' : `Remove ${percent}%`}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function LpPositionsView({
   chainId,
@@ -169,30 +358,7 @@ function LpPositionsView({
             </button>
             {expandedPair === snapshot.tokenAddress && (
               <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
-                <Link
-                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=add`}
-                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-background-dark transition-colors hover:bg-primary/90"
-                >
-                  Add Liquidity
-                </Link>
-                <Link
-                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=remove&percent=25`}
-                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-200"
-                >
-                  Remove 25%
-                </Link>
-                <Link
-                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=remove&percent=50`}
-                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-200"
-                >
-                  Remove 50%
-                </Link>
-                <Link
-                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=remove&percent=100`}
-                  className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-500 transition-colors hover:bg-red-500/15 dark:text-red-400"
-                >
-                  Remove 100%
-                </Link>
+                <LpPositionInlineActions snapshot={snapshot} />
               </div>
             )}
           </div>

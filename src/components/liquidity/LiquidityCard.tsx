@@ -30,15 +30,19 @@ function ProvidedLiquidityRow({
   hubToken,
   walletAddress,
   isActive,
-  onSelect,
   onApplyRemovePercent,
+  onFocusAdd,
+  isExpanded,
+  onToggle,
 }: {
   token: Token;
   hubToken: Token;
   walletAddress?: `0x${string}`;
   isActive: boolean;
-  onSelect: (token: Token) => void;
   onApplyRemovePercent: (token: Token, percent: number, rawLiquidity: bigint) => void;
+  onFocusAdd: (token: Token) => void;
+  isExpanded: boolean;
+  onToggle: (tokenAddress: string) => void;
 }) {
   const { data: liquidity } = (Hooks.amm.useLiquidityBalance
     ? Hooks.amm.useLiquidityBalance({
@@ -60,36 +64,49 @@ function ProvidedLiquidityRow({
           : 'border-slate-200 bg-white/75 dark:border-white/10 dark:bg-white/[0.04]'
       }`}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <button
+        type="button"
+        onClick={() => onToggle(token.address)}
+        className="flex w-full flex-col gap-4 text-left md:flex-row md:items-center md:justify-between"
+      >
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
             {token.symbol} / {hubToken.symbol}
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">Provided liquidity</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4 md:justify-end">
           <p className="text-sm font-bold text-slate-900 dark:text-white">{formattedBalance.toFixed(4)} LP</p>
-          <button
-            type="button"
-            onClick={() => onSelect(token)}
-            className="rounded-full border border-primary/20 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
-          >
-            Add
-          </button>
+          <span className="material-symbols-outlined text-slate-400">
+            {isExpanded ? 'expand_less' : 'expand_more'}
+          </span>
         </div>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {[25, 50, 100].map((percent) => (
+      </button>
+      {isExpanded && (
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-white/10">
           <button
-            key={percent}
             type="button"
-            onClick={() => onApplyRemovePercent(token, percent, liquidity ?? 0n)}
-            className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-300"
+            onClick={() => onFocusAdd(token)}
+            className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-background-dark transition-colors hover:bg-primary/90"
           >
-            Remove {percent}%
+            Add Liquidity
           </button>
-        ))}
-      </div>
+          {[25, 50, 100].map((percent) => (
+            <button
+              key={percent}
+              type="button"
+              onClick={() => onApplyRemovePercent(token, percent, liquidity ?? 0n)}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                percent === 100
+                  ? 'border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/15 dark:text-red-400'
+                  : 'border border-slate-200 text-slate-700 hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-200'
+              }`}
+            >
+              Remove {percent}%
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -128,6 +145,9 @@ export function LiquidityCard() {
   const [orderDebug, setOrderDebug] = useState<{ message: string; data?: string; params?: Record<string, unknown> } | null>(null);
   const [dexSpendBalance, setDexSpendBalance] = useState('0');
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [expandedProvidedPair, setExpandedProvidedPair] = useState<string | null>(null);
+  const addActionRef = useRef<HTMLDivElement | null>(null);
+  const removeActionRef = useRef<HTMLDivElement | null>(null);
 
   const burnLiquidity = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
   const { data: lpBalance } = (Hooks.amm.useLiquidityBalance
@@ -232,6 +252,17 @@ export function LiquidityCard() {
       : '0';
     setRemoveAmount(nextAmount);
     setActiveTab('fee');
+    setTimeout(() => {
+      removeActionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
+  const handleFocusAddForPair = (token: Token) => {
+    setSelectedToken(token);
+    setActiveTab('fee');
+    setTimeout(() => {
+      addActionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
   };
 
   const providedPairsPanel = isConnected && address ? (
@@ -254,8 +285,12 @@ export function LiquidityCard() {
               hubToken={pathToken}
               walletAddress={address}
               isActive={selectedToken.address.toLowerCase() === token.address.toLowerCase()}
-              onSelect={setSelectedToken}
               onApplyRemovePercent={handleApplyRemovePercent}
+              onFocusAdd={handleFocusAddForPair}
+              isExpanded={expandedProvidedPair === token.address}
+              onToggle={(tokenAddress) =>
+                setExpandedProvidedPair((current) => (current === tokenAddress ? null : tokenAddress))
+              }
             />
           ))}
       </div>
@@ -370,7 +405,10 @@ export function LiquidityCard() {
             <div className="flex gap-2 rounded-2xl border border-slate-200 bg-slate-100/90 p-1.5 dark:border-white/5 dark:bg-white/[0.03]">
               <button
                 onClick={() => setActiveTab('fee')}
-                className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'fee' ? 'border border-primary/20 bg-white text-primary shadow-sm dark:bg-white/10' : 'text-slate-500 dark:text-slate-400'}`}
+                disabled
+                aria-disabled="true"
+                title="Fee liquidity is temporarily unavailable"
+                className="cursor-not-allowed rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-400 opacity-50"
               >
                 Fee Liquidity
               </button>
@@ -435,12 +473,14 @@ export function LiquidityCard() {
                 userTokenDecimals={selectedToken.decimals}
                 validatorTokenDecimals={pathToken.decimals}
                 userTokenSymbol={selectedToken.symbol}
-                validatorTokenSymbol={pathToken.symbol}
-                showMaintenance={isTempoChain}
-                removeAmount={removeAmount}
-                onRemoveAmountChange={setRemoveAmount}
-                pairManagementPanel={providedPairsPanel}
-              />
+              validatorTokenSymbol={pathToken.symbol}
+              showMaintenance={isTempoChain}
+              removeAmount={removeAmount}
+              onRemoveAmountChange={setRemoveAmount}
+              pairManagementPanel={providedPairsPanel}
+              addActionRef={addActionRef}
+              removeActionRef={removeActionRef}
+            />
 
               {isTempoChain && (
                 <div className="space-y-5">
