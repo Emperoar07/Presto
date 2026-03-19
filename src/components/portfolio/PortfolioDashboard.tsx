@@ -6,7 +6,6 @@ import { formatUnits, parseAbi } from 'viem';
 import Link from 'next/link';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
 import { getExplorerTxUrl } from '@/lib/explorer';
-import { Hooks } from '@/lib/tempo';
 import { getContractAddresses, getFeeManagerAddress, HUB_AMM_ABI, isArcChain, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
 import { getTokenBalance } from '@/lib/tempoClient';
 
@@ -89,47 +88,6 @@ function TokenRow({
 
 type TabId = 'tokens' | 'lp';
 
-function LpPositionRow({
-  token,
-  validatorToken,
-  walletAddress,
-  chainId,
-}: {
-  token: Token;
-  validatorToken: Token;
-  walletAddress: `0x${string}`;
-  chainId: number;
-}) {
-  const { data: liquidity } = (Hooks.amm.useLiquidityBalance
-    ? Hooks.amm.useLiquidityBalance({
-        address: walletAddress,
-        userToken: token.address,
-        validatorToken: validatorToken.address,
-      })
-    : { data: null }) as { data: bigint | null };
-
-  const amount = liquidity ? Number(formatUnits(liquidity, 18)) : 0;
-
-  if (amount <= 0) return null;
-
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/40">
-      <div>
-        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-          {token.symbol} / {validatorToken.symbol}
-        </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {isArcChain(chainId) ? 'Stable liquidity position' : 'Fee liquidity position'}
-        </p>
-      </div>
-      <div className="text-right">
-        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{amount.toFixed(4)}</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">LP balance</p>
-      </div>
-    </div>
-  );
-}
-
 type LpPositionSnapshot = {
   tokenAddress: string;
   pairLabel: string;
@@ -139,17 +97,14 @@ type LpPositionSnapshot = {
 
 function LpPositionsView({
   chainId,
-  tokens,
-  walletAddress,
+  snapshots,
 }: {
   chainId: number;
-  tokens: Token[];
-  walletAddress: `0x${string}`;
+  snapshots: LpPositionSnapshot[];
 }) {
-  const validatorToken = getHubToken(chainId);
+  const [expandedPair, setExpandedPair] = useState<string | null>(null);
   const isArcTestnet = isArcChain(chainId);
   const hasArcDeployment = getContractAddresses(chainId).HUB_AMM_ADDRESS !== ZERO_ADDRESS;
-  const positionTokens = tokens.filter((token) => !isHubToken(token, chainId));
 
   if (isArcTestnet && !hasArcDeployment) {
     return (
@@ -166,7 +121,7 @@ function LpPositionsView({
     );
   }
 
-  if (!validatorToken) {
+  if (snapshots.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-12 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600">water_drop</span>
@@ -179,26 +134,69 @@ function LpPositionsView({
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Your LP Positions</h3>
-        <Link
-          href="/liquidity"
-          className="text-sm font-semibold text-primary transition-colors hover:text-primary/80"
-        >
-          Manage
-        </Link>
+        <span className="text-sm font-semibold text-primary">
+          ${snapshots.reduce((sum, snapshot) => sum + snapshot.estimatedValue, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
       </div>
       <div className="space-y-3">
-        {positionTokens.map((token) => (
-          <LpPositionRow
-            key={token.address}
-            token={token}
-            validatorToken={validatorToken}
-            walletAddress={walletAddress}
-            chainId={chainId}
-          />
+        {snapshots.map((snapshot) => (
+          <div
+            key={snapshot.tokenAddress}
+            className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-4 dark:border-slate-800 dark:bg-slate-800/40"
+          >
+            <button
+              type="button"
+              onClick={() => setExpandedPair((current) => (current === snapshot.tokenAddress ? null : snapshot.tokenAddress))}
+              className="flex w-full flex-col gap-4 text-left md:flex-row md:items-center md:justify-between"
+            >
+              <div>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{snapshot.pairLabel}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isArcChain(chainId) ? 'Stable liquidity position' : 'Fee liquidity position'}
+                </p>
+              </div>
+              <div className="flex items-center gap-4 md:justify-end">
+                <div className="grid gap-1 text-left md:text-right">
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{snapshot.lpBalance.toFixed(4)} LP</p>
+                  <p className="text-sm font-semibold text-primary">
+                    ${snapshot.estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <span className="material-symbols-outlined text-slate-400">
+                  {expandedPair === snapshot.tokenAddress ? 'expand_less' : 'expand_more'}
+                </span>
+              </div>
+            </button>
+            {expandedPair === snapshot.tokenAddress && (
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+                <Link
+                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=add`}
+                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-background-dark transition-colors hover:bg-primary/90"
+                >
+                  Add Liquidity
+                </Link>
+                <Link
+                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=remove&percent=25`}
+                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-200"
+                >
+                  Remove 25%
+                </Link>
+                <Link
+                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=remove&percent=50`}
+                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-200"
+                >
+                  Remove 50%
+                </Link>
+                <Link
+                  href={`/liquidity?pair=${encodeURIComponent(snapshot.tokenAddress)}&action=remove&percent=100`}
+                  className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-500 transition-colors hover:bg-red-500/15 dark:text-red-400"
+                >
+                  Remove 100%
+                </Link>
+              </div>
+            )}
+          </div>
         ))}
-        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          Only pairs with a non-zero LP balance will appear here.
-        </div>
       </div>
     </div>
   );
@@ -507,35 +505,7 @@ export function PortfolioDashboard() {
           )}
 
           {activeTab === 'lp' && (
-            <div className="space-y-4">
-              <LpPositionsView chainId={chainId} tokens={tokens} walletAddress={address} />
-              {liquiditySnapshots.length > 0 && (
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Liquidity Value</h3>
-                    <span className="text-sm font-semibold text-primary">
-                      ${totalLiquidityValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {liquiditySnapshots.map((snapshot) => (
-                      <div
-                        key={snapshot.tokenAddress}
-                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/40"
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{snapshot.pairLabel}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{snapshot.lpBalance.toFixed(4)} LP</p>
-                        </div>
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                          ${snapshot.estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <LpPositionsView chainId={chainId} snapshots={liquiditySnapshots} />
           )}
 
         </div>

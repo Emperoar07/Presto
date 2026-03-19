@@ -99,44 +99,6 @@ export default function Home() {
         </section>
 
         <section className="py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-10">
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">Why choose PrestoDEX?</h2>
-              <p className={`max-w-2xl mx-auto text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Built for traders who demand the best in efficiency, depth, and security.</p>
-            </div>
-            <div className="grid md:grid-cols-3 gap-5">
-              <div className={`p-5 rounded-twelve transition-all group backdrop-blur-[7px] ${isDark ? 'bg-white/[0.03] border border-white/10 hover:border-brand/50' : 'bg-white border border-black/5 shadow-sm hover:shadow-md hover:border-brand'}`}>
-                <div className={`w-10 h-10 bg-brand/10 rounded-twelve flex items-center justify-center mb-4 text-brand transition-all ${isDark ? 'group-hover:bg-brand group-hover:text-brand-dark' : 'group-hover:bg-brand group-hover:text-white'}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-bold mb-2">Lightning Fast Swaps</h3>
-                <p className={`leading-relaxed text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Execute trades with near-zero latency using our optimized aggregation engine and high-throughput network.</p>
-              </div>
-              <div className={`p-5 rounded-twelve transition-all group backdrop-blur-[7px] ${isDark ? 'bg-white/[0.03] border border-white/10 hover:border-brand/50' : 'bg-white border border-black/5 shadow-sm hover:shadow-md hover:border-brand'}`}>
-                <div className={`w-10 h-10 bg-brand/10 rounded-twelve flex items-center justify-center mb-4 text-brand transition-all ${isDark ? 'group-hover:bg-brand group-hover:text-brand-dark' : 'group-hover:bg-brand group-hover:text-white'}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-bold mb-2">Deep Liquidity</h3>
-                <p className={`leading-relaxed text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Access massive liquidity pools with minimal slippage, even for large orders, thanks to our multi-source routing.</p>
-              </div>
-              <div className={`p-5 rounded-twelve transition-all group backdrop-blur-[7px] ${isDark ? 'bg-white/[0.03] border border-white/10 hover:border-brand/50' : 'bg-white border border-black/5 shadow-sm hover:shadow-md hover:border-brand'}`}>
-                <div className={`w-10 h-10 bg-brand/10 rounded-twelve flex items-center justify-center mb-4 text-brand transition-all ${isDark ? 'group-hover:bg-brand group-hover:text-brand-dark' : 'group-hover:bg-brand group-hover:text-white'}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-bold mb-2">Non-Custodial Security</h3>
-                <p className={`leading-relaxed text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Your keys, your crypto. PrestoDEX never holds your assets, ensuring you have full control over your funds at all times.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-16">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className={`relative p-8 rounded-[22px] overflow-hidden text-center backdrop-blur-[7px] ${isDark ? 'bg-white/[0.03] border border-brand/20' : 'bg-brand/5 border border-brand/20 shadow-inner'}`}>
               <div className={`absolute -top-24 -left-24 w-64 h-64 rounded-full blur-[80px] ${isDark ? 'bg-brand/20' : 'bg-brand/10'}`} />

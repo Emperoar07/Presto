@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useChainId, useWalletClient, usePublicClient } from 'wagmi';
 import toast from 'react-hot-toast';
@@ -19,6 +19,9 @@ interface ManageFeeLiquidityProps {
   userTokenSymbol?: string;
   validatorTokenSymbol?: string;
   showMaintenance?: boolean;
+  removeAmount?: string;
+  onRemoveAmountChange?: (value: string) => void;
+  pairManagementPanel?: ReactNode;
 }
 
 export function ManageFeeLiquidity({
@@ -29,6 +32,9 @@ export function ManageFeeLiquidity({
   userTokenSymbol = 'Token',
   validatorTokenSymbol = 'pathUSD',
   showMaintenance = true,
+  removeAmount = '',
+  onRemoveAmountChange,
+  pairManagementPanel,
 }: ManageFeeLiquidityProps) {
   const { address } = useAccount();
   const chainId = useChainId();
@@ -38,7 +44,6 @@ export function ManageFeeLiquidity({
   const publicClient = usePublicClient();
   const factoryAddress = getContractAddresses(chainId).FACTORY_ADDRESS;
   const [amount, setAmount] = useState('');
-  const [removeAmount, setRemoveAmount] = useState('');
   const [isApproving, setIsApproving] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [userTokenBalance, setUserTokenBalance] = useState('0');
@@ -295,6 +300,7 @@ export function ManageFeeLiquidity({
               totalShares={estimatedTotalShares}
               userShares={balance}
             />
+            {pairManagementPanel ? <div className="mt-4">{pairManagementPanel}</div> : null}
           </div>
 
           <div className="p-6">
@@ -411,7 +417,7 @@ export function ManageFeeLiquidity({
                     </div>
                     <button
                       type="button"
-                      onClick={() => balance && setRemoveAmount(formatUnits(balance, 18))}
+                      onClick={() => balance && onRemoveAmountChange?.(formatUnits(balance, 18))}
                       className="rounded-full border border-primary/20 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/10"
                     >
                       Max LP
@@ -420,7 +426,7 @@ export function ManageFeeLiquidity({
                   <input
                     type="text"
                     value={removeAmount}
-                    onChange={(e) => setRemoveAmount(e.target.value)}
+                    onChange={(e) => onRemoveAmountChange?.(e.target.value)}
                     placeholder="0.0"
                     className="mb-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-slate-600"
                   />

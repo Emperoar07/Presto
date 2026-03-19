@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { BaseError, ContractFunctionRevertedError, formatUnits, parseAbi, parseUnits } from 'viem';
+import { useSearchParams } from 'next/navigation';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
 import { TokenModal } from '../common/TokenModal';
@@ -30,12 +31,14 @@ function ProvidedLiquidityRow({
   walletAddress,
   isActive,
   onSelect,
+  onApplyRemovePercent,
 }: {
   token: Token;
   hubToken: Token;
   walletAddress?: `0x${string}`;
   isActive: boolean;
   onSelect: (token: Token) => void;
+  onApplyRemovePercent: (token: Token, percent: number, rawLiquidity: bigint) => void;
 }) {
   const { data: liquidity } = (Hooks.amm.useLiquidityBalance
     ? Hooks.amm.useLiquidityBalance({
@@ -50,27 +53,49 @@ function ProvidedLiquidityRow({
   if (formattedBalance <= 0) return null;
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(token)}
-      className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all ${
+    <div
+      className={`rounded-2xl border px-4 py-3 transition-all ${
         isActive
           ? 'border-primary/30 bg-primary/10'
-          : 'border-slate-200 bg-white/75 hover:border-primary/20 dark:border-white/10 dark:bg-white/[0.04]'
+          : 'border-slate-200 bg-white/75 dark:border-white/10 dark:bg-white/[0.04]'
       }`}
     >
-      <div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-          {token.symbol} / {hubToken.symbol}
-        </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Provided liquidity</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            {token.symbol} / {hubToken.symbol}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Provided liquidity</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-bold text-slate-900 dark:text-white">{formattedBalance.toFixed(4)} LP</p>
+          <button
+            type="button"
+            onClick={() => onSelect(token)}
+            className="rounded-full border border-primary/20 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+          >
+            Add
+          </button>
+        </div>
       </div>
-      <p className="text-sm font-bold text-slate-900 dark:text-white">{formattedBalance.toFixed(4)} LP</p>
-    </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {[25, 50, 100].map((percent) => (
+          <button
+            key={percent}
+            type="button"
+            onClick={() => onApplyRemovePercent(token, percent, liquidity ?? 0n)}
+            className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-300"
+          >
+            Remove {percent}%
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
 export function LiquidityCard() {
+  const searchParams = useSearchParams();
   const chainId = useChainId();
   const isTempoChain = isTempoNativeChain(chainId);
   const isArcTestnet = isArcChain(chainId);
@@ -92,7 +117,7 @@ export function LiquidityCard() {
   const [tokenBalance, setTokenBalance] = useState('0.00');
   const [pathBalance, setPathBalance] = useState('0.00');
   const balanceRequestId = useRef(0);
-  const [lpAmount, setLpAmount] = useState('');
+  const [removeAmount, setRemoveAmount] = useState('');
   const [orderAmount, setOrderAmount] = useState('');
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
   const [tick, setTick] = useState('0');
@@ -117,6 +142,22 @@ export function LiquidityCard() {
     const nextToken = tokens.find((t) => !isHubToken(t, chainId)) || tokens[1];
     setSelectedToken(nextToken);
   }, [chainId, tokens]);
+
+  useEffect(() => {
+    const pairParam = searchParams.get('pair');
+    if (!pairParam) return;
+
+    const matchedToken = tokens.find(
+      (token) =>
+        token.address.toLowerCase() === pairParam.toLowerCase() ||
+        token.symbol.toLowerCase() === pairParam.toLowerCase()
+    );
+
+    if (matchedToken && !isHubToken(matchedToken, chainId)) {
+      setSelectedToken(matchedToken);
+      setActiveTab('fee');
+    }
+  }, [chainId, searchParams, tokens]);
 
   useEffect(() => {
     if (!supportsLimitOrders && activeTab === 'order') setActiveTab('fee');
@@ -159,16 +200,67 @@ export function LiquidityCard() {
     setDepositTokenAddress(spendToken.address);
   }, [orderType, quoteToken, selectedToken]);
 
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const percentParam = searchParams.get('percent');
+    if (action !== 'remove' || !percentParam || !lpBalance) return;
+
+    const parsedPercent = Number.parseInt(percentParam, 10);
+    if (!Number.isFinite(parsedPercent) || parsedPercent <= 0) return;
+
+    const boundedPercent = Math.min(parsedPercent, 100);
+    const nextAmount = formatUnits((lpBalance * BigInt(boundedPercent)) / 100n, 18);
+    setRemoveAmount(nextAmount);
+    setActiveTab('fee');
+  }, [lpBalance, searchParams]);
+
   const handleRemoveFeeLiquidity = () => {
-    if (!address || !lpAmount) return;
+    if (!address || !removeAmount) return;
     burnLiquidity.mutate({
       userTokenAddress: selectedToken.address,
       validatorTokenAddress: pathToken.address,
-      liquidityAmount: parseUnits(lpAmount, 18),
+      liquidityAmount: parseUnits(removeAmount, 18),
       to: address,
       feeToken: feeToken?.address || pathToken.address,
     });
   };
+
+  const handleApplyRemovePercent = (token: Token, percent: number, rawLiquidity: bigint) => {
+    setSelectedToken(token);
+    const nextAmount = rawLiquidity > 0n
+      ? formatUnits((rawLiquidity * BigInt(percent)) / 100n, 18)
+      : '0';
+    setRemoveAmount(nextAmount);
+    setActiveTab('fee');
+  };
+
+  const providedPairsPanel = isConnected && address ? (
+    <div className="rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="mb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+          Your Provided Pairs
+        </p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Select a pair to add more liquidity, or prefill removal by percentage.
+        </p>
+      </div>
+      <div className="grid gap-3">
+        {tokens
+          .filter((token) => !isHubToken(token, chainId))
+          .map((token) => (
+            <ProvidedLiquidityRow
+              key={token.address}
+              token={token}
+              hubToken={pathToken}
+              walletAddress={address}
+              isActive={selectedToken.address.toLowerCase() === token.address.toLowerCase()}
+              onSelect={setSelectedToken}
+              onApplyRemovePercent={handleApplyRemovePercent}
+            />
+          ))}
+      </div>
+    </div>
+  ) : null;
 
   const getRevertReason = (error: unknown) => {
     if (error instanceof BaseError) {
@@ -336,35 +428,6 @@ export function LiquidityCard() {
               </div>
             </div>
 
-            {isConnected && address && (
-              <div className="mb-6 rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      Your Provided Pairs
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      Select any pair where you currently hold LP shares.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-3">
-                  {tokens
-                    .filter((token) => !isHubToken(token, chainId))
-                    .map((token) => (
-                      <ProvidedLiquidityRow
-                        key={token.address}
-                        token={token}
-                        hubToken={pathToken}
-                        walletAddress={address}
-                        isActive={selectedToken.address.toLowerCase() === token.address.toLowerCase()}
-                        onSelect={setSelectedToken}
-                      />
-                    ))}
-                </div>
-              </div>
-            )}
-
             <div className={`grid gap-5 ${isTempoChain ? 'xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.72fr)]' : 'grid-cols-1'}`}>
               <ManageFeeLiquidity
                 userToken={selectedToken.address}
@@ -374,6 +437,9 @@ export function LiquidityCard() {
                 userTokenSymbol={selectedToken.symbol}
                 validatorTokenSymbol={pathToken.symbol}
                 showMaintenance={isTempoChain}
+                removeAmount={removeAmount}
+                onRemoveAmountChange={setRemoveAmount}
+                pairManagementPanel={providedPairsPanel}
               />
 
               {isTempoChain && (
@@ -392,21 +458,21 @@ export function LiquidityCard() {
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
                       <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                         <span>Amount</span>
-                        <button type="button" onClick={() => lpBalance && setLpAmount(formatUnits(lpBalance, 18))} className="rounded-full border border-primary/20 px-2.5 py-1 text-primary hover:bg-primary/10">
+                        <button type="button" onClick={() => lpBalance && setRemoveAmount(formatUnits(lpBalance, 18))} className="rounded-full border border-primary/20 px-2.5 py-1 text-primary hover:bg-primary/10">
                           Max
                         </button>
                       </div>
                       <input
                         type="text"
-                        value={lpAmount}
-                        onChange={(e) => setLpAmount(e.target.value)}
+                        value={removeAmount}
+                        onChange={(e) => setRemoveAmount(e.target.value)}
                         placeholder="0.0"
                         className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700"
                       />
                     </div>
                     <button
                       onClick={handleRemoveFeeLiquidity}
-                      disabled={burnLiquidity.isPending || !lpAmount}
+                      disabled={burnLiquidity.isPending || !removeAmount}
                       className="mt-5 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500 transition-all hover:bg-red-500/15 disabled:opacity-40 dark:text-red-400"
                     >
                       {burnLiquidity.isPending ? 'Removing...' : 'Remove Liquidity'}
