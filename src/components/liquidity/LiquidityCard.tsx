@@ -178,35 +178,6 @@ export function LiquidityCard() {
       const flipTick = isFlip ? (isBid ? tickVal + 10 : tickVal - 10) : undefined;
       const placeArgs = [selectedToken.address, toUint128(amount), isBid, tickVal] as const;
 
-      if (showOrderDebug) {
-        try {
-          if (isFlip && typeof flipTick === 'number') {
-            await publicClient.simulateContract({
-              address: getDexAddressForChain(chainId),
-              abi: DEX_PLACE_FLIP_ABI,
-              functionName: 'placeFlip',
-              args: [...placeArgs, flipTick],
-              account: address as `0x${string}`,
-            });
-          } else {
-            await publicClient.simulateContract({
-              address: getDexAddressForChain(chainId),
-              abi: DEX_PLACE_ABI,
-              functionName: 'place',
-              args: placeArgs,
-              account: address as `0x${string}`,
-            });
-          }
-        } catch (e) {
-          setOrderDebug({
-            message: getRevertReason(e),
-            data: getRevertData(e),
-            params: { token: selectedToken.address, amount: amount.toString(), isBid, tick: tickVal, flipTick },
-          });
-          return toast.error(`Order simulation failed: ${getRevertReason(e)}`);
-        }
-      }
-
       const hash = await placeOrder(
         walletClient,
         publicClient as unknown as PublicClient,

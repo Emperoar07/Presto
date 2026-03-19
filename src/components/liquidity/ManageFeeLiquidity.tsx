@@ -38,6 +38,7 @@ export function ManageFeeLiquidity({
   const publicClient = usePublicClient();
   const factoryAddress = getContractAddresses(chainId).FACTORY_ADDRESS;
   const [amount, setAmount] = useState('');
+  const [removeAmount, setRemoveAmount] = useState('');
   const [isApproving, setIsApproving] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [userTokenBalance, setUserTokenBalance] = useState('0');
@@ -133,6 +134,7 @@ export function ManageFeeLiquidity({
         validatorToken: validatorToken as `0x${string}`,
       })
     : { data: null }) as { data: bigint | null };
+  const burnLiquidity = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
 
   const estimatedTotalShares = isTempoChain
     ? (pool?.reserveValidatorToken ? pool.reserveValidatorToken * 2n : null)
@@ -174,6 +176,17 @@ export function ManageFeeLiquidity({
       setIsAdding(false);
       setIsApproving(false);
     }
+  };
+
+  const handleRemoveLiquidity = () => {
+    if (!address || !removeAmount) return;
+    burnLiquidity.mutate({
+      userTokenAddress: userToken as `0x${string}`,
+      validatorTokenAddress: validatorToken as `0x${string}`,
+      liquidityAmount: parseUnits(removeAmount, 18),
+      to: address,
+      feeToken: validatorToken as `0x${string}`,
+    });
   };
 
   const handleSetFeeTo = async () => {
@@ -332,6 +345,42 @@ export function ManageFeeLiquidity({
               >
                 {isApproving ? 'Approving...' : isAdding ? 'Adding Liquidity...' : `Add ${isTempoChain ? validatorTokenSymbol : userTokenSymbol} Liquidity`}
               </button>
+
+              {!isTempoChain && (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                        Remove Liquidity
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                        Exit {userTokenSymbol} / {validatorTokenSymbol}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => balance && setRemoveAmount(formatUnits(balance, 18))}
+                      className="rounded-full border border-primary/20 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/10"
+                    >
+                      Max LP
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={removeAmount}
+                    onChange={(e) => setRemoveAmount(e.target.value)}
+                    placeholder="0.0"
+                    className="mb-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-slate-600"
+                  />
+                  <button
+                    onClick={handleRemoveLiquidity}
+                    disabled={burnLiquidity.isPending || !removeAmount}
+                    className="w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500 transition-all hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
+                  >
+                    {burnLiquidity.isPending ? 'Removing...' : 'Remove Position'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

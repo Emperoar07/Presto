@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useAccount, useChainId, useBalance, useReadContract } from 'wagmi';
+import { useAccount, useChainId, useBalance, useReadContract, useReadContracts } from 'wagmi';
 import { formatUnits } from 'viem';
 import Link from 'next/link';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
@@ -236,6 +236,29 @@ export function PortfolioDashboard() {
   const tokens = getTokens(chainId);
   const [activeTab, setActiveTab] = useState<TabId>('tokens');
   const [mounted, setMounted] = useState(false);
+  const stableTokens = useMemo(() => tokens.filter((token) => isStableLikeToken(token.symbol)), [tokens]);
+  const nativeStableToken = stableTokens.find((token) => token.address === '0x0000000000000000000000000000000000000000');
+  const erc20StableTokens = stableTokens.filter((token) => token.address !== '0x0000000000000000000000000000000000000000');
+
+  const { data: nativeStableBalance } = useBalance({
+    address,
+    query: { enabled: !!address && !!nativeStableToken },
+  });
+
+  const { data: stableTokenBalances } = useReadContracts({
+    contracts: address
+      ? erc20StableTokens.map((token) => ({
+          address: token.address,
+          abi: ERC20_BALANCE_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        }))
+      : [],
+    query: {
+      enabled: !!address && erc20StableTokens.length > 0,
+    },
+  });
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -246,6 +269,30 @@ export function PortfolioDashboard() {
     { id: 'tokens', label: 'Tokens', icon: 'token' },
     { id: 'lp', label: 'LP Positions', icon: 'water_drop' },
   ];
+
+  const totalStableValue = useMemo(() => {
+    let total = 0;
+
+    if (nativeStableToken && nativeStableBalance) {
+      total += Number(formatUnits(nativeStableBalance.value, nativeStableToken.decimals));
+    }
+
+    stableTokenBalances?.forEach((result, index) => {
+      if (result.status !== 'success') return;
+      const token = erc20StableTokens[index];
+      if (!token) return;
+      total += Number(formatUnits(result.result as bigint, token.decimals));
+    });
+
+    return total;
+  }, [erc20StableTokens, nativeStableBalance, nativeStableToken, stableTokenBalances]);
+
+  const totalStableValueDisplay = useMemo(() => {
+    return totalStableValue.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [totalStableValue]);
 
   if (!isConnected || !address) {
     return (
@@ -275,12 +322,12 @@ export function PortfolioDashboard() {
           </div>
           <div className="flex items-baseline gap-2">
             <p className="text-5xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              {tokens.length}
+              ${totalStableValueDisplay}
             </p>
-            <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">assets tracked</span>
+            <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">total value</span>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Wallet balances and protocol activity for the connected network.
+            {tokens.length} assets tracked on the connected network.
           </p>
           <div className="mt-2 flex gap-2">
             <Link

@@ -489,13 +489,26 @@ export const Hooks = {
         useBurnSync: () => {
              const { writeContract, isPending } = useWriteContract();
              const chainId = useChainId();
+             const isTempoChain = isTempoNativeChain(chainId);
+             const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
              return {
                  mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
+                     if (isTempoChain) {
+                        writeContract({
+                           address: getFeeManagerAddressForChain(chainId),
+                           abi: FEE_AMM_ABI,
+                           functionName: 'burn',
+                           args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, args.to],
+                        });
+                        return;
+                     }
+
+                     const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60));
                      writeContract({
-                        address: getFeeManagerAddressForChain(chainId),
-                        abi: FEE_AMM_ABI,
-                        functionName: 'burn',
-                        args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, args.to],
+                        address: arcHubAddress,
+                        abi: HUB_AMM_ABI,
+                        functionName: 'removeLiquidity',
+                        args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, 0n, 0n, deadlineTimestamp],
                      });
                  },
                  isPending
