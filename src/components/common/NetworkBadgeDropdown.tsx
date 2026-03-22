@@ -27,6 +27,8 @@ export function getNetworkVisual(chainId?: number) {
 export function getDisplayChainName(chainId?: number, fallback?: string) {
   if (isTempoNativeChain(chainId)) return 'Tempo Testnet';
   if (isArcChain(chainId)) return 'Arc Testnet';
+  if (chainId === 11155111) return 'Ethereum Sepolia';
+  if (chainId === 84532) return 'Base Sepolia';
   return fallback ?? 'Supported Network';
 }
 

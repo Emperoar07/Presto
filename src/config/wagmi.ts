@@ -11,6 +11,7 @@ import {
 import { createConfig } from 'wagmi';
 import {
   baseSepolia,
+  sepolia,
 } from 'wagmi/chains';
 import { tempoModerato } from 'viem/chains';
 import { defineChain, fallback, http } from 'viem';
@@ -82,11 +83,12 @@ const connectors = connectorsForWallets(
 
 export const config = createConfig({
   connectors,
-  chains: [arcTestnet, tempoModerato, baseSepolia],
+  chains: [arcTestnet, tempoModerato, baseSepolia, sepolia],
   ssr: true,
   transports: {
     [arcTestnet.id]: arcTestnetTransport,
     [tempoModerato.id]: tempoTransport,
     [baseSepolia.id]: baseSepoliaTransport,
+    [sepolia.id]: http(sepolia.rpcUrls.default.http[0], { timeout: 8000 }),
   },
 });

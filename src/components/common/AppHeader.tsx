@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useChainId, useDisconnect, useSwitchChain } from 'wagmi';
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { FaucetModal } from './FaucetModal';
+import { BridgeLogo } from './BridgeLogo';
 import { isArcChain, isTempoNativeChain } from '@/config/contracts';
 import { getDisplayChainName, getNetworkVisual } from './NetworkBadgeDropdown';
 import { arcTestnet } from '@/config/wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { baseSepolia, sepolia } from 'wagmi/chains';
 import { tempoModerato } from 'viem/chains';
 
 const isProductionMode = process.env.NEXT_PUBLIC_PRODUCTION_MODE === 'true';
@@ -18,6 +19,8 @@ const MAINNET_CHAIN_IDS: number[] = [];
 
 export const AppHeader = memo(function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const chainId = useChainId();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [faucetModalOpen, setFaucetModalOpen] = useState(false);
@@ -29,6 +32,7 @@ export const AppHeader = memo(function AppHeader() {
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
 
   const isMainnet = isProductionMode || MAINNET_CHAIN_IDS.includes(chainId);
+  const isBridgePage = pathname === '/bridge';
   const faucetLabel = isArcChain(chainId)
     ? 'Open Arc Faucet'
     : isTempoNativeChain(chainId)
@@ -38,13 +42,27 @@ export const AppHeader = memo(function AppHeader() {
   const navLinks = [
     { href: '/swap', label: 'Swap' },
     { href: '/liquidity', label: 'Pools' },
+    { href: '/bridge', label: 'Bridge' },
     { href: '/portfolio', label: 'Portfolio' },
     { href: '/analytics', label: 'Analytics' },
     { href: '/transactions', label: 'Activity' },
-  ].filter((link) => link.href !== '/analytics' || isTempoNativeChain(chainId));
+  ].filter((link) => {
+    if (link.href === '/analytics') return isTempoNativeChain(chainId);
+    if (link.href === '/bridge') return pathname === '/bridge' || isArcChain(chainId || arcTestnet.id);
+    return true;
+  });
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
-  const supportedChains = [arcTestnet, tempoModerato, baseSepolia];
+  const standardSupportedChains = [arcTestnet, tempoModerato, baseSepolia];
+  const bridgeSource = searchParams.get('source') ?? 'arc';
+  const bridgeDestination = searchParams.get('destination') ?? 'ethereum-sepolia';
+  const bridgeNetworkEntries = [
+    { key: 'arc', label: 'Arc Testnet', iconSrc: '/networks/arc.svg', chainId: arcTestnet.id },
+    { key: 'ethereum-sepolia', label: 'Ethereum Sepolia', iconSrc: null, chainId: sepolia.id },
+    { key: 'base-sepolia', label: 'Base Sepolia', iconSrc: null, chainId: baseSepolia.id },
+    { key: 'solana-devnet', label: 'Solana Devnet', iconSrc: null, chainId: null },
+  ] as const;
+  const activeBridgeEntry = bridgeNetworkEntries.find((entry) => entry.key === bridgeSource) ?? bridgeNetworkEntries[0];
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,13 +84,13 @@ export const AppHeader = memo(function AppHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-background-dark/95">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-background-dark/95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <Link href="/" className="flex items-center gap-2 text-primary">
-                <span className="material-symbols-outlined text-3xl">toll</span>
+              <Link href="/" className="flex items-center gap-1.5 text-primary">
+                <BridgeLogo size={34} className="text-slate-900 dark:text-white" />
                 <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">PrestoDEX</h1>
               </Link>
               <div className="hidden sm:flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 dark:border-slate-700 dark:bg-slate-800">
@@ -124,7 +142,8 @@ export const AppHeader = memo(function AppHeader() {
                   const ready = mounted;
                   const connected = ready && account && chain;
                   const networkVisual = getNetworkVisual(chain?.id);
-                  const displayChainName = getDisplayChainName(chain?.id, chain?.name);
+                  const displayChainName = isBridgePage ? activeBridgeEntry.label : getDisplayChainName(chain?.id, chain?.name);
+                  const displayBridgeIcon = isBridgePage ? activeBridgeEntry.iconSrc : null;
 
                   if (!connected) {
                     return (
@@ -148,7 +167,17 @@ export const AppHeader = memo(function AppHeader() {
                           className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                           type="button"
                         >
-                          {networkVisual ? (
+                          {isBridgePage && displayBridgeIcon ? (
+                            <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-white/10">
+                              <Image
+                                src={displayBridgeIcon}
+                                alt={`${displayChainName} logo`}
+                                width={20}
+                                height={20}
+                                className="h-5 w-5"
+                              />
+                            </span>
+                          ) : networkVisual ? (
                             <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-white/10">
                               <Image
                                 src={networkVisual.iconSrc}
@@ -159,7 +188,7 @@ export const AppHeader = memo(function AppHeader() {
                               />
                             </span>
                           ) : (
-                            <span className={`h-2 w-2 rounded-full ${chain.testnet ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                            <span className={`h-2 w-2 rounded-full ${'testnet' in chain ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                           )}
                           <span>{displayChainName}</span>
                           <span className="material-symbols-outlined text-sm text-slate-400">expand_more</span>
@@ -168,49 +197,95 @@ export const AppHeader = memo(function AppHeader() {
                         {chainMenuOpen && (
                           <div className="absolute right-0 mt-2 w-60 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900/95">
                             <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                              Switch Network
+                              {isBridgePage ? 'Bridge Source' : 'Switch Network'}
                             </div>
                             <div className="mt-1 space-y-1">
-                              {supportedChains.map((supportedChain) => {
-                                const supportedVisual = getNetworkVisual(supportedChain.id);
-                                const isActive = supportedChain.id === chain.id;
-                                return (
-                                  <button
-                                    key={supportedChain.id}
-                                    type="button"
-                                    disabled={isActive || isSwitchingChain}
-                                    onClick={() => {
-                                      switchChain({ chainId: supportedChain.id });
-                                      setChainMenuOpen(false);
-                                    }}
-                                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-all ${
-                                      isActive
-                                        ? 'bg-primary/10 text-primary'
-                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800'
-                                    } disabled:cursor-not-allowed disabled:opacity-70`}
-                                  >
-                                    <span className="flex items-center gap-2">
-                                      {supportedVisual ? (
-                                        <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-white/10">
-                                          <Image
-                                            src={supportedVisual.iconSrc}
-                                            alt={`${supportedVisual.label} logo`}
-                                            width={20}
-                                            height={20}
-                                            className="h-5 w-5"
-                                          />
+                              {isBridgePage
+                                ? bridgeNetworkEntries.map((bridgeEntry) => {
+                                    const isActive = bridgeEntry.key === activeBridgeEntry.key;
+                                    return (
+                                      <button
+                                        key={bridgeEntry.key}
+                                        type="button"
+                                        disabled={isActive || isSwitchingChain}
+                                        onClick={() => {
+                                          const params = new URLSearchParams(searchParams.toString());
+                                          params.set('source', bridgeEntry.key);
+                                          if ((params.get('destination') ?? bridgeDestination) === bridgeEntry.key) {
+                                            const fallback = bridgeNetworkEntries.find((entry) => entry.key !== bridgeEntry.key);
+                                            if (fallback) params.set('destination', fallback.key);
+                                          }
+                                          const nextDestination = params.get('destination') ?? bridgeDestination;
+                                          if (bridgeSource !== bridgeEntry.key || bridgeDestination !== nextDestination) {
+                                            router.replace(`/bridge?${params.toString()}`, { scroll: false });
+                                          }
+                                          if (bridgeEntry.chainId && chainId !== bridgeEntry.chainId) {
+                                            switchChain({ chainId: bridgeEntry.chainId });
+                                          }
+                                          setChainMenuOpen(false);
+                                        }}
+                                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-all ${
+                                          isActive
+                                            ? 'bg-primary/10 text-primary'
+                                            : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                                        } disabled:cursor-not-allowed disabled:opacity-70`}
+                                      >
+                                        <span className="flex items-center gap-2">
+                                          {bridgeEntry.iconSrc ? (
+                                            <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-white/10">
+                                              <Image src={bridgeEntry.iconSrc} alt={`${bridgeEntry.label} logo`} width={20} height={20} className="h-5 w-5" />
+                                            </span>
+                                          ) : (
+                                            <span className="flex h-5 min-w-5 items-center justify-center rounded-[6px] bg-white/10 px-1 text-[10px] font-bold text-slate-700 dark:text-slate-200">
+                                              {bridgeEntry.label.slice(0, 2).toUpperCase()}
+                                            </span>
+                                          )}
+                                          <span className="font-medium text-slate-800 dark:text-slate-100">{bridgeEntry.label}</span>
                                         </span>
-                                      ) : (
-                                        <span className={`h-2 w-2 rounded-full ${supportedChain.testnet ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                      )}
-                                      <span className="font-medium text-slate-800 dark:text-slate-100">
-                                        {getDisplayChainName(supportedChain.id, supportedChain.name)}
-                                      </span>
-                                    </span>
-                                    {isActive && <span className="material-symbols-outlined text-base text-primary">check</span>}
-                                  </button>
-                                );
-                              })}
+                                        {isActive ? <span className="material-symbols-outlined text-base text-primary">check</span> : null}
+                                      </button>
+                                    );
+                                  })
+                                : standardSupportedChains.map((supportedChain) => {
+                                    const supportedVisual = getNetworkVisual(supportedChain.id);
+                                    const isActive = supportedChain.id === chain.id;
+                                    return (
+                                      <button
+                                        key={supportedChain.id}
+                                        type="button"
+                                        disabled={isActive || isSwitchingChain}
+                                        onClick={() => {
+                                          switchChain({ chainId: supportedChain.id });
+                                          setChainMenuOpen(false);
+                                        }}
+                                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-all ${
+                                          isActive
+                                            ? 'bg-primary/10 text-primary'
+                                            : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                                        } disabled:cursor-not-allowed disabled:opacity-70`}
+                                      >
+                                        <span className="flex items-center gap-2">
+                                          {supportedVisual ? (
+                                            <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-white/10">
+                                              <Image
+                                                src={supportedVisual.iconSrc}
+                                                alt={`${supportedVisual.label} logo`}
+                                                width={20}
+                                                height={20}
+                                                className="h-5 w-5"
+                                              />
+                                            </span>
+                                          ) : (
+                                            <span className={`h-2 w-2 rounded-full ${supportedChain.testnet ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                          )}
+                                          <span className="font-medium text-slate-800 dark:text-slate-100">
+                                            {getDisplayChainName(supportedChain.id, supportedChain.name)}
+                                          </span>
+                                        </span>
+                                        {isActive && <span className="material-symbols-outlined text-base text-primary">check</span>}
+                                      </button>
+                                    );
+                                  })}
                             </div>
                           </div>
                         )}
@@ -299,6 +374,87 @@ export const AppHeader = memo(function AppHeader() {
                 {link.label}
               </Link>
             ))}
+            <div className="pt-2">
+              <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                {isBridgePage ? 'Bridge Source' : 'Network'}
+              </p>
+              <div className="space-y-2">
+                {isBridgePage
+                  ? bridgeNetworkEntries.map((bridgeEntry) => {
+                      const isActiveChain = bridgeEntry.key === activeBridgeEntry.key;
+                      return (
+                        <button
+                          key={bridgeEntry.key}
+                          type="button"
+                          disabled={isActiveChain || isSwitchingChain}
+                          onClick={() => {
+                            const params = new URLSearchParams(searchParams.toString());
+                            params.set('source', bridgeEntry.key);
+                            if ((params.get('destination') ?? bridgeDestination) === bridgeEntry.key) {
+                              const fallback = bridgeNetworkEntries.find((entry) => entry.key !== bridgeEntry.key);
+                              if (fallback) params.set('destination', fallback.key);
+                            }
+                            const nextDestination = params.get('destination') ?? bridgeDestination;
+                            if (bridgeSource !== bridgeEntry.key || bridgeDestination !== nextDestination) {
+                              router.replace(`/bridge?${params.toString()}`, { scroll: false });
+                            }
+                            if (bridgeEntry.chainId && chainId !== bridgeEntry.chainId) {
+                              switchChain({ chainId: bridgeEntry.chainId });
+                            }
+                            closeMobileMenu();
+                          }}
+                          className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                            isActiveChain
+                              ? 'bg-primary/10 text-primary'
+                              : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                          } disabled:cursor-not-allowed disabled:opacity-70`}
+                        >
+                          <span className="flex items-center gap-2">
+                            {bridgeEntry.iconSrc ? (
+                              <Image src={bridgeEntry.iconSrc} alt={`${bridgeEntry.label} logo`} width={18} height={18} className="rounded-sm" />
+                            ) : (
+                              <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-sm bg-primary/10 px-1 text-[10px] font-bold">
+                                {bridgeEntry.label.slice(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                            {bridgeEntry.label}
+                          </span>
+                          {isActiveChain ? <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">Active</span> : null}
+                        </button>
+                      );
+                    })
+                  : standardSupportedChains.map((stdChain) => {
+                      const stdVisual = getNetworkVisual(stdChain.id);
+                      const isActiveChain = chainId === stdChain.id;
+                      return (
+                        <button
+                          key={stdChain.id}
+                          type="button"
+                          disabled={isActiveChain || isSwitchingChain}
+                          onClick={() => {
+                            switchChain({ chainId: stdChain.id });
+                            closeMobileMenu();
+                          }}
+                          className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                            isActiveChain
+                              ? 'bg-primary/10 text-primary'
+                              : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                          } disabled:cursor-not-allowed disabled:opacity-70`}
+                        >
+                          <span className="flex items-center gap-2">
+                            {stdVisual ? (
+                              <Image src={stdVisual.iconSrc} alt={`${stdVisual.label} logo`} width={18} height={18} className="rounded-sm" />
+                            ) : (
+                              <span className="h-2 w-2 rounded-full bg-primary" />
+                            )}
+                            {getDisplayChainName(stdChain.id)}
+                          </span>
+                          {isActiveChain ? <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">Active</span> : null}
+                        </button>
+                      );
+                    })}
+              </div>
+            </div>
             {!isMainnet && (
               <button
                 onClick={() => { setFaucetModalOpen(true); closeMobileMenu(); }}
