@@ -6,9 +6,10 @@ import { getContractAddresses, ZERO_ADDRESS } from '@/config/contracts';
 import { getTokens, getHubToken } from '@/config/tokens';
 
 const ARC_CHAIN_ID = 5042002;
-const CACHE_TTL_MS = 20_000;
-const FULL_SCAN_START_BLOCK = 0n;
+const CACHE_TTL_MS = 60_000;
+const RECENT_BLOCK_WINDOW = 200_000n;
 const LOG_CHUNK_SIZE = 50_000n;
+const MAX_PARALLEL_CHUNKS = 4;
 
 const ARC_TESTNET = defineChain({
   id: ARC_CHAIN_ID,
@@ -123,20 +124,36 @@ async function getLogsInChunks(
 ) {
   if (fromBlock > toBlock) return { swapLogs: [], addLogs: [] };
 
-  const swapLogs = [];
-  const addLogs = [];
-  let start = fromBlock;
-  while (start <= toBlock) {
-    const end = start + LOG_CHUNK_SIZE - 1n > toBlock ? toBlock : start + LOG_CHUNK_SIZE - 1n;
-    const [swapChunk, addChunk] = await Promise.all([
-      client.getLogs({ address, event: ARC_SWAP_EVENT, fromBlock: start, toBlock: end }),
-      client.getLogs({ address, event: ARC_LIQUIDITY_ADDED_EVENT, fromBlock: start, toBlock: end }),
-    ]);
-    swapLogs.push(...swapChunk);
-    addLogs.push(...addChunk);
-    start = end + 1n;
+  // Build chunk ranges
+  const ranges: { start: bigint; end: bigint }[] = [];
+  let s = fromBlock;
+  while (s <= toBlock) {
+    const e = s + LOG_CHUNK_SIZE - 1n > toBlock ? toBlock : s + LOG_CHUNK_SIZE - 1n;
+    ranges.push({ start: s, end: e });
+    s = e + 1n;
   }
-  return { swapLogs, addLogs };
+
+  const swapLogs: Awaited<ReturnType<typeof client.getLogs>>[] = [];
+  const addLogs: Awaited<ReturnType<typeof client.getLogs>>[] = [];
+
+  // Process chunks in parallel batches of MAX_PARALLEL_CHUNKS
+  for (let i = 0; i < ranges.length; i += MAX_PARALLEL_CHUNKS) {
+    const batch = ranges.slice(i, i + MAX_PARALLEL_CHUNKS);
+    const results = await Promise.all(
+      batch.map(({ start, end }) =>
+        Promise.all([
+          client.getLogs({ address, event: ARC_SWAP_EVENT, fromBlock: start, toBlock: end }),
+          client.getLogs({ address, event: ARC_LIQUIDITY_ADDED_EVENT, fromBlock: start, toBlock: end }),
+        ])
+      )
+    );
+    for (const [swapChunk, addChunk] of results) {
+      swapLogs.push(swapChunk);
+      addLogs.push(addChunk);
+    }
+  }
+
+  return { swapLogs: swapLogs.flat(), addLogs: addLogs.flat() };
 }
 
 function buildPoolBaseStats() {
@@ -201,7 +218,7 @@ async function enrichWithReserves(
     totalSwaps,
     totalVolumeRaw: totalVolumeRaw.toString(),
     totalVolumeUsdc: formatUsdc(totalVolumeRaw, USDC_DECIMALS),
-    scannedBlocks: Number(latestBlock - FULL_SCAN_START_BLOCK),
+    scannedBlocks: Number(latestBlock),
     latestBlock: latestBlock.toString(),
     updatedAt: Date.now(),
   };
@@ -239,7 +256,7 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
       let totalVolumeRaw = BigInt(cached?.totalVolumeRaw ?? '0');
       let totalSwaps = cached?.totalSwaps ?? 0;
 
-      const fromBlock = cached ? BigInt(cached.latestBlock) + 1n : FULL_SCAN_START_BLOCK;
+      const fromBlock = cached ? BigInt(cached.latestBlock) + 1n : (latestBlock > RECENT_BLOCK_WINDOW ? latestBlock - RECENT_BLOCK_WINDOW : 0n);
       const { swapLogs } = await getLogsInChunks(client, hubAmm, fromBlock, latestBlock);
 
       for (const log of swapLogs) {
@@ -301,7 +318,7 @@ export async function GET(request: Request) {
 
   if (g.__poolStatsCache && Date.now() - g.__poolStatsCache.ts < CACHE_TTL_MS) {
     return NextResponse.json(toPublicResponse(g.__poolStatsCache.data), {
-      headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     });
   }
 
@@ -309,7 +326,7 @@ export async function GET(request: Request) {
     const data = await fetchPoolStats();
     g.__poolStatsCache = { ts: Date.now(), data };
     return NextResponse.json(toPublicResponse(data), {
-      headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     });
   } catch (err) {
     console.error('pool-stats error:', err);

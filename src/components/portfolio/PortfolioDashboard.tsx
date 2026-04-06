@@ -436,6 +436,7 @@ export function PortfolioDashboard() {
           tokens
             .filter((token) => !isHubToken(token, chainId))
             .map(async (token) => {
+              try {
               if (isTempoNativeChain(chainId)) {
                 const [liquidityRaw, poolData] = await Promise.all([
                   publicClient.readContract({
@@ -511,6 +512,9 @@ export function PortfolioDashboard() {
                 lpBalance,
                 estimatedValue,
               } satisfies LpPositionSnapshot;
+              } catch {
+                return null;
+              }
             })
         );
 

@@ -69,6 +69,7 @@ export default function PortfolioPage() {
           tokens
             .filter((token) => !isHubToken(token, chainId))
             .map(async (token) => {
+              try {
               if (isTempoNativeChain(chainId)) {
                 const [liquidityRaw, poolData] = await Promise.all([
                   publicClient.readContract({
@@ -146,6 +147,10 @@ export default function PortfolioPage() {
                 sharePercent,
                 estimatedValue,
               } satisfies LpPositionSnapshot;
+              } catch {
+                // Token pool may not exist on-chain (e.g. USYC) — skip silently
+                return null;
+              }
             }),
         );
 

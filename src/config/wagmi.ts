@@ -50,8 +50,8 @@ const baseSepoliaTransport =
 
 const arcTestnetTransport =
   arcTestnetRpcUrls.length > 1
-    ? fallback(arcTestnetRpcUrls.map((url) => http(url, { timeout: 8000 })))
-    : http(arcTestnetRpcUrls[0], { timeout: 8000 });
+    ? fallback(arcTestnetRpcUrls.map((url) => http(url, { timeout: 15_000, retryCount: 2 })))
+    : http(arcTestnetRpcUrls[0], { timeout: 15_000, retryCount: 2 });
 
 const projectId = '3a8170812b534d0ff9d794f19a901d64';
 

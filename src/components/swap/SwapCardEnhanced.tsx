@@ -274,6 +274,14 @@ export function SwapCardEnhanced() {
           // Discard stale quote responses
           if (currentRequestId !== quoteRequestId.current) return;
 
+          // If the quote returns 0 for a non-zero input, there's no liquidity
+          if (result === 0n) {
+            setOutputAmount('');
+            setQuoteError(new Error('InsufficientLiquidity'));
+            setPriceImpact(0);
+            return;
+          }
+
           setOutputAmount(formatUnits(result, outputToken.decimals));
 
           // Calculate price impact using the correct reserve model per chain

@@ -37,23 +37,25 @@ async function fetchTransactions(address: string, chainId: number) {
 
 // ─── Hooks ───────────────────────────────────────────────────────────────────
 
-/** Dex-wide stats (volume, swap count, unique traders). Polls every 20s. */
+/** Dex-wide stats (volume, swap count, unique traders). Polls every 30s. */
 export function useDexStats() {
   return useQuery({
     queryKey: queryKeys.dexStats,
     queryFn: fetchDexStats,
-    staleTime: 20_000,
-    refetchInterval: 20_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    placeholderData: (prev: unknown) => prev,
   });
 }
 
-/** Per-pool liquidity & volume. Polls every 20s. */
+/** Per-pool liquidity & volume. Polls every 30s. */
 export function usePoolStats() {
   return useQuery({
     queryKey: queryKeys.poolStats,
     queryFn: fetchPoolStats,
-    staleTime: 20_000,
-    refetchInterval: 20_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    placeholderData: (prev: unknown) => prev,
   });
 }
 

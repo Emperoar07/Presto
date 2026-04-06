@@ -6,9 +6,10 @@ import { getContractAddresses, ZERO_ADDRESS } from '@/config/contracts';
 import { getHubToken } from '@/config/tokens';
 
 const ARC_CHAIN_ID = 5042002;
-const CACHE_TTL_MS = 20_000;
-const FULL_SCAN_START_BLOCK = 0n;
+const CACHE_TTL_MS = 60_000;
+const RECENT_BLOCK_WINDOW = 200_000n;
 const LOG_CHUNK_SIZE = 50_000n;
+const MAX_PARALLEL_CHUNKS = 4;
 
 const ARC_TESTNET = defineChain({
   id: ARC_CHAIN_ID,
@@ -76,15 +77,29 @@ async function getLogsInChunks(
 ) {
   if (fromBlock > toBlock) return [];
 
-  const logs = [];
-  let start = fromBlock;
-  while (start <= toBlock) {
-    const end = start + LOG_CHUNK_SIZE - 1n > toBlock ? toBlock : start + LOG_CHUNK_SIZE - 1n;
-    const chunk = await client.getLogs({ address, event, fromBlock: start, toBlock: end });
-    logs.push(...chunk);
-    start = end + 1n;
+  // Build chunk ranges
+  const ranges: { start: bigint; end: bigint }[] = [];
+  let s = fromBlock;
+  while (s <= toBlock) {
+    const e = s + LOG_CHUNK_SIZE - 1n > toBlock ? toBlock : s + LOG_CHUNK_SIZE - 1n;
+    ranges.push({ start: s, end: e });
+    s = e + 1n;
   }
-  return logs;
+
+  const logs: Awaited<ReturnType<typeof client.getLogs>>[] = [];
+
+  // Process chunks in parallel batches of MAX_PARALLEL_CHUNKS
+  for (let i = 0; i < ranges.length; i += MAX_PARALLEL_CHUNKS) {
+    const batch = ranges.slice(i, i + MAX_PARALLEL_CHUNKS);
+    const results = await Promise.all(
+      batch.map(({ start, end }) =>
+        client.getLogs({ address, event, fromBlock: start, toBlock: end })
+      )
+    );
+    logs.push(...results);
+  }
+
+  return logs.flat();
 }
 
 function aggregateStats(
@@ -130,7 +145,7 @@ function aggregateStats(
     totalLiquidityEvents,
     uniqueTraders: traders.size,
     traders: Array.from(traders),
-    scannedBlocks: Number(latestBlock - FULL_SCAN_START_BLOCK),
+    scannedBlocks: Number(latestBlock),
     latestBlock: latestBlock.toString(),
     updatedAt: Date.now(),
   };
@@ -181,9 +196,10 @@ async function fetchStats(): Promise<DexStatsSnapshot> {
         return aggregateStats(cached, swapLogs, addLogs, usdcAddress, latestBlock);
       }
 
+      const coldStartBlock = latestBlock > RECENT_BLOCK_WINDOW ? latestBlock - RECENT_BLOCK_WINDOW : 0n;
       const [swapLogs, addLogs] = await Promise.all([
-        getLogsInChunks(client, dexAddress, ARC_SWAP_EVENT, FULL_SCAN_START_BLOCK, latestBlock),
-        getLogsInChunks(client, dexAddress, ARC_LIQUIDITY_ADDED_EVENT, FULL_SCAN_START_BLOCK, latestBlock),
+        getLogsInChunks(client, dexAddress, ARC_SWAP_EVENT, coldStartBlock, latestBlock),
+        getLogsInChunks(client, dexAddress, ARC_LIQUIDITY_ADDED_EVENT, coldStartBlock, latestBlock),
       ]);
 
       return aggregateStats(
@@ -223,7 +239,7 @@ export async function GET(request: Request) {
 
   if (g.__dexStatsCache && Date.now() - g.__dexStatsCache.ts < CACHE_TTL_MS) {
     return NextResponse.json(toPublicStats(g.__dexStatsCache.data), {
-      headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     });
   }
 
@@ -231,7 +247,7 @@ export async function GET(request: Request) {
     const data = await fetchStats();
     g.__dexStatsCache = { ts: Date.now(), data };
     return NextResponse.json(toPublicStats(data), {
-      headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     });
   } catch (err) {
     console.error('dex-stats error:', err);
