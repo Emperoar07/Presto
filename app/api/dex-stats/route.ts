@@ -7,9 +7,9 @@ import { getHubToken } from '@/config/tokens';
 
 const ARC_CHAIN_ID = 5042002;
 const CACHE_TTL_MS = 60_000;
-const RECENT_BLOCK_WINDOW = 200_000n;
+const FULL_SCAN_START_BLOCK = 0n;
 const LOG_CHUNK_SIZE = 50_000n;
-const MAX_PARALLEL_CHUNKS = 4;
+const MAX_PARALLEL_CHUNKS = 6;
 
 const ARC_TESTNET = defineChain({
   id: ARC_CHAIN_ID,
@@ -196,10 +196,9 @@ async function fetchStats(): Promise<DexStatsSnapshot> {
         return aggregateStats(cached, swapLogs, addLogs, usdcAddress, latestBlock);
       }
 
-      const coldStartBlock = latestBlock > RECENT_BLOCK_WINDOW ? latestBlock - RECENT_BLOCK_WINDOW : 0n;
       const [swapLogs, addLogs] = await Promise.all([
-        getLogsInChunks(client, dexAddress, ARC_SWAP_EVENT, coldStartBlock, latestBlock),
-        getLogsInChunks(client, dexAddress, ARC_LIQUIDITY_ADDED_EVENT, coldStartBlock, latestBlock),
+        getLogsInChunks(client, dexAddress, ARC_SWAP_EVENT, FULL_SCAN_START_BLOCK, latestBlock),
+        getLogsInChunks(client, dexAddress, ARC_LIQUIDITY_ADDED_EVENT, FULL_SCAN_START_BLOCK, latestBlock),
       ]);
 
       return aggregateStats(

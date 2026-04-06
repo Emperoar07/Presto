@@ -31,9 +31,6 @@ export default function AnalyticsPage() {
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
-      {/* ── Page header ── */}
-      <h1 className="mb-5 text-[20px] font-extrabold tracking-tight text-slate-100 md:text-[24px]">Analytics</h1>
-
       {/* ── Stat cards row ── */}
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
@@ -86,7 +83,7 @@ export default function AnalyticsPage() {
         {/* ── Pool Activity panel ── */}
         <div className="flex flex-col rounded-[14px]" style={{ background: SURF, border: BDR, minHeight: 260 }}>
           <div className="px-5 pt-5 pb-3" style={{ borderBottom: BDR }}>
-            <p className="text-[15px] font-bold text-slate-100">Pool Activity &mdash; Arc Hub AMM</p>
+            <p className="text-[15px] font-bold text-slate-100">Pool Activity</p>
           </div>
 
           {loading && pools.length === 0 ? (

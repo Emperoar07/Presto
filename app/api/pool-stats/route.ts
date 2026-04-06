@@ -7,9 +7,9 @@ import { getTokens, getHubToken } from '@/config/tokens';
 
 const ARC_CHAIN_ID = 5042002;
 const CACHE_TTL_MS = 60_000;
-const RECENT_BLOCK_WINDOW = 200_000n;
+const FULL_SCAN_START_BLOCK = 0n;
 const LOG_CHUNK_SIZE = 50_000n;
-const MAX_PARALLEL_CHUNKS = 4;
+const MAX_PARALLEL_CHUNKS = 6;
 
 const ARC_TESTNET = defineChain({
   id: ARC_CHAIN_ID,
@@ -256,7 +256,7 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
       let totalVolumeRaw = BigInt(cached?.totalVolumeRaw ?? '0');
       let totalSwaps = cached?.totalSwaps ?? 0;
 
-      const fromBlock = cached ? BigInt(cached.latestBlock) + 1n : (latestBlock > RECENT_BLOCK_WINDOW ? latestBlock - RECENT_BLOCK_WINDOW : 0n);
+      const fromBlock = cached ? BigInt(cached.latestBlock) + 1n : FULL_SCAN_START_BLOCK;
       const { swapLogs } = await getLogsInChunks(client, hubAmm, fromBlock, latestBlock);
 
       for (const log of swapLogs) {
