@@ -1033,9 +1033,7 @@ export function BridgeWorkspace() {
                       : 'REVIEW & BRIDGE';
         const primaryActionBusy = isConnectingSolana || isAddingChain || isSwitchingChain || isEstimating || isBridging;
         const hasBridgeActivityPanel = Boolean(bridgeStatusCard || statusMessage || errorMessage || estimate || bridgeResult);
-        const summaryFeeLabel = estimate ? formatUsd(totalUsdcFee.toString()) : '--';
         const summaryReceiveLabel = estimate ? `~${estimatedReceiveAmount} USDC` : '--';
-        const summaryTimeLabel = isCrossEcosystem ? '~1-3 minutes' : '~20 seconds';
 
         const handlePrimaryAction = () => {
           if (sourceNetwork.ecosystem === 'solana' && !solanaAddress) {
@@ -1207,9 +1205,9 @@ export function BridgeWorkspace() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (sourceBalance) {
+                          if (sourceBalance.amount) {
                             hasInteractedRef.current = true;
-                            setAmount(sourceBalance.replace(/[^0-9.]/g, ''));
+                            setAmount(sanitizeBridgeAmount(sourceBalance.amount));
                           }
                         }}
                         className="rounded-full px-2.5 py-1 text-[10px] font-bold text-primary"
@@ -1246,16 +1244,8 @@ export function BridgeWorkspace() {
                   {/* Summary fees */}
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Estimated fee</p>
-                      <p className="mt-2 text-[13px] font-semibold text-slate-100">{summaryFeeLabel}</p>
-                    </div>
-                    <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">You receive</p>
                       <p className="mt-2 text-[13px] font-semibold text-slate-100">{summaryReceiveLabel}</p>
-                    </div>
-                    <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Transfer time</p>
-                      <p className="mt-2 text-[13px] font-semibold text-emerald-400">{summaryTimeLabel}</p>
                     </div>
                     <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Destination</p>

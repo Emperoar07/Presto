@@ -180,8 +180,8 @@ export const AppSidebar = memo(function AppSidebar() {
     </div>
   );
 
-  // Nav item — collapsed: icon only (label shrinks to w-0). Expanded: icon + label.
-  const NavItem = ({ href, label, icon }: { href: string; label: string; icon: string }) => {
+  // Nav item — compact: icon only (label shrinks to w-0). Expanded: icon + label.
+  const NavItem = ({ href, label, icon, compact = false }: { href: string; label: string; icon: string; compact?: boolean }) => {
     const isActive = pathname === href;
     return (
       <Link
@@ -195,67 +195,69 @@ export const AppSidebar = memo(function AppSidebar() {
         <span className={`material-symbols-outlined flex-shrink-0 text-[18px] ${isActive ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'}`}>
           {icon}
         </span>
-        <span className={`overflow-hidden whitespace-nowrap text-[13.5px] font-medium transition-all duration-200 ${collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'} ${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-100'}`}>
+        <span className={`overflow-hidden whitespace-nowrap text-[13.5px] font-medium transition-all duration-200 ${compact ? 'w-0 opacity-0' : 'w-auto opacity-100'} ${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-100'}`}>
           {label}
         </span>
       </Link>
     );
   };
 
-  const SectionLabel = ({ label }: { label: string }) => {
-    if (collapsed) return null;
+  const SectionLabel = ({ label, compact = false }: { label: string; compact?: boolean }) => {
+    if (compact) return null;
     return <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-600">{label}</p>;
   };
 
-  const sidebarInner = (
-    <div className="flex h-full flex-col">
-      {/* ── Collapse toggle ── */}
-      <div className="flex items-center justify-center border-b border-white/[0.07] px-2 py-2">
-        <button
-          type="button"
-          onClick={toggle}
-          className="group relative flex w-full items-center justify-center rounded-[10px] py-1.5 text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-300"
-        >
-          <span
-            className="material-symbols-outlined text-[18px] transition-transform duration-300"
-            style={{ transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
+  const renderSidebar = (compact: boolean, showToggle: boolean) => (
+    <div className="flex h-full flex-col bg-[#1e293b]">
+      {/* ── Collapse toggle (desktop only) ── */}
+      {showToggle && (
+        <div className="flex items-center justify-center border-b border-white/[0.07] px-2 py-2">
+          <button
+            type="button"
+            onClick={toggle}
+            className="group relative flex w-full items-center justify-center rounded-[10px] py-1.5 text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-300"
           >
-            chevron_left
-          </span>
-          <span
-            className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-[8px] px-2.5 py-1.5 text-[12px] font-semibold text-slate-100 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
-            style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            {collapsed ? 'Expand' : 'Collapse'}
-          </span>
-        </button>
-      </div>
+            <span
+              className="material-symbols-outlined text-[18px] transition-transform duration-300"
+              style={{ transform: compact ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            >
+              chevron_left
+            </span>
+            <span
+              className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-[8px] px-2.5 py-1.5 text-[12px] font-semibold text-slate-100 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+              style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              {compact ? 'Expand' : 'Collapse'}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* ── Nav links ── */}
       {isDocsPage ? (
         <div className="flex-1 px-2 py-4 space-y-1">
-          <NavItem href="/" label="Home" icon="home" />
-          <NavItem href="/swap" label="Launch App" icon="rocket_launch" />
+          <NavItem href="/" label="Home" icon="home" compact={compact} />
+          <NavItem href="/swap" label="Launch App" icon="rocket_launch" compact={compact} />
         </div>
       ) : (
         <>
           <nav className="flex-1 space-y-4 overflow-hidden px-2 py-4">
             {tradeLinks.length > 0 && (
               <div>
-                <SectionLabel label="Trade" />
-                {tradeLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} />)}
+                <SectionLabel label="Trade" compact={compact} />
+                {tradeLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} />)}
               </div>
             )}
             {accountLinks.length > 0 && (
               <div>
-                <SectionLabel label="Account" />
-                {accountLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} />)}
+                <SectionLabel label="Account" compact={compact} />
+                {accountLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} />)}
               </div>
             )}
             {insightLinks.length > 0 && (
               <div>
-                <SectionLabel label="Insights" />
-                {insightLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} />)}
+                <SectionLabel label="Insights" compact={compact} />
+                {insightLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} />)}
               </div>
             )}
           </nav>
@@ -270,7 +272,7 @@ export const AppSidebar = memo(function AppSidebar() {
                 const displayBridgeIcon = isBridgePage ? activeBridgeEntry.iconSrc : null;
 
                 if (!connected) {
-                  return collapsed ? (
+                  return compact ? (
                     <button
                       onClick={openConnectModal}
                       title="Connect Wallet"
@@ -294,7 +296,7 @@ export const AppSidebar = memo(function AppSidebar() {
                   );
                 }
 
-                if (collapsed) {
+                if (compact) {
                   return (
                     <div className="relative" ref={accountMenuRef}>
                       <button
@@ -463,7 +465,7 @@ export const AppSidebar = memo(function AppSidebar() {
           transition: 'width 0.25s ease',
         }}
       >
-        {sidebarInner}
+        {renderSidebar(collapsed, true)}
       </aside>
 
       {/* ── Mobile top bar ── */}
@@ -487,7 +489,7 @@ export const AppSidebar = memo(function AppSidebar() {
         <div className="fixed inset-0 z-40 flex md:hidden">
           <div className="w-[220px] pt-14 overflow-hidden">
             <div style={{ width: EXPANDED_W, height: '100%' }}>
-              {sidebarInner}
+              {renderSidebar(false, false)}
             </div>
           </div>
           <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
