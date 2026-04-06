@@ -33,19 +33,19 @@ export default function AnalyticsPage() {
       <div className="mb-5 grid grid-cols-3 gap-3">
         {[
           {
-            label: 'Recent Volume',
+            label: 'Global Volume',
             value: loading ? '--' : (stats?.totalVolumeUSDC ?? '$0'),
-            sub: `Last ${stats?.scannedBlocks?.toLocaleString?.() ?? 0} blocks`,
+            sub: 'All dex usage to date',
           },
           {
-            label: 'Recent Trades',
+            label: 'Total Trades',
             value: loading ? '--' : String(stats?.totalSwaps ?? 0),
-            sub: `${stats?.totalSwaps ?? 0} swaps in window`,
+            sub: 'All swaps across the protocol',
           },
           {
-            label: 'Active Traders',
+            label: 'Total Traders',
             value: loading ? '--' : String(stats?.uniqueTraders ?? 0),
-            sub: 'Unique wallets in window',
+            sub: 'Unique wallets that used the dex',
           },
         ].map(({ label, value, sub }) => (
           <div key={label} className="rounded-[16px] px-3 py-4 md:px-5 md:py-5" style={{ background: SURF, border: BDR }}>
@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
         <div className="px-5 py-[14px]" style={{ borderBottom: BDR }}>
           <p className="text-[14px] font-bold text-slate-100">Pool Activity - Arc Hub AMM</p>
           <p className="mt-1 text-[12px] text-slate-500">
-            Live protocol activity from recent contract usage across the Arc hub AMM. These numbers are global and are not tied to the connected wallet.
+            Live protocol pool activity from Arc hub AMM usage. These totals are global to the dex and are not tied to the connected wallet.
           </p>
         </div>
 

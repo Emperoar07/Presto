@@ -1185,7 +1185,7 @@ export default function LiquidityPage() {
       <div className="mb-5 grid grid-cols-3 gap-3">
         {[
           { label: 'Total Value Locked', value: loading ? '--' : (data?.totalLiquidityUsdc ?? '$0'), sub: 'Stable liquidity' },
-          { label: '24h Volume', value: loading ? '--' : (data?.totalVolumeUsdc ?? '$0'), sub: `${data?.totalSwaps ?? 0} swaps` },
+          { label: 'Total Volume', value: loading ? '--' : (data?.totalVolumeUsdc ?? '$0'), sub: `${data?.totalSwaps ?? 0} swaps` },
           { label: 'Active Pools', value: loading ? '--' : String(activePools.length), sub: `${activePools.length} live now` },
         ].map(({ label, value, sub }) => (
           <div key={label} className="rounded-[16px] px-3 py-4 md:px-5 md:py-5" style={{ background: SURF, border: BDR }}>

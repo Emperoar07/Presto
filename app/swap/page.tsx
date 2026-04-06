@@ -42,7 +42,7 @@ export default function SwapPage() {
             {[
               {
                 icon: 'candlestick_chart',
-                label: '24h Volume',
+                label: 'Total Volume',
                 value: loading ? '--' : (dexStats?.totalVolumeUSDC ?? '$0'),
                 sub: `${dexStats?.totalSwaps ?? 0} swaps`,
               },
