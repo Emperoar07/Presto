@@ -949,44 +949,80 @@ function CompactPositionManagerInline({
     setActionMode('remove');
   };
 
+  const reserveSummary = `${userReserveValue.toFixed(2)} ${token.symbol} · ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
+  const receiveSummary = estimatedRemoval
+    ? `${estimatedRemoval.userToken.toFixed(2)} ${token.symbol} · ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
+    : '--';
+  const statItems = [
+    {
+      label: 'Value',
+      value: `$${estimatedValue.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+    },
+    { label: 'Liquidity', value: poolStat?.liquidity ?? '$0' },
+    { label: '24h Vol', value: poolStat?.vol24h ?? '$0' },
+    { label: 'Reserves', value: reserveSummary },
+    {
+      label: 'Rate',
+      value: poolRatio ? `1 ${token.symbol} ≈ ${poolRatio.toFixed(2)} ${hubToken.symbol}` : '--',
+    },
+  ];
+
   return (
-    <div className="mt-3 overflow-hidden rounded-[14px] border border-white/6 bg-[#172234]">
-      <div className="grid gap-3 border-b border-white/6 px-4 py-4 md:grid-cols-4">
-        {[
-          { label: 'LP', value: lpBalance.toFixed(4), color: '#f8fafc' },
-          { label: 'Share', value: `${sharePercent.toFixed(2)}%`, color: '#25c0f4' },
-          { label: 'Value', value: `$${estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: '#f8fafc' },
-          { label: 'Ratio', value: poolRatio ? `1${token.symbol} ~ ${poolRatio.toFixed(2)} ${hubToken.symbol}` : '--', color: '#f8fafc' },
-        ].map((item) => (
-          <div key={item.label} className="rounded-[12px] border border-white/6 bg-[#223048] px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
-            <p className="mt-2 text-[17px] font-extrabold" style={{ color: item.color }}>{item.value}</p>
-          </div>
-        ))}
+    <div className="mt-3 overflow-hidden rounded-[18px] border border-white/8 bg-[#182336]">
+      <div className="border-b border-white/6 px-5 py-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">01 — Stat strip + inline actions</p>
       </div>
 
-      <div className="border-b border-white/6 px-4 py-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="rounded-[12px] border border-white/6 bg-[#0f172a] px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Pool snapshot</p>
-            <p className="mt-1 text-[14px] text-slate-300">
-              {userReserveValue.toFixed(4)} {token.symbol} and {hubReserveValue.toFixed(4)} {hubToken.symbol} in reserve
-            </p>
+      <div className="flex flex-col gap-4 px-5 py-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative flex h-8 w-12 flex-shrink-0">
+              {[{ bg: poolStat?.color ?? '#6366f1', lbl: poolStat?.label ?? token.symbol.slice(0, 2) }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
+                <div
+                  key={idx}
+                  className="absolute flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-extrabold text-white"
+                  style={{
+                    background: ic.bg,
+                    left: idx === 0 ? 0 : 18,
+                    zIndex: idx === 0 ? 1 : 0,
+                    border: '2px solid #182336',
+                  }}
+                >
+                  {ic.lbl}
+                </div>
+              ))}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[17px] font-extrabold text-slate-50">{token.symbol} / {hubToken.symbol}</p>
+              <p className="text-[13px] text-slate-500">Stable hub · 0.3%</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 self-start md:self-auto">
+
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex rounded-full bg-[#153b37] px-3 py-1 text-[12px] font-bold text-emerald-400">
-              {poolStat?.swapCount ?? 0} swaps
+              LP {lpBalance.toFixed(4)}
             </span>
-            <div className="flex rounded-[10px] border border-white/6 bg-[#0f172a] p-1">
+            <span className="inline-flex rounded-full bg-[#16384b] px-3 py-1 text-[12px] font-bold text-[#25c0f4]">
+              {sharePercent.toFixed(2)}%
+            </span>
+            <div className="flex rounded-[12px] border border-white/8 bg-[#1e293b] p-1">
               {(['add', 'remove'] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => setActionMode(mode)}
-                  className="rounded-[8px] px-3 py-1.5 text-[12px] font-bold transition-all"
+                  className="rounded-[10px] px-4 py-2 text-[14px] font-bold transition-all"
                   style={actionMode === mode
-                    ? { background: mode === 'add' ? '#25c0f4' : 'rgba(239,68,68,0.18)', color: mode === 'add' ? '#09111d' : '#fca5a5' }
-                    : { color: '#94a3b8' }}
+                    ? {
+                        background: mode === 'add' ? '#25c0f4' : '#f87171',
+                        color: mode === 'add' ? '#09111d' : '#130d12',
+                      }
+                    : {
+                        color: '#94a3b8',
+                      }}
                 >
                   {mode === 'add' ? 'Add' : 'Remove'}
                 </button>
@@ -994,162 +1030,136 @@ function CompactPositionManagerInline({
             </div>
           </div>
         </div>
-      </div>
 
-      {actionMode === 'add' ? (
-        <div className="grid gap-4 px-4 py-4 lg:grid-cols-[1.3fr_0.9fr]">
-          <div className="rounded-[14px] border border-white/6 bg-[#0f172a] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Add</p>
-                <h4 className="mt-1 text-[16px] font-bold text-slate-50">Top up position</h4>
+        <div className="overflow-hidden rounded-[14px] border border-white/6 bg-[#172134]">
+          <div className="grid divide-y divide-white/6 md:grid-cols-5 md:divide-x md:divide-y-0">
+            {statItems.map((item) => (
+              <div key={item.label} className="px-5 py-4">
+                <p className="text-[12px] text-slate-500">{item.label}</p>
+                <p className="mt-1 text-[15px] font-bold text-slate-50">{item.value}</p>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {actionMode === 'add' ? (
+          <div className="overflow-hidden rounded-[14px] border border-white/6 bg-[#172134]">
+            <div className="grid gap-3 border-b border-white/6 px-4 py-4 md:grid-cols-2">
+              <div className="rounded-[12px] border border-white/6 bg-[#11192a] px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{token.symbol} wallet</p>
+                <p className="mt-2 text-[18px] font-extrabold text-slate-50">{Number(userTokenBalance).toFixed(4)}</p>
+              </div>
+              <div className="rounded-[12px] border border-white/6 bg-[#11192a] px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{hubToken.symbol} wallet</p>
+                <p className="mt-2 text-[18px] font-extrabold text-slate-50">{Number(hubTokenBalance).toFixed(4)}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_176px_120px_160px] xl:items-end">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-[12px] text-slate-500">{token.symbol} amount</label>
+                  <button
+                    type="button"
+                    onClick={() => setAddAmount(userTokenBalance)}
+                    className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-3 py-1.5 text-[12px] font-bold text-[#25c0f4]"
+                  >
+                    Max
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 rounded-[12px] border border-white/8 bg-[#101827] px-4 py-4">
+                  <input
+                    type="number"
+                    value={addAmount}
+                    onChange={(e) => setAddAmount(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full bg-transparent text-[20px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700"
+                  />
+                  <span className="shrink-0 rounded-full border border-white/10 bg-[#1e293b] px-4 py-2 text-[12px] font-bold text-slate-100">
+                    {token.symbol}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[12px] text-slate-500">{hubToken.symbol} required</p>
+                <div className="rounded-[12px] border border-white/8 bg-[#101827] px-4 py-4 text-[15px] font-bold text-slate-100">
+                  {Number(requiredHubAmount || '0').toFixed(4)} {hubToken.symbol}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[12px] text-slate-500">Est. LP</p>
+                <div className="rounded-[12px] border border-white/8 bg-[#101827] px-4 py-4 text-[15px] font-bold text-slate-100">
+                  {estimatedLpTokens === null ? '--' : estimatedLpTokens.toFixed(4)}
+                </div>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setAddAmount(userTokenBalance)}
-                className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-3 py-1.5 text-[12px] font-bold text-[#25c0f4]"
+                onClick={handleAddLiquidity}
+                disabled={isAdding || !addAmount}
+                className="rounded-[12px] bg-[#25c0f4] px-4 py-4 text-[15px] font-extrabold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Max
+                {isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
               </button>
             </div>
-
-            <div className="mb-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[10px] border border-white/6 bg-[#131f30] px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{token.symbol} wallet</p>
-                <p className="mt-2 text-[14px] font-bold text-slate-50">{Number(userTokenBalance).toFixed(4)} {token.symbol}</p>
-              </div>
-              <div className="rounded-[10px] border border-white/6 bg-[#131f30] px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{hubToken.symbol} wallet</p>
-                <p className="mt-2 text-[14px] font-bold text-slate-50">{Number(hubTokenBalance).toFixed(4)} {hubToken.symbol}</p>
-              </div>
-            </div>
-
-            <div className="rounded-[12px] border border-white/6 bg-[#131f30] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{token.symbol} amount</p>
-              <div className="mt-3 flex items-center gap-3">
-                <input
-                  type="number"
-                  value={addAmount}
-                  onChange={(e) => setAddAmount(e.target.value)}
-                  placeholder="0.0"
-                  className="w-full bg-transparent text-[22px] font-bold text-slate-100 outline-none placeholder:text-slate-700"
-                />
-                <span className="shrink-0 rounded-full border border-white/8 bg-[#1e293b] px-4 py-2 text-[12px] font-bold text-slate-100">
-                  {token.symbol}
-                </span>
-              </div>
-            </div>
           </div>
-
-          <div className="rounded-[14px] border border-white/6 bg-[#0f172a] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Position update</p>
-            <div className="mt-4 space-y-3 text-[15px]">
-              <div className="flex items-center justify-between text-slate-300">
-                <span>{hubToken.symbol} required</span>
-                <span className="font-bold text-slate-100">{Number(requiredHubAmount || '0').toFixed(4)} {hubToken.symbol}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span>Est. LP</span>
-                <span className="font-bold text-slate-100">{estimatedLpTokens === null ? '--' : estimatedLpTokens.toFixed(4)}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span>New share</span>
-                <span className="font-bold text-[#25c0f4]">{projectedShare === null ? '--' : `${projectedShare.toFixed(2)}%`}</span>
-              </div>
+        ) : (
+          <div className="overflow-hidden rounded-[14px] border border-white/6 bg-[#172134]">
+            <div className="flex flex-wrap gap-2 border-b border-white/6 px-4 py-4">
+              {[0.25, 0.5, 1].map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => presetRemoval(f)}
+                  className="rounded-[10px] border border-white/8 bg-[#1a2435] px-4 py-2 text-[13px] font-bold text-slate-300"
+                >
+                  {f === 1 ? 'Max' : `${f * 100}%`}
+                </button>
+              ))}
             </div>
-            <button
-              type="button"
-              onClick={handleAddLiquidity}
-              disabled={isAdding || !addAmount}
-              className="mt-5 w-full rounded-[12px] bg-[#25c0f4] px-4 py-3 text-[15px] font-extrabold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid gap-4 px-4 py-4 lg:grid-cols-[1.2fr_1fr]">
-          <div className="rounded-[14px] border border-white/6 bg-[#0f172a] p-4">
-            <div className="mb-3 flex items-center justify-between">
+
+            <div className="grid gap-3 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_176px_124px_160px] xl:items-end">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Remove</p>
-                <h4 className="mt-1 text-[16px] font-bold text-slate-50">Trim position</h4>
+                <p className="mb-2 text-[12px] text-slate-500">LP amount · current {lpBalance.toFixed(4)}</p>
+                <div className="flex items-center gap-3 rounded-[12px] border border-white/8 bg-[#101827] px-4 py-4">
+                  <input
+                    type="number"
+                    value={removeAmount}
+                    onChange={(e) => setRemoveAmount(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full bg-transparent text-[20px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700"
+                  />
+                </div>
               </div>
-              <div className="flex gap-2">
-                {[0.25, 0.5, 1].map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => presetRemoval(f)}
-                    className="rounded-full border border-white/8 bg-[#131f30] px-3 py-1.5 text-[12px] font-bold text-slate-300"
-                  >
-                    {f === 1 ? 'Max' : `${f * 100}%`}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            <div className="rounded-[12px] border border-white/6 bg-[#131f30] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">LP amount</p>
-              <div className="mt-3 flex items-center gap-3">
-                <input
-                  type="number"
-                  value={removeAmount}
-                  onChange={(e) => setRemoveAmount(e.target.value)}
-                  placeholder="0.0"
-                  className="w-full bg-transparent text-[22px] font-bold text-slate-100 outline-none placeholder:text-slate-700"
-                />
-                <span className="shrink-0 rounded-full border border-white/8 bg-[#1e293b] px-4 py-2 text-[12px] font-bold text-slate-100">
-                  LP
-                </span>
+              <div>
+                <p className="mb-2 text-[12px] text-slate-500">Current share</p>
+                <div className="rounded-[12px] border border-white/8 bg-[#101827] px-4 py-4 text-[15px] font-bold text-slate-100">
+                  {sharePercent.toFixed(2)}%
+                </div>
               </div>
-            </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[10px] border border-white/6 bg-[#131f30] px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Current LP</p>
-                <p className="mt-2 text-[14px] font-bold text-slate-50">{lpBalance.toFixed(4)}</p>
+              <div>
+                <p className="mb-2 text-[12px] text-slate-500">You receive</p>
+                <div className="rounded-[12px] border border-white/8 bg-[#101827] px-4 py-4 text-[15px] font-bold text-slate-100">
+                  {receiveSummary}
+                </div>
               </div>
-              <div className="rounded-[10px] border border-white/6 bg-[#131f30] px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Current share</p>
-                <p className="mt-2 text-[14px] font-bold text-slate-50">{sharePercent.toFixed(2)}%</p>
-              </div>
+
+              <button
+                type="button"
+                onClick={handleRemoveLiquidity}
+                disabled={burnLiquidity.isPending || !removeAmount}
+                className="rounded-[12px] border border-red-400/20 bg-[rgba(127,29,29,0.18)] px-4 py-4 text-[15px] font-extrabold text-red-300 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {burnLiquidity.isPending ? 'Removing...' : 'Remove'}
+              </button>
             </div>
           </div>
-
-          <div className="rounded-[14px] border border-white/6 bg-[#0f172a] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">You receive</p>
-            <div className="mt-4 space-y-3 text-[15px]">
-              <div className="flex items-center justify-between text-slate-300">
-                <span>{token.symbol}</span>
-                <span className="font-bold text-slate-100">
-                  {estimatedRemoval ? `${estimatedRemoval.userToken.toFixed(4)} ${token.symbol}` : '--'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span>{hubToken.symbol}</span>
-                <span className="font-bold text-slate-100">
-                  {estimatedRemoval ? `${estimatedRemoval.hubToken.toFixed(4)} ${hubToken.symbol}` : '--'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span>Next share</span>
-                <span className="font-bold text-[#25c0f4]">
-                  {estimatedRemoval ? `${estimatedRemoval.nextShare.toFixed(2)}%` : '--'}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleRemoveLiquidity}
-              disabled={burnLiquidity.isPending || !removeAmount}
-              className="mt-5 w-full rounded-[12px] border border-red-400/20 bg-[rgba(127,29,29,0.18)] px-4 py-3 text-[15px] font-extrabold text-red-300 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {burnLiquidity.isPending ? 'Removing...' : 'Remove Position'}
-            </button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
