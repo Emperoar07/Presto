@@ -109,17 +109,9 @@ export default function SwapPage() {
                       <p className="text-[13px] font-semibold text-slate-100">{liquidity}</p>
                       <p className="text-[11px] text-slate-500">Liquidity</p>
                     </div>
-                    <div className="text-right">
-                      <span
-                        className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={{
-                          color: hasLiquidity ? '#34d399' : '#64748b',
-                          background: hasLiquidity ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
-                        }}
-                      >
-                        {hasLiquidity ? `${swapCount} swaps` : 'Empty'}
-                      </span>
-                      <p className="mt-0.5 hidden text-[11px] text-slate-500 md:block">{vol24h}</p>
+                    <div className="hidden text-right md:block">
+                      <p className="text-[13px] font-semibold text-slate-100">{vol24h}</p>
+                      <p className="text-[11px] text-slate-500">24h Vol</p>
                     </div>
                   </div>
                 ))}
