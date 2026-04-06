@@ -54,11 +54,17 @@ export function BridgeEstimatePanel({
   if (!hasBridgeActivity) return null;
 
   return (
-    <div className="mt-3 overflow-hidden rounded-[16px]" style={{ background: '#161f31', border: '1px solid rgba(255,255,255,0.07)' }}>
-      <div className="flex items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div
+      className="mt-3 overflow-hidden rounded-[14px]"
+      style={{ background: '#161f31', border: '1px solid rgba(255,255,255,0.07)' }}
+    >
+      <div
+        className="flex items-start justify-between gap-3 px-3.5 py-3"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+      >
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Bridge Progress</p>
-          <p className="mt-1 text-[13px] font-medium text-slate-200">
+          <p className="mt-1 text-[12.5px] font-medium text-slate-200">
             {statusMessage ?? (errorMessage ? 'Bridge needs attention.' : 'Preparing the transfer...')}
           </p>
         </div>
@@ -78,15 +84,15 @@ export function BridgeEstimatePanel({
         ) : null}
       </div>
 
-      <div className="space-y-3 px-4 py-4">
+      <div className="space-y-2.5 px-3.5 py-3.5">
         {errorMessage ? (
-          <div className="rounded-[12px] border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-[12px] text-rose-300">
+          <div className="rounded-[10px] border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-[11.5px] text-rose-300">
             {errorMessage}
           </div>
         ) : null}
 
         {bridgeStatusCard ? (
-          <div className="flex items-center gap-2 rounded-[12px] border border-white/5 bg-[#121a2a] px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-[10px] border border-white/5 bg-[#121a2a] px-3 py-2">
             <span
               className={`inline-flex h-2 w-2 rounded-full ${
                 bridgeStatusCard.state === 'success'
@@ -96,35 +102,35 @@ export function BridgeEstimatePanel({
                     : 'bg-amber-400 animate-pulse'
               }`}
             />
-            <span className="text-[12px] text-slate-300">{bridgeStatusCard.message}</span>
+            <span className="text-[11.5px] text-slate-300">{bridgeStatusCard.message}</span>
           </div>
         ) : null}
 
         {estimate ? (
           <>
             <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-[12px] border border-white/5 bg-[#111a2a] px-3 py-2.5">
+              <div className="rounded-[10px] border border-white/5 bg-[#111a2a] px-3 py-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Receive</p>
-                <p className="mt-1.5 text-[12px] font-semibold text-emerald-400">{estimatedReceiveAmount} USDC</p>
+                <p className="mt-1 text-[12px] font-semibold text-emerald-400">{estimatedReceiveAmount} USDC</p>
               </div>
-              <div className="rounded-[12px] border border-white/5 bg-[#111a2a] px-3 py-2.5">
+              <div className="rounded-[10px] border border-white/5 bg-[#111a2a] px-3 py-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Estimated Fee</p>
-                <p className="mt-1.5 text-[12px] font-semibold text-slate-100">
+                <p className="mt-1 text-[12px] font-semibold text-slate-100">
                   {hasEstimateFees && totalUsdc > 0 ? `${totalUsdc.toFixed(totalUsdc >= 1 ? 2 : 6)} USDC` : 'No fees'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => onExactAmountModeChange(!exactAmountMode)}
-                className="flex items-center justify-between rounded-[12px] border border-white/5 bg-[#111a2a] px-3 py-2.5 text-left transition-colors hover:border-primary/20"
+                className="flex items-center justify-between rounded-[10px] border border-white/5 bg-[#111a2a] px-3 py-2 text-left transition-colors hover:border-primary/20"
               >
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Fee Mode</p>
-                  <p className="mt-1.5 text-[12px] font-semibold text-slate-100">
+                  <p className="mt-1 text-[12px] font-semibold text-slate-100">
                     {exactAmountMode ? 'Exact receive' : 'Fees from amount'}
                   </p>
                 </div>
-                <span className="text-[11px] font-semibold text-slate-400">{exactAmountMode ? 'On' : 'Off'}</span>
+                <span className="text-[10.5px] font-semibold text-slate-400">{exactAmountMode ? 'On' : 'Off'}</span>
               </button>
             </div>
 
@@ -161,7 +167,7 @@ export function BridgeEstimatePanel({
                     href={`${explorerBase}${step.txHash}${stepChainKey === 'solana-devnet' ? '?cluster=devnet' : ''}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#132238] px-2.5 py-1 text-[10px] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"
+                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#132238] px-2 py-1 text-[10px] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"
                   >
                     <span
                       className={`inline-flex h-1.5 w-1.5 rounded-full ${

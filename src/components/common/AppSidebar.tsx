@@ -58,7 +58,7 @@ export const AppSidebar = memo(function AppSidebar() {
   const [faucetModalOpen, setFaucetModalOpen] = useState(false);
   const [chainMenuOpen, setChainMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [walletDropdownPos, setWalletDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const [walletDropdownPos, setWalletDropdownPos] = useState<{ bottom: number; left: number } | null>(null);
 
   const chainMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -180,7 +180,7 @@ export const AppSidebar = memo(function AppSidebar() {
     </div>
   );
 
-  // Nav item — icon centered, label fades in when expanded
+  // Nav item — collapsed: icon only (label shrinks to w-0). Expanded: icon + label.
   const NavItem = ({ href, label, icon }: { href: string; label: string; icon: string }) => {
     const isActive = pathname === href;
     return (
@@ -188,53 +188,27 @@ export const AppSidebar = memo(function AppSidebar() {
         href={href}
         title={label}
         onClick={() => setMobileOpen(false)}
-        className={`group relative mb-0.5 flex items-center rounded-[10px] border transition-all duration-200 ${
+        className={`group relative mb-0.5 flex items-center gap-2.5 rounded-[10px] border px-[10px] py-[9px] transition-all duration-200 ${
           isActive ? 'border-primary/15 bg-primary/10' : 'border-transparent hover:bg-white/[0.04]'
-        } ${collapsed ? 'justify-center px-[9px] py-[9px]' : 'gap-2.5 px-[10px] py-[9px]'}`}
+        }`}
       >
         <span className={`material-symbols-outlined flex-shrink-0 text-[18px] ${isActive ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'}`}>
           {icon}
         </span>
-        {/* Label — hidden by overflow when collapsed since aside clips it */}
-        <span className={`whitespace-nowrap text-[13.5px] font-medium transition-opacity duration-200 ${collapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'} ${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-100'}`}>
+        <span className={`overflow-hidden whitespace-nowrap text-[13.5px] font-medium transition-all duration-200 ${collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'} ${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-100'}`}>
           {label}
         </span>
-        {/* Tooltip when collapsed */}
-        {collapsed && (
-          <span
-            className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-[8px] px-2.5 py-1.5 text-[12px] font-semibold text-slate-100 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
-            style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            {label}
-          </span>
-        )}
       </Link>
     );
   };
 
   const SectionLabel = ({ label }: { label: string }) => {
-    if (collapsed) return <div className="mx-1 mb-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />;
+    if (collapsed) return null;
     return <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-600">{label}</p>;
   };
 
   const sidebarInner = (
-    <div className="flex h-full flex-col bg-[#1e293b]">
-      {/* ── Logo header (always rendered at full internal width, aside clips it) ── */}
-      <div className="flex h-[84px] flex-shrink-0 items-center gap-2.5 border-b border-white/[0.07] px-5">
-        <Link href="/" className="flex items-center gap-2 select-none" style={{ minWidth: 0 }}>
-          <LogoMark />
-          <span className={`text-[16px] font-extrabold tracking-tight text-white whitespace-nowrap transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
-            Presto
-          </span>
-        </Link>
-        <span
-          className={`flex-shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#25c0f4] whitespace-nowrap transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}
-          style={{ background: 'rgba(37,192,244,0.1)', border: '1px solid rgba(37,192,244,0.2)' }}
-        >
-          Testnet
-        </span>
-      </div>
-
+    <div className="flex h-full flex-col">
       {/* ── Collapse toggle ── */}
       <div className="flex items-center justify-center border-b border-white/[0.07] px-2 py-2">
         <button
@@ -328,7 +302,7 @@ export const AppSidebar = memo(function AppSidebar() {
                         onClick={() => {
                           if (!accountMenuOpen && walletBtnRef.current) {
                             const rect = walletBtnRef.current.getBoundingClientRect();
-                            setWalletDropdownPos({ top: rect.top, left: rect.right + 8 });
+                            setWalletDropdownPos({ bottom: window.innerHeight - rect.bottom, left: rect.right + 8 });
                           }
                           setAccountMenuOpen((c) => !c);
                           setChainMenuOpen(false);
@@ -343,7 +317,7 @@ export const AppSidebar = memo(function AppSidebar() {
                         <div
                           ref={walletDropdownRef}
                           className="fixed z-[200] w-52 rounded-xl border border-white/[0.08] bg-[#111c2d] p-1.5 shadow-2xl"
-                          style={{ top: walletDropdownPos.top, left: walletDropdownPos.left }}
+                          style={{ bottom: walletDropdownPos.bottom, left: walletDropdownPos.left }}
                         >
                           {/* Chain switcher */}
                           <div ref={chainMenuRef}>
@@ -466,18 +440,30 @@ export const AppSidebar = memo(function AppSidebar() {
 
   return (
     <>
-      {/* ── Desktop sidebar — the aside itself animates width, overflow-hidden clips content ── */}
+      {/* ── Logo strip — always 220px, never collapses ── */}
+      <div className="fixed left-0 top-0 z-50 hidden md:flex h-[58px] items-center gap-2.5 border-b border-r border-white/[0.07] bg-[#1e293b] px-5" style={{ width: EXPANDED_W }}>
+        <Link href="/" className="flex items-center gap-2 select-none">
+          <LogoMark />
+          <span className="text-[16px] font-extrabold tracking-tight text-white whitespace-nowrap">Presto</span>
+        </Link>
+        <span
+          className="flex-shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#25c0f4] whitespace-nowrap"
+          style={{ background: 'rgba(37,192,244,0.1)', border: '1px solid rgba(37,192,244,0.2)' }}
+        >
+          Testnet
+        </span>
+      </div>
+
+      {/* ── Nav aside — collapses from 220px to 64px below the logo strip ── */}
       <aside
-        className="fixed inset-y-0 left-0 z-40 hidden md:block overflow-hidden border-r border-white/[0.07]"
+        className="fixed left-0 bottom-0 z-40 hidden md:flex md:flex-col border-r border-white/[0.07] bg-[#1e293b]"
         style={{
+          top: 58,
           width: collapsed ? COLLAPSED_W : EXPANDED_W,
-          transition: 'width 0.3s ease',
+          transition: 'width 0.25s ease',
         }}
       >
-        {/* Inner div is always EXPANDED_W wide so content lays out correctly, aside clips it */}
-        <div style={{ width: EXPANDED_W, height: '100%' }}>
-          {sidebarInner}
-        </div>
+        {sidebarInner}
       </aside>
 
       {/* ── Mobile top bar ── */}

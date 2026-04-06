@@ -288,15 +288,18 @@ function PoolListRow({
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          <span
-            className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
-            style={{
-              color: poolStat.hasLiquidity ? '#34d399' : '#64748b',
-              background: poolStat.hasLiquidity ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
-            }}
-          >
-            {poolStat.hasLiquidity ? `${poolStat.swapCount} swaps` : 'No activity'}
-          </span>
+          <div className="text-right">
+            <span
+              className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
+              style={{
+                color: poolStat.hasLiquidity ? '#34d399' : '#64748b',
+                background: poolStat.hasLiquidity ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
+              }}
+            >
+              {poolStat.hasLiquidity ? `${poolStat.swapCount} swaps` : 'No activity'}
+            </span>
+            <p className="mt-0.5 hidden text-[11px] text-slate-500 md:block">{poolStat.vol24h}</p>
+          </div>
           <span className="hidden rounded-[10px] bg-[#25c0f4] px-3 py-2 text-[12px] font-bold text-[#0f172a] md:inline-block">
             {isActive ? 'Hide Manager' : lpBalance > 0 ? 'Manage' : 'Add Liquidity'}
           </span>

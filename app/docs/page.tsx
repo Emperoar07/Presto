@@ -1,10 +1,12 @@
+'use client';
+
 import Link from 'next/link';
 
 const liveArcAssets = [
   {
     symbol: 'USDC',
     address: '0x3600000000000000000000000000000000000000',
-    note: 'Arc hub asset and gas-denominated stablecoin.',
+    note: 'Arc hub asset and gas denominated stablecoin.',
   },
   {
     symbol: 'EURC',
@@ -14,12 +16,12 @@ const liveArcAssets = [
   {
     symbol: 'WUSDC',
     address: '0x911b4000D3422F482F4062a913885f7b035382Df',
-    note: 'Live on the normalized Arc deployment as a mixed-decimal wrapped stable asset.',
+    note: 'Live on the normalized Arc deployment as a mixed decimal wrapped stable asset.',
   },
   {
     symbol: 'USDT',
     address: '0x175CdB1D338945f0D851A741ccF787D343E57952',
-    note: 'Live on Arc through the normalized USDC hub, with seeded liquidity in Presto.',
+    note: 'Live on Arc through the normalized USDC hub with seeded liquidity in Presto.',
   },
 ];
 
@@ -40,7 +42,7 @@ const developerLinks = [
   {
     href: 'https://github.com/Synthra-swap/tokenlists/blob/main/generated/synthra.tokenlist.json',
     label: 'Reference Arc Tokenlist',
-    description: 'Useful when researching Arc-compatible assets before enabling them in Presto.',
+    description: 'Useful when researching Arc compatible assets before enabling them in Presto.',
   },
   {
     href: 'https://docs.arc.network/arc/concepts/welcome-to-arc',
@@ -54,7 +56,7 @@ const toc = [
   { id: 'networks', label: 'Arc Testnet' },
   { id: 'swap', label: 'Swap Flow' },
   { id: 'liquidity', label: 'Liquidity' },
-  { id: 'analytics', label: 'Analytics & Activity' },
+  { id: 'analytics', label: 'Analytics and Activity' },
   { id: 'developers', label: 'Developers' },
   { id: 'privacy-policy', label: 'Privacy Policy' },
   { id: 'terms-of-use', label: 'Terms of Use' },
@@ -152,7 +154,6 @@ export default function DocsPage() {
                 className="inline-flex items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2 text-[13px] font-bold text-[#0f172a]"
               >
                 Launch App
-                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </Link>
             </div>
 
@@ -160,8 +161,8 @@ export default function DocsPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Presto Docs</p>
               <h1 className="mt-3 text-[34px] font-extrabold tracking-tight text-slate-100">Getting started</h1>
               <p className="mt-4 text-[15px] leading-7 text-slate-300">
-                Presto is a testnet first DEX surface for Arc. These docs cover the live product, the current network setup,
-                supported assets, developer references, and the legal policies linked across the app footer and landing page.
+                Presto is a testnet focused DEX surface for Arc. These docs cover the current product, supported assets,
+                live network behavior, developer references, and the legal policies linked across the landing page and app shell.
               </p>
             </div>
           </div>
@@ -185,7 +186,7 @@ export default function DocsPage() {
                 <Link href="/transactions" className="font-medium text-primary hover:underline">
                   Activity
                 </Link>{' '}
-                for recent wallet actions.
+                for recent wallet actions across swaps, liquidity, and bridge flows.
               </p>
 
               <ol className="list-decimal space-y-2 pl-5">
@@ -265,7 +266,7 @@ export default function DocsPage() {
               </p>
             </Section>
 
-            <Section id="analytics" title="Analytics & Activity">
+            <Section id="analytics" title="Analytics and Activity">
               <p>
                 Activity on Arc reads hub AMM swap and liquidity events from the deployed contract instead of relying on brittle block
                 scraping. Analytics stays focused on lightweight market summaries rather than pretending Arc exposes the same native
@@ -276,7 +277,7 @@ export default function DocsPage() {
                 <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
                   <p className="text-[13px] font-semibold text-slate-100">Use Analytics for</p>
                   <p className="mt-2 text-[13px] leading-6 text-slate-300">
-                    Market summaries, lightweight pool context, and network-aware stats.
+                    Market summaries, lightweight pool context, and network aware stats.
                   </p>
                 </div>
                 <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
@@ -290,8 +291,8 @@ export default function DocsPage() {
 
             <Section id="developers" title="Developers">
               <p>
-                Presto docs stay practical: current network behavior, live assets, and implementation references instead of broad
-                marketing copy.
+                Presto docs stay practical. They focus on live network behavior, current assets, and implementation references
+                instead of generic marketing language.
               </p>
 
               <div className="space-y-3">
@@ -364,13 +365,13 @@ export default function DocsPage() {
               </p>
 
               <p>
-                The app may use local storage or similar browser features to remember interface settings, wallet related preferences,
+                The app may use local storage or similar browser features to remember interface settings, wallet preferences,
                 and bridge or transaction context that helps restore the current session.
               </p>
 
               <p>
                 If an external provider or embedded service sets its own cookies, those cookies belong to that provider and are
-                governed by that provider’s own policy.
+                governed by that provider&apos;s own policy.
               </p>
             </Section>
 

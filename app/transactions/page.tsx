@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTransactions } from '@/hooks/useApiQueries';
 import type { BridgeHistoryItem } from '@/components/bridge/types';
-import { BRIDGE_HISTORY_STORAGE_KEY, isValidBridgeHistoryItem } from '@/components/bridge/constants';
+import { BRIDGE_HISTORY_STORAGE_KEY, NETWORKS, isValidBridgeHistoryItem } from '@/components/bridge/constants';
 
 const SURF = '#1e293b';
 const SURF_2 = '#263347';
@@ -92,14 +92,13 @@ function buildBridgeActivity(item: BridgeHistoryItem): ActivityItem {
   const effectiveState = item.liveState ?? item.state;
   const success = effectiveState === 'success';
   const failed = effectiveState === 'error';
-  const routeTitle = `${item.sourceKey.replace('-devnet', '').replace('-', ' ')} to ${item.destinationKey
-    .replace('-devnet', '')
-    .replace('-', ' ')}`;
+  const sourceLabel = NETWORKS[item.sourceKey]?.shortLabel ?? item.sourceKey;
+  const destinationLabel = NETWORKS[item.destinationKey]?.shortLabel ?? item.destinationKey;
 
   return {
     id: `bridge-${item.id}`,
     category: 'bridge',
-    title: routeTitle.replace(/\b\w/g, (char) => char.toUpperCase()),
+    title: `${sourceLabel} to ${destinationLabel}`,
     subtitle: `${item.amount} USDC`,
     statusLabel: success ? 'Completed' : failed ? 'Failed' : 'Pending',
     statusTone: success ? 'text-emerald-400' : failed ? 'text-rose-400' : 'text-amber-400',

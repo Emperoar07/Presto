@@ -1,6 +1,6 @@
 # Presto
 
-A testnet first decentralized exchange frontend for Arc and Tempo, with a live Arc normalized hub AMM, wallet aware bridge flows, chain specific liquidity management, and a redesigned app shell.
+Presto is a testnet focused decentralized exchange frontend for Arc and Tempo, with a live Arc normalized hub AMM, wallet aware bridge flows, network specific liquidity management, and a redesigned app shell.
 
 ## Features
 

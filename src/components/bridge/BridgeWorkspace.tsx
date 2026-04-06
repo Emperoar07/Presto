@@ -1199,9 +1199,26 @@ export function BridgeWorkspace() {
 
                   {/* Amount input */}
                   <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <p className="mb-2 text-[10px] font-medium text-slate-500">Amount (USDC)</p>
-                    <div className="flex items-center gap-2.5">
-                      {/* USDC badge */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-medium text-slate-500">Amount (USDC)</p>
+                        <p className="mt-1 text-[11px] text-slate-500">Bridge from the selected source chain and settle directly into the destination wallet.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (sourceBalance) {
+                            hasInteractedRef.current = true;
+                            setAmount(sourceBalance.replace(/[^0-9.]/g, ''));
+                          }
+                        }}
+                        className="rounded-full px-2.5 py-1 text-[10px] font-bold text-primary"
+                        style={{ background: '#15314a', border: '1px solid rgba(37,192,244,0.18)' }}
+                      >
+                        Max
+                      </button>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2.5 rounded-[10px] px-3 py-3" style={{ background: '#18263a', border: '1px solid rgba(255,255,255,0.05)' }}>
                       <div className="flex flex-shrink-0 items-center gap-1.5 rounded-[8px] px-2 py-1" style={{ background: '#263347', border: '1px solid rgba(255,255,255,0.07)' }}>
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#3b82f6] text-[8px] font-extrabold text-white">US</span>
                         <span className="text-[12px] font-bold text-slate-100">USDC</span>
@@ -1217,46 +1234,35 @@ export function BridgeWorkspace() {
                         }}
                         inputMode="decimal"
                         placeholder="0.00"
-                        className="min-w-0 flex-1 bg-transparent text-[20px] font-semibold leading-none tracking-tight text-white outline-none placeholder:text-slate-600"
+                        className="min-w-0 flex-1 bg-transparent text-[22px] font-semibold leading-none tracking-tight text-white outline-none placeholder:text-slate-600"
                       />
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-[11px] font-semibold text-primary">{formatBalanceLabel(sourceBalance)}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (sourceBalance) {
-                            hasInteractedRef.current = true;
-                            setAmount(sourceBalance.replace(/[^0-9.]/g, ''));
-                          }
-                        }}
-                        className="text-[10px] font-bold text-slate-400 transition-colors hover:text-primary"
-                      >
-                        MAX
-                      </button>
+                      <span className="text-[10px] font-medium text-slate-500">{sourceNetwork.shortLabel} source</span>
                     </div>
                   </div>
 
                   {/* Summary fees */}
-                  <div className="rounded-[12px] px-3.5 py-3 space-y-2" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Estimated fee</span>
-                      <span className="font-semibold text-slate-200">{summaryFeeLabel}</span>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Estimated fee</p>
+                      <p className="mt-2 text-[13px] font-semibold text-slate-100">{summaryFeeLabel}</p>
                     </div>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">You receive</span>
-                      <span className="font-semibold text-slate-200">{summaryReceiveLabel}</span>
+                    <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">You receive</p>
+                      <p className="mt-2 text-[13px] font-semibold text-slate-100">{summaryReceiveLabel}</p>
                     </div>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Transfer time</span>
-                      <span className="font-semibold text-emerald-400">{summaryTimeLabel}</span>
+                    <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Transfer time</p>
+                      <p className="mt-2 text-[13px] font-semibold text-emerald-400">{summaryTimeLabel}</p>
                     </div>
-                    {resolvedDestinationAddress ? (
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500">Destination</span>
-                        <span className="font-mono text-[10px] text-slate-400">{resolvedDestinationAddress.slice(0, 8)}...{resolvedDestinationAddress.slice(-6)}</span>
-                      </div>
-                    ) : null}
+                    <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Destination</p>
+                      <p className="mt-2 font-mono text-[11px] text-slate-300">
+                        {resolvedDestinationAddress ? `${resolvedDestinationAddress.slice(0, 8)}...${resolvedDestinationAddress.slice(-6)}` : 'Waiting for wallet'}
+                      </p>
+                    </div>
                   </div>
 
                   {/* CTA */}
