@@ -143,7 +143,7 @@ export const FaucetModal = memo(function FaucetModal({ isOpen, onClose }: Props)
                   minHeight: '500px'
                 }}
                 onLoad={handleIframeLoad}
-                title={isArc ? 'Circle Faucet (Arc Testnet)' : 'Tempo Faucet'}
+                title={isArc ? 'Circle Faucet (Arc Testnet)' : 'Testnet Faucet'}
                 allow="clipboard-write"
               />
             </>

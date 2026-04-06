@@ -10,8 +10,8 @@ const inter = Inter({ subsets: ["latin"] });
 import { LayoutContent } from "./LayoutContent";
 
 export const metadata: Metadata = {
-  title: "PrestoDEX | Tempo Testnet",
-  description: "Instant swaps on Tempo",
+  title: "Presto | Arc Testnet",
+  description: "Instant swaps, stable liquidity pools, and cross-chain USDC transfers on Arc Testnet.",
 };
 
 export default function RootLayout({
@@ -22,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
           rel="stylesheet"

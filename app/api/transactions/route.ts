@@ -3,7 +3,7 @@ import { createPublicClient, decodeFunctionData, defineChain, http, parseAbi, pa
 import { tempoModerato } from 'viem/chains';
 import { getArcTestnetRpcUrls, getTempoRpcUrls } from '@/lib/rpc';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
-import { getContractAddresses, ZERO_ADDRESS, isArcChain, isTempoNativeChain } from '@/config/contracts';
+import { getContractAddresses, ZERO_ADDRESS, isArcChain, isTempoNativeChain, TEMPO_DEX_ADDRESS } from '@/config/contracts';
 
 const DEFAULT_CHAIN_ID = 5042002;
 
@@ -45,7 +45,6 @@ type ChainContext = {
 const BLOCKS_PER_PAGE = 2000n;
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
-const TEMPO_DEX_ADDRESS = '0xdec0000000000000000000000000000000000000' as const;
 
 const ARC_TESTNET = defineChain({
   id: 5042002,
@@ -113,7 +112,7 @@ function getChainContext(chainId: number): ChainContext | null {
       rpcUrls: getTempoRpcUrls(),
       dexAddress: TEMPO_DEX_ADDRESS,
       abi: TEMPO_DEX_ABI,
-      networkLabel: 'Tempo Testnet',
+      networkLabel: 'Testnet',
       activityMode: 'tempo',
       supportsOrders: true,
       notice: null,
@@ -482,7 +481,7 @@ export async function GET(request: Request) {
           networkLabel: 'Unsupported Network',
           activityMode: 'unsupported',
           supportsOrders: false,
-          notice: 'Transaction activity is only configured for Tempo and Arc testnets in this app.',
+          notice: 'Transaction activity is only configured for Arc testnet in this app.',
         }),
       },
       { status: 200 }

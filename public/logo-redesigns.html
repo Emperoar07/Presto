@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Presto Logo Redesigns</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #080e1a;
+    color: #e2e8f0;
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 48px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #0f1e30;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 20px;
+    padding: 40px 32px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover {
+    border-color: rgba(37,192,244,0.25);
+    transform: translateY(-2px);
+  }
+  .logo-area {
+    width: 220px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+  .num {
+    font-size: 10px;
+    color: #334155;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    align-self: flex-start;
+  }
+</style>
+</head>
+<body>
+<h1>Presto — Logo Concepts</h1>
+<div class="grid">
+
+  <!-- 1. Orbital -->
+  <div class="card">
+    <span class="num">01 / Orbital</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g1a" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#25c0f4"/>
+            <stop offset="100%" stop-color="#818cf8"/>
+          </linearGradient>
+          <filter id="f1">
+            <feGaussianBlur stdDeviation="3" result="b"/>
+            <feComposite in="SourceGraphic" in2="b" operator="over"/>
+          </filter>
+        </defs>
+        <style>
+          @keyframes spin1 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          @keyframes spin2 { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+          .o1 { transform-origin: 58px 60px; animation: spin1 6s linear infinite; }
+          .o2 { transform-origin: 58px 60px; animation: spin2 10s linear infinite; }
+        </style>
+        <!-- Icon group -->
+        <g filter="url(#f1)">
+          <circle cx="58" cy="60" r="14" fill="none" stroke="url(#g1a)" stroke-width="2.5"/>
+          <circle cx="58" cy="60" r="5" fill="url(#g1a)"/>
+          <ellipse cx="58" cy="60" rx="32" ry="13" fill="none" stroke="url(#g1a)" stroke-width="1.5" opacity="0.7" class="o1" transform="rotate(-20,58,60)"/>
+          <ellipse cx="58" cy="60" rx="44" ry="18" fill="none" stroke="url(#g1a)" stroke-width="1" opacity="0.4" class="o2" transform="rotate(40,58,60)"/>
+          <!-- orbiting dot -->
+          <circle cx="90" cy="60" r="4" fill="#25c0f4" class="o1"/>
+        </g>
+        <!-- Wordmark -->
+        <text x="116" y="54" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="117" y="72" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#25c0f4" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Orbital</span>
+  </div>
+
+  <!-- 2. Prism Bolt -->
+  <div class="card">
+    <span class="num">02 / Prism Bolt</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g2a" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f472b6"/>
+            <stop offset="50%" stop-color="#a78bfa"/>
+            <stop offset="100%" stop-color="#25c0f4"/>
+          </linearGradient>
+        </defs>
+        <!-- Rounded square bg -->
+        <rect x="18" y="20" width="80" height="80" rx="22" fill="#0a1628" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+        <!-- Lightning bolt -->
+        <polygon points="65,30 44,62 57,62 51,90 78,56 63,56" fill="url(#g2a)" opacity="0.95"/>
+        <!-- Wordmark -->
+        <text x="116" y="54" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="117" y="72" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#a78bfa" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Prism Bolt</span>
+  </div>
+
+  <!-- 3. Flow Arrows -->
+  <div class="card">
+    <span class="num">03 / Flow</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g3a" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#25c0f4"/>
+            <stop offset="100%" stop-color="#60a5fa"/>
+          </linearGradient>
+          <linearGradient id="g3b" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#818cf8"/>
+            <stop offset="100%" stop-color="#a78bfa"/>
+          </linearGradient>
+        </defs>
+        <style>
+          @keyframes flowup { 0%,100%{opacity:0.5;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} }
+          @keyframes flowdn { 0%,100%{opacity:0.5;transform:translateY(0)} 50%{opacity:1;transform:translateY(3px)} }
+          .fu { animation: flowup 2s ease-in-out infinite; transform-origin:58px 60px; }
+          .fd { animation: flowdn 2s ease-in-out infinite 1s; transform-origin:58px 60px; }
+        </style>
+        <!-- Up arrow -->
+        <g class="fu">
+          <path d="M44 72 Q44 44 70 44" fill="none" stroke="url(#g3a)" stroke-width="5" stroke-linecap="round"/>
+          <polygon points="70,36 78,52 62,52" fill="#25c0f4"/>
+        </g>
+        <!-- Down arrow -->
+        <g class="fd">
+          <path d="M72 48 Q72 76 46 76" fill="none" stroke="url(#g3b)" stroke-width="5" stroke-linecap="round"/>
+          <polygon points="46,84 38,68 54,68" fill="#818cf8"/>
+        </g>
+        <!-- Wordmark -->
+        <text x="102" y="54" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="103" y="72" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#25c0f4" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Flow</span>
+  </div>
+
+  <!-- 4. Hex Grid -->
+  <div class="card">
+    <span class="num">04 / Hex Grid</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g4a" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#34d399"/>
+            <stop offset="100%" stop-color="#25c0f4"/>
+          </linearGradient>
+        </defs>
+        <!-- Outer hex -->
+        <polygon points="58,22 87,38 87,72 58,88 29,72 29,38" fill="none" stroke="url(#g4a)" stroke-width="2.5"/>
+        <!-- Middle hex -->
+        <polygon points="58,34 78,45 78,67 58,78 38,67 38,45" fill="none" stroke="url(#g4a)" stroke-width="1.5" opacity="0.5"/>
+        <!-- Inner fill -->
+        <polygon points="58,44 69,50 69,62 58,68 47,62 47,50" fill="url(#g4a)" opacity="0.85"/>
+        <!-- Wordmark -->
+        <text x="102" y="54" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="103" y="72" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#34d399" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Hex Grid</span>
+  </div>
+
+  <!-- 5. Wordmark Gradient -->
+  <div class="card">
+    <span class="num">05 / Wordmark</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g5a" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#25c0f4"/>
+            <stop offset="50%" stop-color="#a78bfa"/>
+            <stop offset="100%" stop-color="#f472b6"/>
+          </linearGradient>
+          <linearGradient id="g5b" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#25c0f4"/>
+            <stop offset="100%" stop-color="#a78bfa"/>
+          </linearGradient>
+        </defs>
+        <text x="10" y="68" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="900" font-size="52" fill="url(#g5a)" letter-spacing="-2">Presto</text>
+        <!-- Underline bar -->
+        <rect x="10" y="78" width="200" height="3" rx="2" fill="url(#g5b)"/>
+        <!-- Tagline -->
+        <text x="10" y="98" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#64748b" letter-spacing="4">ONCHAIN EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Wordmark Gradient</span>
+  </div>
+
+  <!-- 6. Diamond -->
+  <div class="card">
+    <span class="num">06 / Diamond</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g6a" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#25c0f4"/>
+            <stop offset="100%" stop-color="#6366f1"/>
+          </linearGradient>
+          <filter id="f6">
+            <feGaussianBlur stdDeviation="4" result="b"/>
+            <feComposite in="SourceGraphic" in2="b" operator="over"/>
+          </filter>
+        </defs>
+        <g filter="url(#f6)">
+          <!-- Outer diamond -->
+          <polygon points="58,18 94,60 58,102 22,60" fill="none" stroke="url(#g6a)" stroke-width="2.5"/>
+          <!-- Inner diamond fill -->
+          <polygon points="58,34 80,60 58,86 36,60" fill="url(#g6a)" opacity="0.2"/>
+          <!-- Center diamond -->
+          <polygon points="58,46 70,60 58,74 46,60" fill="url(#g6a)" opacity="0.9"/>
+        </g>
+        <!-- Wordmark -->
+        <text x="108" y="54" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="109" y="72" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#818cf8" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Diamond</span>
+  </div>
+
+  <!-- 7. Speed Mark -->
+  <div class="card">
+    <span class="num">07 / Speed Mark</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g7a" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#f97316"/>
+          </linearGradient>
+        </defs>
+        <!-- Bold italic P with speed lines -->
+        <text x="12" y="90" font-family="Georgia,serif" font-weight="900" font-style="italic" font-size="90" fill="url(#g7a)" opacity="0.95">P</text>
+        <!-- Speed lines -->
+        <line x1="68" y1="42" x2="100" y2="42" stroke="url(#g7a)" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+        <line x1="72" y1="55" x2="108" y2="55" stroke="url(#g7a)" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+        <line x1="68" y1="68" x2="100" y2="68" stroke="url(#g7a)" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+        <!-- Wordmark -->
+        <text x="108" y="56" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="24" fill="#f1f5f9" letter-spacing="-0.5">resto</text>
+        <text x="109" y="73" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="9.5" fill="#f59e0b" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Speed Mark</span>
+  </div>
+
+  <!-- 8. Node Network -->
+  <div class="card">
+    <span class="num">08 / Network</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g8a" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#25c0f4"/>
+            <stop offset="100%" stop-color="#a78bfa"/>
+          </linearGradient>
+          <filter id="f8">
+            <feGaussianBlur stdDeviation="2.5" result="b"/>
+            <feComposite in="SourceGraphic" in2="b" operator="over"/>
+          </filter>
+        </defs>
+        <style>
+          @keyframes pulse8 { 0%,100%{r:5;opacity:0.7} 50%{r:7;opacity:1} }
+          .pn8 { animation: pulse8 2.5s ease-in-out infinite; }
+          .pn8b { animation: pulse8 2.5s ease-in-out infinite 0.8s; }
+          .pn8c { animation: pulse8 2.5s ease-in-out infinite 1.6s; }
+        </style>
+        <g filter="url(#f8)">
+          <!-- Connection lines -->
+          <line x1="32" y1="36" x2="58" y2="60" stroke="url(#g8a)" stroke-width="1.5" opacity="0.4"/>
+          <line x1="84" y1="36" x2="58" y2="60" stroke="url(#g8a)" stroke-width="1.5" opacity="0.4"/>
+          <line x1="58" y1="60" x2="32" y2="84" stroke="url(#g8a)" stroke-width="1.5" opacity="0.4"/>
+          <line x1="58" y1="60" x2="84" y2="84" stroke="url(#g8a)" stroke-width="1.5" opacity="0.4"/>
+          <line x1="32" y1="36" x2="84" y2="36" stroke="url(#g8a)" stroke-width="1" opacity="0.2"/>
+          <line x1="32" y1="84" x2="84" y2="84" stroke="url(#g8a)" stroke-width="1" opacity="0.2"/>
+          <!-- Nodes -->
+          <circle cx="32" cy="36" r="5" fill="#25c0f4" class="pn8"/>
+          <circle cx="84" cy="36" r="5" fill="#a78bfa" class="pn8b"/>
+          <circle cx="58" cy="60" r="8" fill="url(#g8a)"/>
+          <circle cx="32" cy="84" r="5" fill="#a78bfa" class="pn8c"/>
+          <circle cx="84" cy="84" r="5" fill="#25c0f4" class="pn8b"/>
+        </g>
+        <!-- Wordmark -->
+        <text x="102" y="54" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="103" y="72" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#a78bfa" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Network</span>
+  </div>
+
+  <!-- 9. Duality Split -->
+  <div class="card">
+    <span class="num">09 / Duality</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="clip9l">
+            <rect x="0" y="0" width="58" height="120"/>
+          </clipPath>
+          <clipPath id="clip9r">
+            <rect x="58" y="0" width="100" height="120"/>
+          </clipPath>
+          <filter id="f9">
+            <feGaussianBlur stdDeviation="3" result="b"/>
+            <feComposite in="SourceGraphic" in2="b" operator="over"/>
+          </filter>
+        </defs>
+        <g filter="url(#f9)">
+          <!-- Left half: cyan -->
+          <circle cx="58" cy="60" r="38" fill="#25c0f4" clip-path="url(#clip9l)" opacity="0.9"/>
+          <!-- Right half: indigo -->
+          <circle cx="58" cy="60" r="38" fill="#6366f1" clip-path="url(#clip9r)" opacity="0.9"/>
+          <!-- Divider line + center dot -->
+          <line x1="58" y1="22" x2="58" y2="98" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+          <circle cx="58" cy="60" r="7" fill="white" opacity="0.9"/>
+        </g>
+        <!-- Wordmark -->
+        <text x="108" y="54" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="109" y="72" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="10" fill="#818cf8" letter-spacing="3.5">EXCHANGE</text>
+      </svg>
+    </div>
+    <span class="label">Duality</span>
+  </div>
+
+  <!-- 10. Liquidity Bars -->
+  <div class="card">
+    <span class="num">10 / Liquidity</span>
+    <div class="logo-area">
+      <svg viewBox="0 0 220 120" width="220" height="120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g10a" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#25c0f4"/>
+            <stop offset="100%" stop-color="#a78bfa"/>
+          </linearGradient>
+          <linearGradient id="g10b" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#f472b6"/>
+          </linearGradient>
+        </defs>
+        <style>
+          @keyframes bar1 { 0%,100%{height:44px;y:46px} 50%{height:56px;y:34px} }
+          @keyframes bar2 { 0%,100%{height:60px;y:30px} 50%{height:44px;y:46px} }
+          @keyframes bar3 { 0%,100%{height:72px;y:18px} 50%{height:60px;y:30px} }
+          @keyframes bar4 { 0%,100%{height:52px;y:38px} 50%{height:68px;y:22px} }
+          @keyframes bar5 { 0%,100%{height:40px;y:50px} 50%{height:52px;y:38px} }
+          .b1{animation:bar1 2.2s ease-in-out infinite}
+          .b2{animation:bar2 2.2s ease-in-out infinite 0.4s}
+          .b3{animation:bar3 2.2s ease-in-out infinite 0.8s}
+          .b4{animation:bar4 2.2s ease-in-out infinite 1.2s}
+          .b5{animation:bar5 2.2s ease-in-out infinite 1.6s}
+        </style>
+        <!-- 5 animated bars -->
+        <rect class="b1" x="18" width="14" rx="4" fill="url(#g10a)" opacity="0.8"/>
+        <rect class="b2" x="36" width="14" rx="4" fill="url(#g10a)" opacity="0.9"/>
+        <rect class="b3" x="54" width="14" rx="4" fill="url(#g10b)" opacity="1"/>
+        <rect class="b4" x="72" width="14" rx="4" fill="url(#g10b)" opacity="0.9"/>
+        <rect class="b5" x="90" width="14" rx="4" fill="url(#g10a)" opacity="0.8"/>
+        <!-- Wordmark -->
+        <text x="116" y="52" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="800" font-size="26" fill="#f1f5f9" letter-spacing="-1">Presto</text>
+        <text x="117" y="70" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="9.5" fill="#25c0f4" letter-spacing="3">LIQUIDITY</text>
+        <text x="117" y="83" font-family="ui-sans-serif,system-ui,sans-serif" font-weight="500" font-size="9.5" fill="#64748b" letter-spacing="3">PROTOCOL</text>
+      </svg>
+    </div>
+    <span class="label">Liquidity</span>
+  </div>
+
+</div>
+</body>
+</html>

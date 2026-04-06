@@ -3,21 +3,23 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
-  --background-end-rgb: 10, 5, 20;
-  --bg-main: #0b0f1a;
-  --bg-surface: #111827;
-  --accent-primary: #7c3aed;
-  --accent-secondary: #22d3ee;
-  --text-primary: #e5e7eb;
-  --text-muted: #9ca3af;
+  --foreground-rgb: 241, 245, 249;
+  --background-start-rgb: 15, 23, 42;
+  --background-end-rgb: 15, 23, 42;
+  --bg-main: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-surface-2: #263347;
+  --accent-primary: #25c0f4;
+  --accent-secondary: #25c0f4;
+  --text-primary: #f1f5f9;
+  --text-muted: #94a3b8;
 }
 
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
 }
+
 
 /* Light mode body */
 html.light body {
@@ -46,8 +48,8 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
 .dark .glass-panel {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 /* Token input background */
@@ -55,7 +57,7 @@ body {
   background: rgba(241, 245, 249, 0.8);
 }
 .dark .token-input-bg {
-  background: rgba(15, 23, 42, 0.6);
+  background: #263347;
 }
 
 /* Global smooth transitions */

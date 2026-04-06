@@ -10,7 +10,7 @@ const splitUrls = (value: string) =>
 // Quote cache for faster responses - longer TTL for stablecoins
 type QuoteCacheEntry = { result: bigint; timestamp: number };
 const quoteCache = new Map<string, QuoteCacheEntry>();
-const QUOTE_CACHE_TTL_MS = 10000; // 10 seconds - stablecoin prices don't change rapidly
+const QUOTE_CACHE_TTL_MS = 20_000; // 20s — stablecoin prices are stable; avoids redundant RPC calls
 
 // RPC performance tracking
 type RpcStats = { avgMs: number; samples: number; failures: number; lastFailure: number };

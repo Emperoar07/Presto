@@ -101,12 +101,13 @@ export function useBridgeBalance(deps: {
   const isBridgingRef = useRef(isBridging);
   isBridgingRef.current = isBridging;
 
-  const refreshBalances = useCallback(() => {
+  const refreshBalances = useCallback((options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     refreshCountRef.current += 1;
     const id = refreshCountRef.current;
 
     if (sourceAddressIsValid && sourceAddress) {
-      setSourceBalance((prev) => ({ ...prev, loading: true }));
+      if (!silent) setSourceBalance((prev) => ({ ...prev, loading: true }));
       fetchBalance(sourceKey, sourceAddress)
         .then((amount) => {
           if (refreshCountRef.current === id) {
@@ -122,7 +123,7 @@ export function useBridgeBalance(deps: {
     }
 
     if (destinationAddressIsValid && resolvedDestinationAddress) {
-      setDestinationBalance((prev) => ({ ...prev, loading: true }));
+      if (!silent) setDestinationBalance((prev) => ({ ...prev, loading: true }));
       fetchBalance(destinationKey, resolvedDestinationAddress)
         .then((amount) => {
           if (refreshCountRef.current === id) {
@@ -152,7 +153,7 @@ export function useBridgeBalance(deps: {
     refreshBalances();
 
     const intervalId = window.setInterval(() => {
-      if (!isBridgingRef.current) refreshBalances();
+      if (!isBridgingRef.current) refreshBalances({ silent: true });
     }, 30_000);
 
     return () => window.clearInterval(intervalId);

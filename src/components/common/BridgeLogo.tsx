@@ -20,7 +20,7 @@ export const BridgeLogo = memo(function BridgeLogo({ size = 32, className = '' }
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       role="img"
-      aria-label="PrestoDEX logo"
+      aria-label="Presto logo"
     >
       <defs>
         <linearGradient id="bridgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">

@@ -182,9 +182,7 @@ export function AnalyticsDashboard({
 
       {!supportsOrderbookAnalytics && (
         <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          {isArcTestnet
-            ? 'Arc does not expose the same native orderbook analytics flow as Tempo, so this page stays focused on lightweight market summaries.'
-            : 'This network does not support the full Tempo orderbook analytics flow, so only summary metrics are shown here.'}
+          {'This page shows lightweight onchain market summaries for the connected network.'}
         </div>
       )}
 
@@ -263,7 +261,7 @@ export function AnalyticsDashboard({
 
       {!supportsOrderbookAnalytics && (
         <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-          Live orderbook analytics are only available on Tempo testnet.
+          Live orderbook analytics are only available on the native testnet.
         </div>
       )}
 

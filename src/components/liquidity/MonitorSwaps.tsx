@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { Hooks } from '@/lib/tempo';
 import { formatUnits } from 'viem';
@@ -28,34 +30,33 @@ export function MonitorSwaps({ userToken, validatorToken }: MonitorSwapsProps) {
   });
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+    <div className="rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            Swap Monitor
-          </p>
-          <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Recent fee swaps</h3>
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">Swap Monitor</p>
+          <h3 className="mt-1 text-[15px] font-extrabold text-slate-100">Recent fee swaps</h3>
         </div>
-        <span className="rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300">
+        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
           {swaps.length} tracked
         </span>
       </div>
 
       {swaps.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+        <div className="mt-4 rounded-[10px] px-4 py-8 text-center text-[13px] text-slate-500" style={{ border: '1px dashed rgba(255,255,255,0.08)' }}>
           Fee swap activity will appear here once this pool starts processing routed swaps.
         </div>
       ) : (
-        <div className="mt-4 space-y-2 max-h-52 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="mt-4 space-y-2 max-h-52 overflow-y-auto pr-2">
           {swaps.map((swap, i) => (
             <div
               key={i}
-              className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/[0.05]"
+              className="flex items-center justify-between gap-3 rounded-[9px] px-3 py-2 text-[12px]"
+              style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}
             >
-              <span className="min-w-0 truncate font-mono text-slate-600 dark:text-slate-300">
+              <span className="min-w-0 truncate font-mono text-slate-400">
                 {swap.amountIn} to {swap.amountOut}
               </span>
-              <span className="shrink-0 font-bold text-emerald-600 dark:text-green-400">
+              <span className="shrink-0 font-bold text-emerald-400">
                 +{swap.revenue} Rev
               </span>
             </div>

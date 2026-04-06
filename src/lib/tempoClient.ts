@@ -62,7 +62,7 @@ export const toUint128 = (amount: bigint) => {
   return amount;
 };
 
-const BALANCE_TTL_MS = 5000;
+const BALANCE_TTL_MS = 10_000; // 10s — reduces RPC calls; React Query polls handle freshness
 const balanceCache = new Map<string, { ts: number; value: string }>();
 const balanceRawCache = new Map<string, { ts: number; value: bigint }>();
 const inFlight = new Map<string, Promise<string>>();
@@ -366,7 +366,11 @@ export async function getTokenBalance(
     inFlight.delete(cacheKey);
     return result;
   } catch (e) {
-    console.error('Balance fetch failed for', token, e);
+    // Arc precompile tokens return no data for ERC-20 balanceOf — expected, not an error
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('returned no data') && !msg.includes('0x"')) {
+      console.warn('Balance fetch failed for', token, e);
+    }
     inFlight.delete(`wallet:${account.toLowerCase()}:${token.toLowerCase()}`);
     return '0';
   }

@@ -4,7 +4,7 @@ import React from 'react';
 
 export function PrestoDexLogo() {
   return (
-    <svg viewBox="0 0 900 260" width="100%" height="100%" role="img" aria-label="PrestoDEX logo">
+    <svg viewBox="0 0 900 260" width="100%" height="100%" role="img" aria-label="Presto logo">
       <defs>
         <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#8b5cf6" />

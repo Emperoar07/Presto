@@ -7,7 +7,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Listbox, Transition } from '@headlessui/react';
 import { WalletReadyState } from '@solana/wallet-adapter-base';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { VersionedMessage, VersionedTransaction } from '@solana/web3.js';
+import { VersionedTransaction } from '@solana/web3.js';
 import { useAccount, useChainId, useConnectorClient, useSwitchChain } from 'wagmi';
 import { arcTestnet } from '@/config/wagmi';
 import { getNetworkVisual } from '@/components/common/NetworkBadgeDropdown';
@@ -25,7 +25,6 @@ import {
   BRIDGE_NETWORKS,
   EVM_NETWORK_PARAMS,
   NETWORKS,
-  SOLANA_DEVNET_RPC_URL,
   compactAmount,
   formatBalanceLabel,
   formatUsd,
@@ -42,6 +41,36 @@ import { useBridgeBalance } from './useBridgeBalance';
 import { useBridgeHistory } from './useBridgeHistory';
 import { BridgeHistoryPanel } from './BridgeHistoryPanel';
 import { BridgeEstimatePanel } from './BridgeEstimatePanel';
+
+// ---------------------------------------------------------------------------
+// Iris API CORS proxy — intercept fetch to Circle's sandbox API and route
+// through our Next.js API proxy to avoid browser CORS blocks.
+// ---------------------------------------------------------------------------
+
+const IRIS_ORIGINS = [
+  'https://iris-api-sandbox.circle.com',
+  'https://iris-api.circle.com',
+];
+
+if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+  const _originalFetch = globalThis.fetch;
+  // Only patch once — guard with a flag
+  if (!(globalThis as any).__irisFetchPatched) {
+    (globalThis as any).__irisFetchPatched = true;
+    globalThis.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestInit) {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+      for (const origin of IRIS_ORIGINS) {
+        if (url.startsWith(origin)) {
+          const proxyUrl = url.replace(origin, '/api/iris-proxy');
+          console.log('[iris-proxy] intercepting', url, '→', proxyUrl);
+          const newInput = typeof input === 'string' ? proxyUrl : input instanceof URL ? new URL(proxyUrl, window.location.origin) : new Request(proxyUrl, input);
+          return _originalFetch.call(globalThis, newInput, init);
+        }
+      }
+      return _originalFetch.call(globalThis, input, init);
+    };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Bridge party builders
@@ -100,21 +129,18 @@ function BridgeNetworkSelector({
   return (
     <Listbox value={value} onChange={onChange}>
       <div className="relative">
-        <Listbox.Button className="flex w-full items-center gap-2.5 rounded-[18px] border border-primary/12 bg-[linear-gradient(180deg,#202b45_0%,#1a243b_100%)] px-3 py-2.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-primary/30 hover:bg-[linear-gradient(180deg,#24304d_0%,#1c2740_100%)]">
+        <Listbox.Button className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left transition-all hover:bg-white/[0.04]" style={{ background: '#263347', border: '1px solid rgba(255,255,255,0.06)' }}>
           {selectedVisual ? (
-            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary/12 ring-1 ring-white/5">
-              <Image src={selectedVisual.iconSrc} alt={selectedNetwork.label} width={36} height={36} className="h-9 w-9" />
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background: 'rgba(37,192,244,0.12)' }}>
+              <Image src={selectedVisual.iconSrc} alt={selectedNetwork.label} width={28} height={28} className="h-7 w-7" />
             </span>
           ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/12 text-xs font-bold text-white ring-1 ring-white/5">
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: 'rgba(37,192,244,0.15)' }}>
               {selectedNetwork.shortLabel.slice(0, 2).toUpperCase()}
             </span>
           )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-white">{selectedNetwork.label}</p>
-            <p className="text-[11px] text-slate-400">USDC on {selectedNetwork.shortLabel}</p>
-          </div>
-          <span className="material-symbols-outlined text-[18px] text-slate-400">expand_more</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-white">{selectedNetwork.label}</span>
+          <span className="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
         </Listbox.Button>
         <Transition
           as={Fragment}
@@ -122,7 +148,7 @@ function BridgeNetworkSelector({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <Listbox.Options className="absolute right-0 z-50 mt-2 min-w-[240px] rounded-[18px] border border-primary/12 bg-[#131d31] p-2 shadow-[0_18px_48px_rgba(2,6,23,0.5)]">
+          <Listbox.Options className="absolute right-0 z-50 mt-2 min-w-[240px] rounded-[14px] border border-white/[0.07] bg-[#1e293b] p-2 shadow-[0_18px_48px_rgba(2,6,23,0.5)]">
             {BRIDGE_NETWORKS.map((networkKey) => {
               const network = NETWORKS[networkKey];
               const visual = networkKey === 'arc' ? getNetworkVisual(arcTestnet.id) : null;
@@ -134,11 +160,11 @@ function BridgeNetworkSelector({
                   value={networkKey}
                   disabled={disabled}
                   className={({ active }) =>
-                    `rounded-[14px] px-3 py-2.5 transition-colors ${
+                      `rounded-[12px] px-3 py-2.5 transition-colors ${
                       disabled
                         ? 'cursor-not-allowed opacity-40'
                         : active
-                          ? 'bg-[#1c2943]'
+                          ? 'bg-[#263347]'
                           : 'cursor-pointer'
                     }`
                   }
@@ -205,9 +231,6 @@ export function BridgeWorkspace() {
   });
   const [amount, setAmount] = useState('');
   const [exactAmountMode, setExactAmountMode] = useState(false);
-  const [manualDestinationAddress, setManualDestinationAddress] = useState('');
-  const [destinationAddressModalOpen, setDestinationAddressModalOpen] = useState(false);
-  const [destinationAddressDraft, setDestinationAddressDraft] = useState('');
   const [solanaAddress, setSolanaAddress] = useState('');
   const [estimate, setEstimate] = useState<EstimateSummary | null>(null);
   const [bridgeResult, setBridgeResult] = useState<BridgeSummary | null>(null);
@@ -219,7 +242,6 @@ export function BridgeWorkspace() {
   const [isConnectingSolana, setIsConnectingSolana] = useState(false);
   const [isAddingChain, setIsAddingChain] = useState(false);
   const [activeWalletChainId, setActiveWalletChainId] = useState<number | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [solanaProviderKey, setSolanaProviderKey] = useState<string | null>(null);
   const [solanaWalletPickerOpen, setSolanaWalletPickerOpen] = useState(false);
@@ -259,12 +281,9 @@ export function BridgeWorkspace() {
 
   // Cross-ecosystem: source and destination use different wallet types.
   const resolvedDestinationAddress = useMemo(() => {
-    // When a manual destination is set, always use it (user wants to send to someone else).
-    if (manualDestinationAddress.trim()) return manualDestinationAddress.trim();
-    // Otherwise fall back to connected wallet for the destination ecosystem.
     if (destinationNetwork.ecosystem === 'solana') return solanaAddress;
     return evmAddress ?? '';
-  }, [destinationNetwork.ecosystem, evmAddress, manualDestinationAddress, solanaAddress]);
+  }, [destinationNetwork.ecosystem, evmAddress, solanaAddress]);
 
   const sourceAddress = sourceNetwork.ecosystem === 'solana' ? solanaAddress : evmAddress ?? '';
 
@@ -412,53 +431,11 @@ export function BridgeWorkspace() {
         throw new Error('A Solana wallet like Phantom is required when Solana Devnet participates in the bridge.');
       }
 
-      const { SolanaKitAdapter } = await import('@circle-fin/adapter-solana-kit');
-      const { createSolanaRpc } = await import('@solana/kit');
+      const { createSolanaKitAdapterFromProvider } = await import('@circle-fin/adapter-solana-kit');
 
-      const walletAddress = solanaBridgeProvider.address ?? '';
-      const rpcCache = new Map<string, ReturnType<typeof createSolanaRpc>>();
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const adapter = new SolanaKitAdapter(
-        ({
-          getRpc: ({ chain }: { chain: { name: string; rpcEndpoints?: string[] } }) => {
-            const cached = rpcCache.get(chain.name);
-            if (cached) return cached;
-            const rpcUrl = chain.rpcEndpoints?.[0] ?? SOLANA_DEVNET_RPC_URL;
-            const rpc = createSolanaRpc(rpcUrl);
-            rpcCache.set(chain.name, rpc);
-            return rpc;
-          },
-          getSigner: async (): Promise<any> => ({
-            address: walletAddress,
-            signTransactions: async (transactions: unknown[]) => {
-              console.log('[solana-signer] signTransactions called with', transactions.length, 'tx(s)');
-              return Promise.all(transactions.map(async (compiledTx: any, idx: number) => {
-                const messageBytes: Uint8Array = compiledTx.messageBytes;
-                console.log(`[solana-signer] signTransactions[${idx}]: messageBytes length =`, messageBytes.length);
-                const message = VersionedMessage.deserialize(messageBytes);
-                const tx = new VersionedTransaction(message);
-                console.log(`[solana-signer] signTransactions[${idx}]: calling wallet signTransaction...`);
-                const signed = await signSolanaTransaction!(tx);
-                const sig = signed.signatures[0];
-                console.log(`[solana-signer] signTransactions[${idx}]: wallet returned signed tx, sig[0] length =`, sig?.length);
-                return { [walletAddress]: sig } as Record<string, Uint8Array>;
-              }));
-            },
-            signAndSendTransactions: async (transactions: unknown[]) => {
-              console.log('[solana-signer] signAndSendTransactions called with', transactions.length, 'tx(s)');
-              return Promise.all((transactions as any[]).map(async (compiledTx: any) => {
-                const messageBytes: Uint8Array = compiledTx.messageBytes;
-                const message = VersionedMessage.deserialize(messageBytes);
-                const tx = new VersionedTransaction(message);
-                const signed = await signSolanaTransaction!(tx);
-                return signed.signatures[0];
-              }));
-            },
-          }),
-        } as any),
-        { addressContext: 'user-controlled' } as any,
-      );
+      const adapter = createSolanaKitAdapterFromProvider({
+        provider: solanaBridgeProvider,
+      });
       return adapter;
     }
 
@@ -611,11 +588,6 @@ export function BridgeWorkspace() {
     setConfirmOpen(false);
   }, [amount, destinationKey, sourceKey]);
 
-  // Clear manual destination address when the route ecosystem changes.
-  useEffect(() => {
-    setManualDestinationAddress('');
-  }, [sourceKey, destinationKey]);
-
   // ---- Route management ----
 
   const commitRoute = (nextSource: BridgeNetworkKey, nextDestination: BridgeNetworkKey) => {
@@ -623,7 +595,6 @@ export function BridgeWorkspace() {
     hasInteractedRef.current = true;
     setSourceKey(nextSource);
     setDestinationKey(nextDestination);
-    setManualDestinationAddress('');
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete('peer');
@@ -864,11 +835,10 @@ export function BridgeWorkspace() {
         }
       });
 
-      const hasCustomDest = !!manualDestinationAddress.trim();
       const sdkAmount = effectiveBridgeAmount;
       console.log('[bridge] Calling kit.bridge() with:', {
         from: { chain: sourceNetwork.bridgeChain, ecosystem: sourceNetwork.ecosystem },
-        to: { chain: destinationNetwork.bridgeChain, ecosystem: destinationNetwork.ecosystem, recipientAddress: hasCustomDest ? resolvedDestinationAddress : '(own wallet)' },
+        to: { chain: destinationNetwork.bridgeChain, ecosystem: destinationNetwork.ecosystem, recipientAddress: '(connected destination wallet)' },
         amount: sdkAmount,
         exactAmountMode,
       });
@@ -894,7 +864,19 @@ export function BridgeWorkspace() {
               for (const k of Object.getOwnPropertyNames(err)) { try { flat[k] = (err as any)[k]; } catch {} }
               for (const k of Object.keys(err)) { try { flat[k] = (err as any)[k]; } catch {} }
               try { console.error(`[bridge] step[${i}] ERROR:`, JSON.parse(JSON.stringify(flat, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.error(`[bridge] step[${i}] ERROR (raw):`, err); }
-              if (err.cause) console.error(`[bridge] step[${i}] cause:`, err.cause);
+              if (err.cause) {
+                console.error(`[bridge] step[${i}] cause:`, err.cause);
+                // Extract Solana simulation logs from trace
+                const trace = (err.cause as any)?.trace;
+                if (trace) {
+                  if (trace.logs) console.error(`[bridge] step[${i}] SIMULATION LOGS:\n`, trace.logs);
+                  if (trace.error) console.error(`[bridge] step[${i}] SIMULATION ERROR:`, trace.error);
+                  if (trace.errorDetails) console.error(`[bridge] step[${i}] ERROR DETAILS:`, trace.errorDetails);
+                  if (trace.walletAddress) console.error(`[bridge] step[${i}] wallet:`, trace.walletAddress);
+                  if (trace.network) console.error(`[bridge] step[${i}] network:`, trace.network);
+                  if (trace.currentBalanceSol) console.error(`[bridge] step[${i}] SOL balance:`, trace.currentBalanceSol);
+                }
+              }
               if ((err as any).logs) console.error(`[bridge] step[${i}] logs:`, (err as any).logs);
               if ((err as any).context) console.error(`[bridge] step[${i}] context:`, (err as any).context);
             }
@@ -1038,8 +1020,8 @@ export function BridgeWorkspace() {
               ? 'CONNECT EVM WALLET'
               : needsEvmWalletForDestination
                 ? 'CONNECT EVM WALLET FOR DESTINATION'
-                : needsSolanaWalletForDestination && !manualDestinationAddress
-                  ? 'CONNECT SOLANA OR ENTER ADDRESS'
+                : needsSolanaWalletForDestination
+                  ? 'CONNECT SOLANA WALLET'
                   : needsEvmChainSwitch
                     ? isAddingChain || isSwitchingChain
                       ? 'PREPARING NETWORK'
@@ -1050,6 +1032,10 @@ export function BridgeWorkspace() {
                       ? getBridgeActionLabel(eventLog, bridgeResult, sourceNetwork.ecosystem)
                       : 'REVIEW & BRIDGE';
         const primaryActionBusy = isConnectingSolana || isAddingChain || isSwitchingChain || isEstimating || isBridging;
+        const hasBridgeActivityPanel = Boolean(bridgeStatusCard || statusMessage || errorMessage || estimate || bridgeResult);
+        const summaryFeeLabel = estimate ? formatUsd(totalUsdcFee.toString()) : '--';
+        const summaryReceiveLabel = estimate ? `~${estimatedReceiveAmount} USDC` : '--';
+        const summaryTimeLabel = isCrossEcosystem ? '~1-3 minutes' : '~20 seconds';
 
         const handlePrimaryAction = () => {
           if (sourceNetwork.ecosystem === 'solana' && !solanaAddress) {
@@ -1061,7 +1047,7 @@ export function BridgeWorkspace() {
             return;
           }
           // Cross-ecosystem: destination needs the other wallet type
-          if (needsEvmWalletForDestination && !manualDestinationAddress) {
+          if (needsEvmWalletForDestination) {
             openConnectModal();
             return;
           }
@@ -1129,185 +1115,206 @@ export function BridgeWorkspace() {
         };
 
         return (
-          <section className="mx-auto max-w-[400px]">
-            <div className="rounded-[18px] border border-primary/10 bg-[#121a2d] p-2 shadow-[0_18px_48px_rgba(2,6,23,0.34)] overflow-visible">
-                <div className="rounded-[15px] border border-white/10 bg-[#151f33] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <div className="flex items-start justify-between gap-3">
+          <section className="grid w-full items-start gap-6 xl:grid-cols-[381px_minmax(0,1fr)]">
+            <div className="w-full max-w-[381px]">
+            <div className="overflow-hidden rounded-[16px]" style={{ background: '#141e30', border: '1px solid rgba(255,255,255,0.07)' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <div>
-                    <p className="text-xs font-medium text-slate-400">Sell</p>
-                    <input
-                      value={amount}
-                      onChange={(event) => {
-                      hasInteractedRef.current = true;
-                      const sanitized = sanitizeBridgeAmount(event.target.value);
-                      if (event.target.value === '' || sanitized !== '') {
-                        setAmount(event.target.value === '' ? '' : sanitized);
-                      }
-                    }}
-                      inputMode="decimal"
-                      placeholder="0"
-                      className="mt-3 w-full bg-transparent text-4xl font-semibold tracking-tight text-white outline-none placeholder:text-white"
-                    />
+                    <p className="text-[13px] font-bold text-slate-100">Bridge USDC</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">Powered by Circle CCTP V2</p>
                   </div>
+                </div>
 
-                  <div className="w-full max-w-[200px] space-y-2">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setHistoryOpen((current) => !current)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#132238] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"
-                        aria-label="Toggle bridge history"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">history</span>
-                      </button>
+                <div className="space-y-2.5 p-4">
+                  {/* From row */}
+                  <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-medium text-slate-500">From</p>
                       <button
                         type="button"
                         onClick={() => {
                           if (sourceNetwork.ecosystem === 'solana') {
                             if (solanaAddress) {
-                              void disconnectSolanaAdapter().then(() => {
-                                setSolanaAddress('');
-                                setErrorMessage(null);
-                              });
+                              void disconnectSolanaAdapter().then(() => { setSolanaAddress(''); setErrorMessage(null); });
                               return;
                             }
                             void connectSolanaWallet();
                             return;
                           }
-                          if (sourceNetwork.ecosystem === 'evm' && !connected) {
-                            openConnectModal();
-                          }
+                          if (sourceNetwork.ecosystem === 'evm' && !connected) openConnectModal();
                         }}
-                        className="ml-auto block text-[11px] font-semibold text-primary"
+                        className="text-[11px] font-semibold text-primary"
                       >
                         {sourceNetwork.ecosystem === 'solana' && solanaAddress ? 'Disconnect Solana' : sourceWalletDisplayLabel}
                       </button>
                     </div>
-
-                    <BridgeNetworkSelector value={sourceKey} onChange={handleSourceNetworkChange} disabledKey={destinationKey} />
+                    <div className="mt-2">
+                      <BridgeNetworkSelector value={sourceKey} onChange={handleSourceNetworkChange} disabledKey={destinationKey} />
+                    </div>
+                    {sourceBalance ? (
+                      <p className="mt-2 text-[11px] font-semibold text-slate-500">{formatBalanceLabel(sourceBalance)}</p>
+                    ) : null}
                   </div>
-                </div>
 
-                <div className="mt-4 text-xs text-slate-400">{formatBalanceLabel(sourceBalance)}</div>
-              </div>
+                  {/* Swap direction button */}
+                  <div className="-my-0.5 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={handleSwapRoute}
+                      className="bridge-flip-btn z-10 flex h-10 w-10 items-center justify-center rounded-[12px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+                      style={{ background: 'linear-gradient(145deg, #1a2d45, #0f1e30)', border: '1px solid rgba(37,192,244,0.2)' }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                        <path d="M7 2L7 16M7 2L4 5M7 2L10 5" stroke="#25c0f4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M15 20L15 6M15 20L12 17M15 20L18 17" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <style>{`
+                        .bridge-flip-btn { transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.18s; }
+                        .bridge-flip-btn:hover { transform: scale(1.08); box-shadow: 0 0 18px rgba(37,192,244,0.25); }
+                        .bridge-flip-btn:active { transform: rotate(180deg) scale(0.95); transition: transform 0.22s cubic-bezier(.34,1.56,.64,1); }
+                      `}</style>
+                    </button>
+                  </div>
 
-              <div className="-my-2 flex justify-center">
-                <button
-                  type="button"
-                  onClick={handleSwapRoute}
-                  className="z-10 flex h-10 w-10 items-center justify-center rounded-xl border border-primary/15 bg-[#132238] text-slate-300 shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-colors hover:border-primary/35 hover:text-primary"
-                >
-                  <span className="material-symbols-outlined text-2xl">south</span>
-                </button>
-              </div>
+                  {/* To row */}
+                  <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-medium text-slate-500">To</p>
+                      <button
+                        type="button"
+                        onClick={() => { if (destinationNetwork.ecosystem === 'solana') void connectSolanaWallet(); }}
+                        className="text-[11px] font-semibold text-primary"
+                      >
+                        {destinationWalletDisplayLabel}
+                      </button>
+                    </div>
+                    <div className="mt-2">
+                      <BridgeNetworkSelector value={destinationKey} onChange={handleDestinationNetworkChange} disabledKey={sourceKey} />
+                    </div>
+                    {destinationBalance ? (
+                      <p className="mt-2 text-[11px] font-semibold text-slate-500">{formatBalanceLabel(destinationBalance)}</p>
+                    ) : null}
+                  </div>
 
-              <div className="rounded-[15px] border border-white/10 bg-[#151f33] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium text-slate-400">Buy</p>
-                    <div className="mt-3 text-4xl font-semibold tracking-tight text-white">
-                      {estimate ? estimatedReceiveAmount : '0'}
+                  {/* Amount input */}
+                  <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="mb-2 text-[10px] font-medium text-slate-500">Amount (USDC)</p>
+                    <div className="flex items-center gap-2.5">
+                      {/* USDC badge */}
+                      <div className="flex flex-shrink-0 items-center gap-1.5 rounded-[8px] px-2 py-1" style={{ background: '#263347', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#3b82f6] text-[8px] font-extrabold text-white">US</span>
+                        <span className="text-[12px] font-bold text-slate-100">USDC</span>
+                      </div>
+                      <input
+                        value={amount}
+                        onChange={(event) => {
+                          hasInteractedRef.current = true;
+                          const sanitized = sanitizeBridgeAmount(event.target.value);
+                          if (event.target.value === '' || sanitized !== '') {
+                            setAmount(event.target.value === '' ? '' : sanitized);
+                          }
+                        }}
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        className="min-w-0 flex-1 bg-transparent text-[20px] font-semibold leading-none tracking-tight text-white outline-none placeholder:text-slate-600"
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-primary">{formatBalanceLabel(sourceBalance)}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (sourceBalance) {
+                            hasInteractedRef.current = true;
+                            setAmount(sourceBalance.replace(/[^0-9.]/g, ''));
+                          }
+                        }}
+                        className="text-[10px] font-bold text-slate-400 transition-colors hover:text-primary"
+                      >
+                        MAX
+                      </button>
                     </div>
                   </div>
 
-                  <div className="w-full max-w-[200px] space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (destinationNetwork.ecosystem === 'solana') {
-                          void connectSolanaWallet();
-                        }
-                      }}
-                      className="ml-auto block text-[11px] font-semibold text-primary"
-                    >
-                      {destinationWalletDisplayLabel}
-                    </button>
-
-                    <BridgeNetworkSelector value={destinationKey} onChange={handleDestinationNetworkChange} disabledKey={sourceKey} />
+                  {/* Summary fees */}
+                  <div className="rounded-[12px] px-3.5 py-3 space-y-2" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Estimated fee</span>
+                      <span className="font-semibold text-slate-200">{summaryFeeLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">You receive</span>
+                      <span className="font-semibold text-slate-200">{summaryReceiveLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Transfer time</span>
+                      <span className="font-semibold text-emerald-400">{summaryTimeLabel}</span>
+                    </div>
+                    {resolvedDestinationAddress ? (
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">Destination</span>
+                        <span className="font-mono text-[10px] text-slate-400">{resolvedDestinationAddress.slice(0, 8)}...{resolvedDestinationAddress.slice(-6)}</span>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
 
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs text-slate-400">{formatBalanceLabel(destinationBalance)}</span>
+                  {/* CTA */}
                   <button
                     type="button"
-                    onClick={() => {
-                      setDestinationAddressDraft(manualDestinationAddress);
-                      setDestinationAddressModalOpen(true);
-                    }}
-                    className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
-                  >
-                    {manualDestinationAddress
-                      ? `Custom: ${manualDestinationAddress.slice(0, 6)}...${manualDestinationAddress.slice(-4)}`
-                      : 'Send to another address'}
-                  </button>
-                </div>
-
-                {/* Show active custom destination */}
-                {manualDestinationAddress ? (
-                  <div className="mt-2 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
-                    <p className="text-[10px] text-slate-300 truncate mr-2">
-                      Sending to: {manualDestinationAddress.slice(0, 8)}...{manualDestinationAddress.slice(-6)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setManualDestinationAddress('')}
-                      className="text-[10px] font-semibold text-rose-400 hover:text-rose-300 shrink-0"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                ) : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={handlePrimaryAction}
-                  disabled={
-                    primaryActionBusy ||
-                    (sourceWalletMissing
-                      ? false
-                      : needsEvmWalletForDestination && !manualDestinationAddress
+                    onClick={handlePrimaryAction}
+                    disabled={
+                      primaryActionBusy ||
+                      (sourceWalletMissing
                         ? false
-                        : needsSolanaWalletForDestination && !resolvedDestinationAddress
+                        : needsEvmWalletForDestination
                           ? false
-                          : needsEvmChainSwitch
+                          : needsSolanaWalletForDestination && !resolvedDestinationAddress
                             ? false
-                            : !estimate)
-                  }
-                  className="mt-3 w-full rounded-[16px] bg-gradient-to-r from-[#1fb6ff] to-[#0ea5e9] px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-background-dark transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <span className="inline-flex items-center justify-center gap-2">
-                    {primaryActionBusy ? (
-                      <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-background-dark/30 border-t-background-dark" />
-                    ) : null}
-                    <span>{primaryLabel}</span>
-                  </span>
-                </button>
+                            : needsEvmChainSwitch
+                              ? false
+                              : !estimate)
+                    }
+                    className="w-full rounded-[12px] py-3 text-[13px] font-extrabold text-[#0a1628] transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+                    style={{ background: '#25c0f4', boxShadow: '0 6px 24px rgba(37,192,244,0.25)' }}
+                  >
+                    <span className="inline-flex items-center justify-center gap-2">
+                      {primaryActionBusy ? (
+                        <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-[#0f172a]/30 border-t-[#0f172a]" />
+                      ) : null}
+                      <span>{primaryLabel === 'REVIEW & BRIDGE' ? 'Bridge USDC' : primaryLabel}</span>
+                    </span>
+                  </button>
 
                 {/* Wallet mismatch hints — only shown briefly, not blocking */}
             </div>
 
-            <BridgeEstimatePanel
-              bridgeStatusCard={bridgeStatusCard}
-              statusMessage={statusMessage}
-              errorMessage={errorMessage}
-              estimate={estimate}
-              bridgeResult={bridgeResult}
-              sourceKey={sourceKey}
-              destinationKey={destinationKey}
-              estimatedReceiveAmount={estimatedReceiveAmount}
-              exactAmountMode={exactAmountMode}
-              onExactAmountModeChange={setExactAmountMode}
-            />
+            {hasBridgeActivityPanel ? (
+              <div className="mt-5">
+                <BridgeEstimatePanel
+                  bridgeStatusCard={bridgeStatusCard}
+                  statusMessage={statusMessage}
+                  errorMessage={errorMessage}
+                  estimate={estimate}
+                  bridgeResult={bridgeResult}
+                  sourceKey={sourceKey}
+                  destinationKey={destinationKey}
+                  estimatedReceiveAmount={estimatedReceiveAmount}
+                  exactAmountMode={exactAmountMode}
+                  onExactAmountModeChange={setExactAmountMode}
+                />
+              </div>
+            ) : null}
+            </div>
+            </div>
 
-            {historyOpen ? (
+            <div className="xl:w-full xl:max-w-[560px]">
               <BridgeHistoryPanel
                 bridgeHistory={bridgeHistory}
                 claimingItemId={claimingItemId}
-                onClose={() => setHistoryOpen(false)}
                 onManualClaim={(item) => void handleManualClaim(item)}
               />
-            ) : null}
+            </div>
 
             {/* ---- Confirmation modal ---- */}
             {confirmOpen && estimate ? (
@@ -1411,87 +1418,6 @@ export function BridgeWorkspace() {
                   >
                     CONFIRM BRIDGE
                   </button>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Destination address modal */}
-            {destinationAddressModalOpen ? (
-              <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/65 px-4 py-8">
-                <div className="w-full max-w-md rounded-[18px] border border-white/10 bg-[#151f33] p-4 shadow-[0_20px_60px_rgba(2,6,23,0.55)]">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Custom Destination Address
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setDestinationAddressModalOpen(false)}
-                      className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-slate-400 transition-colors hover:border-primary/30 hover:text-primary"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-
-                  <p className="mt-3 text-xs text-slate-400">
-                    Paste a {destinationNetwork.ecosystem === 'solana' ? 'Solana' : 'EVM'} address to send USDC to someone else on {destinationNetwork.label}.
-                  </p>
-
-                  <input
-                    value={destinationAddressDraft}
-                    onChange={(e) => setDestinationAddressDraft(e.target.value)}
-                    placeholder={
-                      destinationNetwork.ecosystem === 'solana'
-                        ? 'Solana address (base58)'
-                        : '0x... EVM address'
-                    }
-                    className="mt-3 w-full rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary/30"
-                    autoFocus
-                  />
-
-                  {destinationAddressDraft.trim() &&
-                    !(destinationNetwork.ecosystem === 'solana'
-                      ? isValidSolanaAddress(destinationAddressDraft.trim())
-                      : isValidEvmAddress(destinationAddressDraft.trim())) ? (
-                    <p className="mt-1.5 text-[10px] text-rose-400">
-                      Invalid {destinationNetwork.ecosystem === 'solana' ? 'Solana' : 'EVM'} address
-                    </p>
-                  ) : null}
-
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const trimmed = destinationAddressDraft.trim();
-                        const isValid = destinationNetwork.ecosystem === 'solana'
-                          ? isValidSolanaAddress(trimmed)
-                          : isValidEvmAddress(trimmed);
-                        if (!trimmed || !isValid) return;
-                        setManualDestinationAddress(trimmed);
-                        setDestinationAddressModalOpen(false);
-                      }}
-                      disabled={
-                        !destinationAddressDraft.trim() ||
-                        !(destinationNetwork.ecosystem === 'solana'
-                          ? isValidSolanaAddress(destinationAddressDraft.trim())
-                          : isValidEvmAddress(destinationAddressDraft.trim()))
-                      }
-                      className="flex-1 rounded-[14px] bg-gradient-to-r from-[#1fb6ff] to-[#0ea5e9] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.06em] text-background-dark transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Confirm Address
-                    </button>
-                    {manualDestinationAddress ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setManualDestinationAddress('');
-                          setDestinationAddressModalOpen(false);
-                        }}
-                        className="rounded-[14px] border border-white/10 px-4 py-2.5 text-xs font-semibold text-slate-400 transition-colors hover:border-primary/30 hover:text-primary"
-                      >
-                        Use My Wallet
-                      </button>
-                    ) : null}
-                  </div>
                 </div>
               </div>
             ) : null}

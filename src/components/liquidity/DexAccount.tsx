@@ -83,40 +83,42 @@ export function DexAccount({ className }: { className?: string }) {
     const isEmbedded = !!className;
 
     return (
-        <div className={`w-full ${isEmbedded ? 'rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40' : 'glass-panel rounded-2xl p-6 shadow-xl'} ${wrapperClassName}`}>
+        <div className={`w-full rounded-[12px] p-4 ${wrapperClassName}`} style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="flex justify-between items-center mb-4">
                 <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">DEX Earnings</p>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Unclaimed balances</h3>
+                    <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">DEX Earnings</p>
+                    <h3 className="text-[15px] font-extrabold text-slate-100">Unclaimed balances</h3>
                 </div>
-                <button 
+                <button
                     onClick={fetchBalances}
-                    className="rounded-full border border-primary/20 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+                    className="rounded-full px-2.5 py-1 text-[11px] font-bold text-[#25c0f4] transition-colors"
+                    style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
                 >
                     Refresh
                 </button>
             </div>
-            
+
             {loading && Object.keys(balances).length === 0 ? (
-                <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-4">Loading balances...</div>
+                <div className="text-slate-500 text-[13px] text-center py-4">Loading balances...</div>
             ) : !hasFunds ? (
-                <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-4">No unclaimed funds.</div>
+                <div className="text-slate-500 text-[13px] text-center py-4">No unclaimed funds.</div>
             ) : (
                 <div className="space-y-3">
                     {tokens.map(token => {
                         const entry = balances[token.address];
                         if (!entry || entry.raw === 0n) return null;
-                        
+
                         return (
-                            <div key={token.address} className="flex justify-between items-center rounded-xl border border-slate-200 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.05]">
+                            <div key={token.address} className="flex justify-between items-center rounded-[10px] p-3" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-slate-700 dark:text-slate-200 font-medium">{token.symbol}</span>
-                                    <span className="text-slate-500 dark:text-slate-400 text-sm">{Number(entry.formatted).toFixed(4)}</span>
+                                    <span className="text-slate-100 text-[13px] font-medium">{token.symbol}</span>
+                                    <span className="text-slate-500 text-[12px]">{Number(entry.formatted).toFixed(4)}</span>
                                 </div>
                                 <button
                                     onClick={() => handleWithdraw(token)}
                                     disabled={withdrawing === token.address}
-                                    className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-all hover:bg-primary/20 disabled:opacity-50"
+                                    className="rounded-full px-3 py-1 text-[11px] font-bold text-[#25c0f4] transition-all disabled:opacity-50"
+                                    style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
                                 >
                                     {withdrawing === token.address ? 'Claiming...' : 'Claim / Withdraw'}
                                 </button>

@@ -84,66 +84,46 @@ export function PoolStats({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">TVL</p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">${formatMetric(tvl)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Your Share</p>
-          <p className="mt-2 break-words text-xl font-bold tracking-tight text-primary sm:text-2xl">{formatCompactPercent(poolSharePercent)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Pool Ratio</p>
-          <p className="mt-2 text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-            {poolRatio ? `1 ${userTokenSymbol} ~ ${poolRatio.toFixed(4)} ${validatorTokenSymbol}` : '--'}
-          </p>
-        </div>
+        {[
+          { label: 'TVL', value: `$${formatMetric(tvl)}`, cls: 'text-slate-100' },
+          { label: 'Your Share', value: formatCompactPercent(poolSharePercent), cls: 'text-[#25c0f4]' },
+          { label: 'Pool Ratio', value: poolRatio ? `1 ${userTokenSymbol} ~ ${poolRatio.toFixed(4)} ${validatorTokenSymbol}` : '--', cls: 'text-slate-100' },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className="rounded-[12px] p-4" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+            <p className={`mt-2 text-[20px] font-extrabold tracking-tight ${cls}`}>{value}</p>
+          </div>
+        ))}
       </div>
 
-      <div>
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Reserve Breakdown</p>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-300">
-              Live pool balances
-            </span>
-          </div>
-          <div className="grid gap-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-slate-950/40">
+      <div className="rounded-[12px] p-4" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">Reserve Breakdown</p>
+          <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+            Live pool balances
+          </span>
+        </div>
+        <div className="grid gap-3">
+          {[
+            { side: 'User-side reserve', symbol: userTokenSymbol, display: userReserveDisplay, exact: userReserveValue },
+            { side: 'Hub-side reserve', symbol: validatorTokenSymbol, display: validatorReserveDisplay, exact: validatorReserveValue },
+          ].map(({ side, symbol, display, exact }) => (
+            <div key={symbol} className="rounded-[10px] px-4 py-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-start">
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">User-side reserve</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{userTokenSymbol}</p>
+                  <p className="text-[11px] text-slate-500">{side}</p>
+                  <p className="mt-1 text-[15px] font-semibold text-slate-100">{symbol}</p>
                 </div>
                 <div className="min-w-0 sm:text-right">
-                  <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{userReserveDisplay}</p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Exact balance:
-                  </p>
-                  <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
-                    {userReserveValue.toLocaleString('en-US', { maximumFractionDigits: 6 })}
+                  <p className="text-[18px] font-bold tracking-tight text-slate-100">{display}</p>
+                  <p className="mt-1 text-[11px] text-slate-500">Exact balance:</p>
+                  <p className="mt-0.5 break-all text-[11px] text-slate-500">
+                    {exact.toLocaleString('en-US', { maximumFractionDigits: 6 })}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-slate-950/40">
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-start">
-                <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Hub-side reserve</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{validatorTokenSymbol}</p>
-                </div>
-                <div className="min-w-0 sm:text-right">
-                  <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{validatorReserveDisplay}</p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Exact balance:
-                  </p>
-                  <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
-                    {validatorReserveValue.toLocaleString('en-US', { maximumFractionDigits: 6 })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

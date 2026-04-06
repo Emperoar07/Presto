@@ -1,6 +1,4 @@
 'use client';
-
-import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getTokens } from '@/config/tokens';
 import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContracts } from 'wagmi';
@@ -8,7 +6,6 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { formatUnits, parseUnits } from 'viem';
 import { approveToken, getTokenBalancesBatch, toUint128 } from '@/lib/tempoClient';
 import toast from 'react-hot-toast';
-import { useFeeToken } from '@/context/FeeTokenContext';
 import { TxToast } from '@/components/common/TxToast';
 import { SlippageSettings } from './SlippageSettings';
 import {
@@ -40,8 +37,6 @@ export function SwapCardEnhanced() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
-  const { feeToken, setFeeToken, isSingleGasToken } = useFeeToken();
-
   const [inputAmount, setInputAmount] = useState('');
   const [outputAmount, setOutputAmount] = useState('');
   const [exactField, setExactField] = useState<'input' | 'output'>('input');
@@ -303,7 +298,7 @@ export function SwapCardEnhanced() {
       }
     };
 
-    const timer = setTimeout(fetchQuote, 400); // Optimized debounce with caching
+    const timer = setTimeout(fetchQuote, 500); // 500ms debounce — avoids RPC calls mid-typing
     return () => clearTimeout(timer);
   }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain, isArcTestnet, inputReserves, outputReserves, calculateArcSpotOutput]);
 
@@ -457,68 +452,35 @@ export function SwapCardEnhanced() {
   }, [priceImpact]);
 
   const inputUsdEstimate = inputAmount && Number(inputAmount) > 0 ? `~ $${Number(inputAmount).toFixed(2)}` : '';
-  const outputUsdEstimate = outputAmount && Number(outputAmount) > 0 ? `~ $${Number(outputAmount).toFixed(2)}` : '';
   return (
     <>
-      {/* Glass Card Container */}
-      <div className="relative w-full max-w-[480px]">
-        {/* Main card */}
-        <div className="glass-panel rounded-2xl p-4 md:p-6 shadow-xl relative">
-          {/* Header Controls */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex gap-4">
-              <button className="text-lg font-bold border-b-2 border-primary pb-1 text-slate-900 dark:text-white">Swap</button>
+      <div className="relative w-full max-w-[381px]">
+        <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1e293b] shadow-[0_18px_48px_rgba(2,6,23,0.34)]">
+          <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+            <div>
+              <p className="text-[13px] font-bold text-slate-100">Swap Tokens</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">Instant onchain execution</p>
             </div>
-            <div className="flex items-center gap-2">
-              {!isSingleGasToken ? (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                  <span className="text-[10px] text-slate-500 uppercase">Fee:</span>
-                  <select
-                    value={feeToken?.address}
-                    onChange={(e) => {
-                      const token = tokens.find(t => t.address === e.target.value);
-                      if (token) setFeeToken(token);
-                    }}
-                    className="bg-transparent text-xs text-slate-700 dark:text-slate-300 outline-none cursor-pointer"
-                  >
-                    {tokens.map(t => (
-                      <option key={t.address} value={t.address} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-300">
-                        {t.symbol}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-              <button
-                onClick={fetchBalances}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400"
-              >
-                <span className="material-symbols-outlined text-xl">refresh</span>
-              </button>
-              <Link
-                href="/analytics"
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400"
-                aria-label="Open analytics"
-              >
-                <span className="material-symbols-outlined text-xl">bar_chart</span>
-              </Link>
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setShowSettings(true)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400"
+                className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-white/[0.07] bg-[#263347] text-slate-400 transition-colors hover:border-primary/30 hover:text-primary"
               >
-                <span className="material-symbols-outlined text-xl">settings</span>
+                <span className="material-symbols-outlined text-[16px]">tune</span>
+              </button>
+              <button
+                onClick={fetchBalances}
+                className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-white/[0.07] bg-[#263347] text-slate-400 transition-colors hover:border-primary/30 hover:text-primary"
+              >
+                <span className="material-symbols-outlined text-[16px]">refresh</span>
               </button>
             </div>
           </div>
 
-          <div className="space-y-2">
-            {/* Input Section: From */}
-            <div className="token-input-bg rounded-xl p-4 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors mb-2">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">From</span>
-                <span className="text-xs text-slate-400 dark:text-slate-500">
-                  Balance: {isBalanceLoading ? '...' : Number(balanceIn).toFixed(4)} {inputToken.symbol}
-                </span>
+          <div className="space-y-3 p-4">
+            <div className="rounded-[12px] border border-white/[0.07] bg-[#263347] px-4 py-3">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-medium text-slate-500">You pay</span>
               </div>
               <div className="flex justify-between items-center">
                 <input
@@ -526,43 +488,38 @@ export function SwapCardEnhanced() {
                   value={inputAmount}
                   onChange={(e) => {
                     const val = e.target.value;
-                    // Allow only numbers and a single decimal point
                     if (/^\d*\.?\d*$/.test(val)) {
                       setInputAmount(val);
                       setExactField('input');
                     }
                   }}
                   placeholder="0.0"
-                  className="bg-transparent border-none focus:ring-0 text-2xl md:text-3xl font-semibold text-slate-900 dark:text-white w-full p-0 placeholder:text-slate-300 dark:placeholder:text-slate-700"
+                  className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0"
                 />
                 <button
                   type="button"
                   onClick={() => setShowInputTokenModal(true)}
-                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold uppercase text-slate-900 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+                  className="flex flex-shrink-0 items-center gap-1.5 rounded-[8px] border border-white/[0.07] bg-[#1e293b] px-2.5 py-1.5 text-[12px] font-bold text-white transition-colors hover:border-primary/30"
                 >
                   <span>{inputToken.symbol}</span>
-                  <span className="material-symbols-outlined text-base text-slate-400">keyboard_arrow_down</span>
+                  <span className="material-symbols-outlined text-[14px] text-slate-400">keyboard_arrow_down</span>
                 </button>
               </div>
-              <div className="flex justify-between mt-1">
-                <span className="text-xs text-slate-400 dark:text-slate-500">
-                  {inputUsdEstimate}
+              <div className="mt-2 flex justify-between">
+                <span className="text-[11px] font-semibold text-primary">
+                  Balance: {isBalanceLoading ? '...' : Number(balanceIn).toFixed(4)} {inputToken.symbol}
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setInputAmount(balanceIn);
-                    setExactField('input');
-                  }}
-                  className="text-xs font-bold text-primary hover:text-primary/80 uppercase tracking-wider"
+                  onClick={() => { setInputAmount(balanceIn); setExactField('input'); }}
+                  className="text-[11px] font-bold uppercase text-primary hover:text-primary/80"
                 >
                   Max
                 </button>
               </div>
             </div>
 
-            {/* Switch Button */}
-            <div className="flex justify-center -my-3 relative z-10">
+            <div className="flex justify-center -my-2 relative z-10">
               <button
                 onClick={() => {
                   const tempToken = inputTokenAddress;
@@ -572,19 +529,24 @@ export function SwapCardEnhanced() {
                   setOutputAmount('');
                   setExactField('input');
                 }}
-                className="bg-white dark:bg-slate-900 border-4 border-white dark:border-[#0f172a] text-primary hover:scale-110 transition-transform rounded-xl p-2 shadow-lg"
+                className="swap-flip-btn flex h-9 w-9 items-center justify-center rounded-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+                style={{ background: 'linear-gradient(145deg, #1a2d45, #0f1e30)', border: '1px solid rgba(37,192,244,0.2)' }}
               >
-                <span className="material-symbols-outlined text-2xl font-bold">south</span>
+                <svg width="18" height="18" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                  <path d="M7 2L7 16M7 2L4 5M7 2L10 5" stroke="#25c0f4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M15 20L15 6M15 20L12 17M15 20L18 17" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <style>{`
+                  .swap-flip-btn { transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.18s; }
+                  .swap-flip-btn:hover { transform: scale(1.08); box-shadow: 0 0 18px rgba(37,192,244,0.25); }
+                  .swap-flip-btn:active { transform: rotate(180deg) scale(0.95); transition: transform 0.22s cubic-bezier(.34,1.56,.64,1); }
+                `}</style>
               </button>
             </div>
 
-            {/* Input Section: To */}
-            <div className="token-input-bg rounded-xl p-4 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">To</span>
-                <span className="text-xs text-slate-400 dark:text-slate-500">
-                  Balance: {isBalanceLoading ? '...' : Number(balanceOut).toFixed(4)} {outputToken.symbol}
-                </span>
+            <div className="rounded-[12px] border border-white/[0.07] bg-[#263347] px-4 py-3">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-medium text-slate-500">You receive</span>
               </div>
               <div className="flex justify-between items-center">
                 <input
@@ -592,61 +554,51 @@ export function SwapCardEnhanced() {
                   value={quoteLoading ? '...' : outputAmount}
                   readOnly
                   placeholder="0.0"
-                  className={`bg-transparent border-none focus:ring-0 text-2xl md:text-3xl font-semibold w-full p-0 placeholder:text-slate-300 dark:placeholder:text-slate-700 ${quoteLoading ? 'text-slate-400 animate-pulse' : 'text-slate-900 dark:text-white'}`}
+                  className={`w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight placeholder:text-white/30 border-none focus:ring-0 ${quoteLoading ? 'text-slate-400 animate-pulse' : 'text-white'}`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowOutputTokenModal(true)}
-                  className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-sm font-bold uppercase text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 dark:text-background-dark"
+                  className="flex flex-shrink-0 items-center gap-1.5 rounded-[8px] border border-white/[0.07] bg-[#1e293b] px-2.5 py-1.5 text-[12px] font-bold text-white transition-colors hover:border-primary/30"
                 >
                   <span>{outputToken.symbol}</span>
-                  <span className="material-symbols-outlined text-base">keyboard_arrow_down</span>
+                  <span className="material-symbols-outlined text-[14px]">keyboard_arrow_down</span>
                 </button>
               </div>
-              <div className="mt-1">
-                <span className="text-xs text-slate-400 dark:text-slate-500">
-                  {outputUsdEstimate}
+              <div className="mt-2">
+                <span className="text-[11px] font-semibold text-primary">
+                  Balance: {isBalanceLoading ? '...' : Number(balanceOut).toFixed(4)} {outputToken.symbol}
                 </span>
               </div>
             </div>
 
-            {/* Transaction Details */}
             {(inputAmount && outputAmount) && (
-              <div className="mt-6 space-y-3 px-1">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                    <span>Price Impact</span>
-                    <span className="material-symbols-outlined text-xs">info</span>
-                  </div>
-                  <span className={`font-medium ${priceImpact < 1 ? 'text-emerald-600 dark:text-emerald-500' : priceImpact < 3 ? 'text-amber-500' : 'text-red-500'}`}>
+              <div className="rounded-[12px] border border-white/[0.07] bg-[#263347] px-3.5 py-3">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Rate</span>
+                  <span className="font-medium text-slate-200">
+                    1 {inputToken.symbol} = {inputAmount && outputAmount && Number(inputAmount) > 0 ? (Number(outputAmount) / Number(inputAmount)).toFixed(6) : '...'} {outputToken.symbol}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Price impact</span>
+                  <span className={`font-medium ${priceImpact < 1 ? 'text-emerald-400' : priceImpact < 3 ? 'text-amber-400' : 'text-rose-400'}`}>
                     {formatPriceImpact(priceImpact)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                    <span>Minimum Received</span>
-                    <span className="material-symbols-outlined text-xs">info</span>
-                  </div>
-                  <span className="text-slate-700 dark:text-slate-200 font-medium">
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Slippage tolerance</span>
+                  <span className="font-medium text-slate-200">{slippageTolerance}%</span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Network fee</span>
+                  <span className="font-medium text-slate-200">{inputUsdEstimate || '~ $0.00'}</span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Minimum received</span>
+                  <span className="font-medium text-slate-200">
                     {outputAmount ? Number(Number(outputAmount) * (1 - slippageTolerance / 100)).toFixed(4) : '0'} {outputToken.symbol}
                   </span>
-                </div>
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                    <span>Slippage Tolerance</span>
-                    <span className="material-symbols-outlined text-xs">info</span>
-                  </div>
-                  <span className="text-slate-700 dark:text-slate-200 font-medium">{slippageTolerance}%</span>
-                </div>
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400 dark:text-slate-500">
-                      1 {inputToken.symbol} = {inputAmount && outputAmount && Number(inputAmount) > 0 ? (Number(outputAmount) / Number(inputAmount)).toFixed(4) : '...'} {outputToken.symbol}
-                    </span>
-                    <button className="text-primary flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs">swap_horiz</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
@@ -673,8 +625,18 @@ export function SwapCardEnhanced() {
 
             {/* Swap Button */}
             {!isConnected ? (
-              <div className="w-full mt-6 [&_button]:w-full [&_button]:py-4 [&_button]:rounded-xl [&_button]:font-bold [&_button]:text-lg [&_button]:bg-primary [&_button]:text-white [&_button]:dark:text-background-dark [&_button]:hover:bg-primary/90 [&_button]:transition-all [&_button]:shadow-xl [&_button]:shadow-primary/20">
-                <ConnectButton />
+              <div className="mt-3 w-full">
+                <ConnectButton.Custom>
+                  {({ openConnectModal }) => (
+                    <button
+                      type="button"
+                      onClick={openConnectModal}
+                      className="w-full rounded-[12px] bg-primary py-3 text-[13px] font-bold text-[#0f172a] transition-all hover:opacity-95"
+                    >
+                      Connect Wallet
+                    </button>
+                  )}
+                </ConnectButton.Custom>
               </div>
             ) : (
               <button
@@ -686,7 +648,7 @@ export function SwapCardEnhanced() {
                   !outputAmount ||
                   !!quoteError
                 }
-                className="w-full mt-6 bg-primary hover:bg-primary/90 text-white dark:text-background-dark font-bold py-4 rounded-xl text-lg transition-all shadow-xl shadow-primary/20 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="mt-3 w-full rounded-[12px] bg-primary py-3 text-[13px] font-bold text-[#0f172a] transition-all active:scale-[0.98] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isSwapping ? (
                   <span className="flex items-center justify-center gap-2">
@@ -696,7 +658,7 @@ export function SwapCardEnhanced() {
                     </svg>
                     {swapStage === 'approving' ? 'Approving...' : 'Swapping...'}
                   </span>
-                ) : needsConfirmation ? 'Swap Anyway (High Impact)' : 'Swap Tokens'}
+                ) : needsConfirmation ? 'Swap Anyway' : 'Swap Tokens'}
               </button>
             )}
           </div>

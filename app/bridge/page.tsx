@@ -15,14 +15,12 @@ const BridgeWorkspace = dynamic(
 
 export default function BridgePage() {
   return (
-    <main className="px-4 py-8 md:px-6 md:py-10">
-      <div className="mx-auto max-w-6xl">
-        <BridgeSolanaProvider>
-          <Suspense fallback={null}>
-            <BridgeWorkspace />
-          </Suspense>
-        </BridgeSolanaProvider>
-      </div>
-    </main>
+    <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
+      <BridgeSolanaProvider>
+        <Suspense fallback={null}>
+          <BridgeWorkspace />
+        </Suspense>
+      </BridgeSolanaProvider>
+    </div>
   );
 }

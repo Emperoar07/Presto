@@ -58,11 +58,11 @@ function ProvidedLiquidityRow({
 
   return (
     <div
-      className={`rounded-2xl border px-4 py-3 transition-all ${
-        isActive
-          ? 'border-primary/30 bg-primary/10'
-          : 'border-slate-200 bg-white/75 dark:border-white/10 dark:bg-white/[0.04]'
-      }`}
+      className={`rounded-[12px] px-4 py-3 transition-all ${isActive ? '' : ''}`}
+      style={{
+        border: isActive ? '1px solid rgba(37,192,244,0.25)' : '1px solid rgba(255,255,255,0.07)',
+        background: isActive ? 'rgba(37,192,244,0.08)' : '#0f172a',
+      }}
     >
       <button
         type="button"
@@ -70,24 +70,25 @@ function ProvidedLiquidityRow({
         className="flex w-full flex-col gap-4 text-left md:flex-row md:items-center md:justify-between"
       >
         <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          <p className="text-[13px] font-semibold text-slate-100">
             {token.symbol} / {hubToken.symbol}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Provided liquidity</p>
+          <p className="text-[11px] text-slate-500">Provided liquidity</p>
         </div>
         <div className="flex items-center gap-4 md:justify-end">
-          <p className="text-sm font-bold text-slate-900 dark:text-white">{formattedBalance.toFixed(4)} LP</p>
-          <span className="material-symbols-outlined text-slate-400">
+          <p className="text-[13px] font-bold text-slate-100">{formattedBalance.toFixed(4)} LP</p>
+          <span className="material-symbols-outlined text-slate-500">
             {isExpanded ? 'expand_less' : 'expand_more'}
           </span>
         </div>
       </button>
       {isExpanded && (
-        <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-white/10">
+        <div className="mt-3 flex flex-wrap gap-2 border-t pt-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <button
             type="button"
             onClick={() => onFocusAdd(token)}
-            className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-background-dark transition-colors hover:bg-primary/90"
+            className="rounded-[8px] px-3 py-1.5 text-[11px] font-bold text-[#090e1a] transition-colors"
+            style={{ background: '#25c0f4' }}
           >
             Add Liquidity
           </button>
@@ -96,11 +97,15 @@ function ProvidedLiquidityRow({
               key={percent}
               type="button"
               onClick={() => onApplyRemovePercent(token, percent, liquidity ?? 0n)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`rounded-[8px] px-3 py-1.5 text-[11px] font-bold transition-colors ${
                 percent === 100
-                  ? 'border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/15 dark:text-red-400'
-                  : 'border border-slate-200 text-slate-700 hover:border-primary/20 hover:text-primary dark:border-white/10 dark:text-slate-200'
+                  ? 'text-red-400'
+                  : 'text-slate-300'
               }`}
+              style={{
+                border: percent === 100 ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(255,255,255,0.07)',
+                background: percent === 100 ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)',
+              }}
             >
               Remove {percent}%
             </button>
@@ -111,7 +116,11 @@ function ProvidedLiquidityRow({
   );
 }
 
-export function LiquidityCard() {
+export function LiquidityCard({
+  initialTokenAddress,
+}: {
+  initialTokenAddress?: string;
+} = {}) {
   const searchParams = useSearchParams();
   const chainId = useChainId();
   const isTempoChain = isTempoNativeChain(chainId);
@@ -121,7 +130,13 @@ export function LiquidityCard() {
   const supportsLimitOrders = isTempoChain;
   const tokens = useMemo(() => getTokens(chainId), [chainId]);
   const pathToken = getHubToken(chainId) || tokens[0];
-  const [selectedToken, setSelectedToken] = useState<Token>(tokens.find((t) => !isHubToken(t, chainId)) || tokens[1]);
+  const [selectedToken, setSelectedToken] = useState<Token>(() => {
+    if (initialTokenAddress) {
+      const match = tokens.find((t) => t.address.toLowerCase() === initialTokenAddress.toLowerCase());
+      if (match && !isHubToken(match, chainId)) return match;
+    }
+    return tokens.find((t) => !isHubToken(t, chainId)) || tokens[1];
+  });
   const quoteToken = tokens.find((t) => t.id && t.id === selectedToken.quoteTokenId) || pathToken;
   const [activeTab, setActiveTab] = useState<'fee' | 'order'>(supportsLimitOrders ? 'order' : 'fee');
   const { address, isConnected } = useAccount();
@@ -266,12 +281,12 @@ export function LiquidityCard() {
   };
 
   const providedPairsPanel = isConnected && address ? (
-    <div className="rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+    <div className="rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="mb-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">
           Your Provided Pairs
         </p>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-[13px] text-slate-500">
           Select a pair to add more liquidity, or prefill removal by percentage.
         </p>
       </div>
@@ -318,7 +333,7 @@ export function LiquidityCard() {
 
   const handlePlaceOrder = async () => {
     if (!orderAmount || !walletClient || !publicClient || !address) return;
-    if (chainId !== 42431) return toast.error('Orderbook is only supported on Tempo testnet');
+    if (chainId !== 42431) return toast.error('Orderbook is only supported on the native testnet');
     if (isHubToken(selectedToken, chainId)) return toast.error(`${selectedToken.symbol} cannot be used as the base token for limit orders`);
     if (walletChainId && walletChainId !== chainId) return toast.error('Wrong network selected');
     if (publicChainId && publicChainId !== chainId) return toast.error('Network mismatch');
@@ -379,42 +394,47 @@ export function LiquidityCard() {
 
   return (
     <div className="w-full">
-      <div className="glass-panel overflow-hidden rounded-[28px] p-5 shadow-xl md:p-7">
+      <div className="overflow-hidden rounded-[16px] p-5 md:p-6" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
         {!hasHubAmmDeployment && (
-          <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          <div className="mb-5 rounded-[10px] px-4 py-3 text-[13px] text-amber-300" style={{ border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.08)' }}>
             Arc liquidity contracts are not configured in this environment yet, so pool actions are shown in preview mode only.
           </div>
         )}
 
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {isArcTestnet ? 'Arc Stable Liquidity' : 'Tempo Fee Liquidity'}
+            <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#25c0f4]" style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}>
+              <span className="h-1.5 w-1.5 rounded-full bg-[#25c0f4]" />
+              {isArcTestnet ? 'Arc Stable Liquidity' : 'Fee Liquidity'}
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {isArcTestnet ? 'Stable liquidity workspace' : 'Fee liquidity workspace'}
+              <h2 className="text-[18px] font-extrabold tracking-tight text-slate-100">
+                {isArcTestnet
+                  ? 'Stable liquidity workspace'
+                  : 'Fee liquidity workspace'}
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                {isArcTestnet ? `Keep ${pathToken.symbol} liquidity organized around the Arc hub model.` : `Manage ${pathToken.symbol}-routed fee pools and maintenance from one surface.`}
+              <p className="mt-1 text-[13px] leading-[1.6] text-slate-500">
+                {isArcTestnet
+                  ? `Keep ${pathToken.symbol} liquidity organized around the Arc hub model.`
+                  : `Manage ${pathToken.symbol}-routed fee pools and maintenance from one surface.`}
               </p>
             </div>
           </div>
           {supportsLimitOrders && (
-            <div className="flex gap-2 rounded-2xl border border-slate-200 bg-slate-100/90 p-1.5 dark:border-white/5 dark:bg-white/[0.03]">
+            <div className="flex gap-1 rounded-[10px] p-1" style={{ background: '#263347' }}>
               <button
                 onClick={() => setActiveTab('fee')}
                 disabled
                 aria-disabled="true"
                 title="Fee liquidity is temporarily unavailable"
-                className="cursor-not-allowed rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-400 opacity-50"
+                className="cursor-not-allowed rounded-[8px] px-4 py-2 text-[12px] font-semibold text-slate-600 opacity-50"
               >
                 Fee Liquidity
               </button>
               <button
                 onClick={() => setActiveTab('order')}
-                className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'order' ? 'border border-primary/20 bg-white text-primary shadow-sm dark:bg-white/10' : 'text-slate-500 dark:text-slate-400'}`}
+                className={`rounded-[8px] px-4 py-2 text-[12px] font-semibold transition-all ${activeTab === 'order' ? 'text-slate-100 shadow' : 'text-slate-500'}`}
+                style={activeTab === 'order' ? { background: '#1e293b' } : {}}
               >
                 Place Limit Order
               </button>
@@ -430,34 +450,35 @@ export function LiquidityCard() {
                   { label: 'Mode', value: 'Fee-routed pools' },
                   { label: 'Hub asset', value: pathToken.symbol },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-slate-200 bg-white/75 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{item.label}</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-900 dark:text-white">{item.value}</p>
+                  <div key={item.label} className="rounded-[12px] px-4 py-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-100">{item.value}</p>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="mb-6 rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="mb-5 rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                     Pool Pair
                   </p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Choose the asset you want to pair against {pathToken.symbol}.
+                  <p className="mt-1 text-sm text-slate-500">
+                    {`Choose the asset you want to pair against ${pathToken.symbol}.`}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsTokenModalOpen(true)}
-                  className="inline-flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-primary/30 dark:border-white/10 dark:bg-slate-950/40"
+                  className="inline-flex min-w-[220px] items-center justify-between gap-3 rounded-[12px] px-4 py-3 text-left transition-colors"
+                  style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}
                 >
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Active pair
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                    <p className="mt-1 text-sm font-semibold text-slate-100">
                       {selectedToken.symbol} / {pathToken.symbol}
                     </p>
                   </div>
@@ -484,21 +505,21 @@ export function LiquidityCard() {
 
               {isTempoChain && (
                 <div className="space-y-5">
-                  <div className="rounded-[28px] border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="rounded-[14px] p-5" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="mb-4 flex items-center justify-between">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Remove Liquidity</p>
-                        <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Exit fee-side position</h3>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Remove Liquidity</p>
+                        <h3 className="mt-1 text-lg font-bold text-slate-100">Exit fee-side position</h3>
                       </div>
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/[0.03]">
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">LP available</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{lpBalance ? Number(formatUnits(lpBalance, 18)).toFixed(4) : '0.0000'}</p>
+                      <div className="rounded-[10px] px-3 py-2 text-right" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">LP available</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-100">{lpBalance ? Number(formatUnits(lpBalance, 18)).toFixed(4) : '0.0000'}</p>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
-                      <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    <div className="rounded-[10px] p-4" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div className="mb-2 flex items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-500">
                         <span>Amount</span>
-                        <button type="button" onClick={() => lpBalance && setRemoveAmount(formatUnits(lpBalance, 18))} className="rounded-full border border-primary/20 px-2.5 py-1 text-primary hover:bg-primary/10">
+                        <button type="button" onClick={() => lpBalance && setRemoveAmount(formatUnits(lpBalance, 18))} className="rounded-full px-2.5 py-1 text-[11px] font-bold text-[#25c0f4]" style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}>
                           Max
                         </button>
                       </div>
@@ -507,26 +528,27 @@ export function LiquidityCard() {
                         value={removeAmount}
                         onChange={(e) => setRemoveAmount(e.target.value)}
                         placeholder="0.0"
-                        className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700"
+                        className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-100 outline-none placeholder:text-slate-700"
                       />
                     </div>
                     <button
                       onClick={handleRemoveFeeLiquidity}
                       disabled={burnLiquidity.isPending || !removeAmount}
-                      className="mt-5 w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500 transition-all hover:bg-red-500/15 disabled:opacity-40 dark:text-red-400"
+                      className="mt-5 w-full rounded-[10px] px-4 py-3 text-[13px] font-bold text-red-400 transition-all disabled:opacity-40"
+                      style={{ border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.08)' }}
                     >
                       {burnLiquidity.isPending ? 'Removing...' : 'Remove Liquidity'}
                     </button>
                   </div>
 
-                  <div className="rounded-[28px] border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="rounded-[14px] p-5" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="mb-4 flex items-center justify-between">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">DEX Account</p>
-                        <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Operational balances</h3>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">DEX Account</p>
+                        <h3 className="mt-1 text-lg font-bold text-slate-100">Operational balances</h3>
                       </div>
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-                        Tempo only
+                      <span className="rounded-full px-3 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-500" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                        Testnet only
                       </span>
                     </div>
                     <DexAccount className="p-0" />
@@ -545,40 +567,40 @@ export function LiquidityCard() {
                 { label: 'Base asset', value: selectedToken.symbol },
                 { label: 'Funding balance', value: Number(dexSpendBalance).toFixed(4) },
               ].map((item) => (
-                <div key={item.label} className="rounded-2xl border border-slate-200 bg-white/75 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-lg font-bold text-slate-900 dark:text-white">{item.value}</p>
+                <div key={item.label} className="rounded-[12px] px-4 py-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                  <p className="mt-2 text-lg font-bold text-slate-100">{item.value}</p>
                 </div>
               ))}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-              Tempo limit orders are funded from your DEX balance and priced with ticks around the stable 1:1 center. Build the order on the left, then sanity-check funding and optional flip behavior on the right.
+            <div className="rounded-[12px] px-4 py-4 text-[13px] leading-[1.65] text-slate-500" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+              Limit orders are funded from your DEX balance and priced with ticks around the stable 1:1 center. Build the order on the left, then sanity-check funding and optional flip behavior on the right.
             </div>
 
-            <div className="rounded-[28px] border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-[14px] p-5" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex gap-2">
-                <button onClick={() => setOrderType('buy')} className={`flex-1 rounded-xl py-2.5 text-sm font-semibold ${orderType === 'buy' ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border border-slate-200 bg-slate-100 text-slate-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-slate-400'}`}>Buy {selectedToken.symbol}</button>
-                <button onClick={() => setOrderType('sell')} className={`flex-1 rounded-xl py-2.5 text-sm font-semibold ${orderType === 'sell' ? 'border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400' : 'border border-slate-200 bg-slate-100 text-slate-500 dark:border-white/5 dark:bg-white/[0.03] dark:text-slate-400'}`}>Sell {selectedToken.symbol}</button>
+                <button onClick={() => setOrderType('buy')} className="flex-1 rounded-[9px] py-2.5 text-[13px] font-semibold transition-all" style={orderType === 'buy' ? { border: '1px solid rgba(34,197,94,0.25)', background: 'rgba(34,197,94,0.1)', color: '#4ade80' } : { border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)', color: '#64748b' }}>Buy {selectedToken.symbol}</button>
+                <button onClick={() => setOrderType('sell')} className="flex-1 rounded-[9px] py-2.5 text-[13px] font-semibold transition-all" style={orderType === 'sell' ? { border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.08)', color: '#f87171' } : { border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)', color: '#64748b' }}>Sell {selectedToken.symbol}</button>
               </div>
 
               <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                  <div className="rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="mb-3 flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Order Amount</span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Wallet: {orderType === 'sell' ? Number(tokenBalance).toFixed(4) : `${Number(pathBalance).toFixed(4)} ${quoteToken.symbol}`}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Order Amount</span>
+                      <span className="text-[11px] text-slate-500">Wallet: {orderType === 'sell' ? Number(tokenBalance).toFixed(4) : `${Number(pathBalance).toFixed(4)} ${quoteToken.symbol}`}</span>
                     </div>
                     <div className="flex items-end gap-2">
                       <input type="text" value={orderAmount} onChange={(e) => setOrderAmount(e.target.value)} placeholder="0.0" className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700" />
                       <button type="button" onClick={() => { const max = orderType === 'buy' ? pathBalance : tokenBalance; if (max && Number(max) > 0) setOrderAmount(max); }} className="rounded-full border border-primary/20 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/10">Max</button>
-                      <button onClick={() => setIsTokenModalOpen(true)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 dark:border-white/10 dark:bg-white/[0.06] dark:text-white">{selectedToken.symbol}<span className="material-symbols-outlined text-sm text-slate-400">expand_more</span></button>
+                      <button onClick={() => setIsTokenModalOpen(true)} className="flex items-center gap-1 rounded-[9px] px-3 py-2 text-[13px] font-medium text-slate-100" style={{ border: '1px solid rgba(255,255,255,0.1)', background: '#1e293b' }}>{selectedToken.symbol}<span className="material-symbols-outlined text-[14px] text-slate-500">expand_more</span></button>
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                  <div className="rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Price Tick</span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">0 = 1:1 peg</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Price Tick</span>
+                      <span className="text-[11px] text-slate-500">0 = 1:1 peg</span>
                     </div>
                     <input type="number" value={tick} onChange={(e) => setTick(e.target.value)} className="w-full bg-transparent text-2xl font-semibold tracking-tight text-slate-900 outline-none dark:text-white" />
                     <div className="mt-3 flex items-center gap-2">
@@ -589,8 +611,8 @@ export function LiquidityCard() {
                           onClick={() => setTick(String(preset))}
                           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
                             tick === String(preset)
-                              ? 'border border-primary/30 bg-primary/10 text-primary'
-                              : 'border border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-400'
+                              ? 'text-[#25c0f4]'
+                              : 'text-slate-500'
                           }`}
                         >
                           {preset > 0 ? `+${preset}` : `${preset}`}
@@ -601,41 +623,41 @@ export function LiquidityCard() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                  <div className="rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="mb-3 flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">DEX Balance</span>
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">{Number(dexSpendBalance).toFixed(4)}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">DEX Balance</span>
+                      <span className="text-sm font-medium text-slate-100">{Number(dexSpendBalance).toFixed(4)}</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {[quoteToken, selectedToken].filter((token, index, self) => self.findIndex((t) => t.address === token.address) === index).map((token, index) => (
-                        <button key={`${token.address}-${index}`} type="button" onClick={() => setDepositTokenAddress(token.address)} className={`rounded-lg px-2.5 py-1 text-[10px] font-medium ${depositTokenAddress === token.address ? 'border border-primary/30 bg-primary/10 text-primary' : 'border border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-400'}`}>
+                        <button key={`${token.address}-${index}`} type="button" onClick={() => setDepositTokenAddress(token.address)} className="rounded-[7px] px-2.5 py-1 text-[11px] font-medium transition-all" style={depositTokenAddress === token.address ? { border: '1px solid rgba(37,192,244,0.25)', background: 'rgba(37,192,244,0.1)', color: '#25c0f4' } : { border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)', color: '#94a3b8' }}>
                           {token.symbol}
                         </button>
                       ))}
                     </div>
-                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Orders use DEX balance first; flip execution requires DEX balance.</p>
+                    <p className="mt-3 text-xs text-slate-500">Orders use DEX balance first; flip execution requires DEX balance.</p>
                   </div>
-                  <label className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
-                    <input type="checkbox" checked={isFlip} onChange={(e) => setIsFlip(e.target.checked)} className="h-4 w-4 rounded border-slate-300 bg-white text-primary focus:ring-primary/50 dark:border-slate-700 dark:bg-black/40" />
+                  <label className="flex items-center gap-2.5 rounded-[12px] p-4 cursor-pointer" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <input type="checkbox" checked={isFlip} onChange={(e) => setIsFlip(e.target.checked)} className="h-4 w-4 rounded accent-[#25c0f4]" />
                     <div className="flex-1">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Flip Order</span>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-500">Auto-reverse when filled to earn spread.</p>
+                      <span className="text-[13px] font-medium text-slate-300">Flip Order</span>
+                      <p className="text-[11px] text-slate-500">Auto-reverse when filled to earn spread.</p>
                     </div>
                   </label>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Execution Summary</p>
+                  <div className="rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Execution Summary</p>
                     <div className="mt-3 space-y-2 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Funding asset</span>
-                        <span className="font-medium text-slate-900 dark:text-white">{orderType === 'buy' ? quoteToken.symbol : selectedToken.symbol}</span>
+                        <span className="text-slate-500">Funding asset</span>
+                        <span className="font-medium text-slate-100">{orderType === 'buy' ? quoteToken.symbol : selectedToken.symbol}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Base asset</span>
-                        <span className="font-medium text-slate-900 dark:text-white">{selectedToken.symbol}</span>
+                        <span className="text-slate-500">Base asset</span>
+                        <span className="font-medium text-slate-100">{selectedToken.symbol}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">Flip enabled</span>
-                        <span className="font-medium text-slate-900 dark:text-white">{isFlip ? 'Yes' : 'No'}</span>
+                        <span className="text-slate-500">Flip enabled</span>
+                        <span className="font-medium text-slate-100">{isFlip ? 'Yes' : 'No'}</span>
                       </div>
                     </div>
                   </div>
@@ -643,11 +665,21 @@ export function LiquidityCard() {
               </div>
 
               {!isConnected ? (
-                <div className="mt-5 w-full [&_button]:w-full [&_button]:rounded-2xl [&_button]:bg-primary [&_button]:py-3 [&_button]:text-sm [&_button]:font-bold [&_button]:text-white [&_button]:hover:bg-primary/90 [&_button]:dark:text-background-dark">
-                  <ConnectButton />
+                <div className="mt-5 w-full">
+                  <ConnectButton.Custom>
+                    {({ openConnectModal }) => (
+                      <button
+                        type="button"
+                        onClick={openConnectModal}
+                        className="w-full rounded-[10px] bg-primary py-3 text-[13px] font-bold text-[#0f172a] transition-all hover:opacity-90"
+                      >
+                        Connect Wallet
+                      </button>
+                    )}
+                  </ConnectButton.Custom>
                 </div>
               ) : (
-                <button onClick={handlePlaceOrder} disabled={isOrdering || !orderAmount} className={`mt-5 w-full rounded-2xl py-3 text-sm font-bold text-white transition-all disabled:opacity-40 ${orderType === 'buy' ? 'bg-emerald-500 hover:bg-emerald-500/90' : 'bg-red-500 hover:bg-red-500/90'}`}>
+                <button onClick={handlePlaceOrder} disabled={isOrdering || !orderAmount} className={`mt-5 w-full rounded-[10px] py-3 text-[13px] font-bold text-white transition-all disabled:opacity-40 ${orderType === 'buy' ? 'bg-emerald-500 hover:bg-emerald-500/90' : 'bg-red-500 hover:bg-red-500/90'}`}>
                   {isApproving ? `Approving ${orderType === 'buy' ? quoteToken.symbol : selectedToken.symbol}...` : isOrdering ? 'Placing Order...' : `Place ${orderType === 'buy' ? 'Buy' : 'Sell'} Order`}
                 </button>
               )}

@@ -1,3 +1,5 @@
+'use client';
+
 import { Hooks } from '@/lib/tempo';
 import { formatUnits, parseUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -66,22 +68,22 @@ export function RebalancePool({
   };
 
   return (
-    <div className="p-4 rounded-xl token-input-bg border border-slate-200 dark:border-slate-800 text-sm space-y-3 mt-4">
-        <div className="flex justify-between items-center">
-             <h3 className="font-bold text-slate-900 dark:text-white">Pool Rebalancing</h3>
-             <span className="text-xs text-primary">Restore Reserves</span>
-        </div>
-      
-      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
-          <span>User Reserves:</span>
-          <span>{pool ? formatUnits(pool.reserveUserToken, userTokenDecimals) : '0'}</span>
+    <div className="rounded-[12px] p-4 space-y-3" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex justify-between items-center">
+        <h3 className="text-[15px] font-extrabold text-slate-100">Pool Rebalancing</h3>
+        <span className="text-[11px] text-[#25c0f4]">Restore Reserves</span>
       </div>
-      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
-          <span>Validator Reserves:</span>
-          <span>{pool ? formatUnits(pool.reserveValidatorToken, validatorTokenDecimals) : '0'}</span>
+
+      <div className="flex justify-between text-[12px] text-slate-500">
+        <span>User Reserves:</span>
+        <span className="text-slate-300">{pool ? formatUnits(pool.reserveUserToken, userTokenDecimals) : '0'}</span>
+      </div>
+      <div className="flex justify-between text-[12px] text-slate-500">
+        <span>Validator Reserves:</span>
+        <span className="text-slate-300">{pool ? formatUnits(pool.reserveValidatorToken, validatorTokenDecimals) : '0'}</span>
       </div>
       {!canRebalance && (
-        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="text-[11px] text-slate-500">
           Enter an amount to swap user reserves back into balance.
         </div>
       )}
@@ -92,24 +94,27 @@ export function RebalancePool({
           value={amountOut}
           onChange={(e) => setAmountOut(e.target.value)}
           placeholder="Amount out"
-          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 token-input-bg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-primary/50"
+          className="w-full rounded-[9px] px-3 py-2 text-[12px] text-slate-100 outline-none placeholder:text-slate-600"
+          style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}
         />
         <button
           type="button"
           onClick={() => {
             if (pool) setAmountOut(formatUnits(pool.reserveUserToken, userTokenDecimals));
           }}
-          className="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/30 text-xs"
+          className="px-3 py-2 rounded-[9px] text-[11px] font-bold text-[#25c0f4] transition-all"
+          style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
         >
           Max
         </button>
       </div>
-      
-      <button 
-        type="button" 
+
+      <button
+        type="button"
         onClick={handleRebalance}
         disabled={!canRebalance || rebalance.isPending}
-        className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 font-bold rounded-lg transition-all disabled:opacity-50 text-xs"
+        className="w-full py-2.5 rounded-[9px] text-[12px] font-bold text-[#25c0f4] transition-all disabled:opacity-50"
+        style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
       >
         {rebalance.isPending ? 'Rebalancing...' : 'Rebalance Pool'}
       </button>

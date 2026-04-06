@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, type ReactNode, type RefObject } from 'react';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useChainId, useWalletClient, usePublicClient } from 'wagmi';
@@ -269,29 +271,29 @@ export function ManageFeeLiquidity({
     !!address &&
     !!feeToSetter &&
     feeToSetter.toLowerCase() === address.toLowerCase();
-  const modeTitle = isTempoChain ? 'Tempo Fee Liquidity' : isArcTestnet ? 'Arc Stable Liquidity' : 'Liquidity Controls';
+  const modeTitle = isTempoChain ? 'Fee Liquidity' : isArcTestnet ? 'Arc Stable Liquidity' : 'Liquidity Controls';
   const canRenderMaintenance = showMaintenance && !!pool;
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50/50 dark:border-white/10 dark:from-slate-950 dark:via-slate-950 dark:to-cyan-950/20">
+      <div className="overflow-hidden rounded-[16px]" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]">
-          <div className="border-b border-slate-200/80 p-6 dark:border-white/10 xl:border-b-0 xl:border-r">
+          <div className="p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="mb-5 flex items-start justify-between gap-4">
               <div className="space-y-2">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     {modeTitle}
                   </p>
-                  <h3 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">
+                  <h3 className="mt-2 text-[18px] font-extrabold tracking-tight text-slate-100">
                     {userTokenSymbol} / {validatorTokenSymbol}
                   </h3>
                 </div>
               </div>
-              <div className="hidden rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-right shadow-sm dark:border-white/10 dark:bg-white/[0.03] lg:block">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <div className="hidden rounded-[12px] px-4 py-3 text-right lg:block" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-500">
                   Your LP Position
                 </p>
-                <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{lpBalanceDisplay}</p>
+                <p className="mt-1 text-[18px] font-extrabold text-slate-100">{lpBalanceDisplay}</p>
               </div>
             </div>
             <PoolStats
@@ -307,32 +309,32 @@ export function ManageFeeLiquidity({
             {pairManagementPanel ? <div className="mt-4">{pairManagementPanel}</div> : null}
           </div>
 
-          <div className="p-6">
-            <div className="rounded-3xl border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="p-6" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="rounded-[14px] p-5" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     Add Liquidity
                   </p>
-                  <h4 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+                  <h4 className="mt-1 text-[15px] font-extrabold text-slate-100">
                     Deposit {isTempoChain ? validatorTokenSymbol : userTokenSymbol}
                   </h4>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/[0.03]">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  <div className="rounded-[10px] px-3 py-2 text-right" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
                       {isTempoChain ? 'Wallet' : `${userTokenSymbol} wallet`}
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                    <p className="mt-1 text-[13px] font-semibold text-slate-100">
                       {Number(isTempoChain ? validatorTokenBalance : userTokenBalance).toFixed(4)} {isTempoChain ? validatorTokenSymbol : userTokenSymbol}
                     </p>
                   </div>
                   {!isTempoChain && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/[0.03]">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    <div className="rounded-[10px] px-3 py-2 text-right" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
                         {validatorTokenSymbol} wallet
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                      <p className="mt-1 text-[13px] font-semibold text-slate-100">
                         {Number(validatorTokenBalance).toFixed(4)} {validatorTokenSymbol}
                       </p>
                     </div>
@@ -340,13 +342,14 @@ export function ManageFeeLiquidity({
                 </div>
               </div>
 
-              <div ref={addActionRef} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/50">
-                <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <div ref={addActionRef} className="rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="mb-2 flex items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-500">
                   <span>{isTempoChain ? 'Amount' : `${userTokenSymbol} amount`}</span>
                   <button
                     type="button"
                     onClick={() => setAmount(isTempoChain ? validatorTokenBalance : userTokenBalance)}
-                    className="rounded-full border border-primary/20 px-2.5 py-1 text-primary transition-colors hover:bg-primary/10"
+                    className="rounded-full px-2.5 py-1 text-[11px] font-bold text-[#25c0f4] transition-colors"
+                    style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
                   >
                     Max
                   </button>
@@ -357,43 +360,43 @@ export function ManageFeeLiquidity({
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.0"
-                    className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700"
+                    className="w-full bg-transparent text-3xl font-semibold tracking-tight text-slate-100 outline-none placeholder:text-slate-700"
                   />
-                  <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+                  <div className="rounded-full px-3 py-1.5 text-[13px] font-semibold text-slate-200" style={{ border: '1px solid rgba(255,255,255,0.1)', background: '#1e293b' }}>
                     {isTempoChain ? validatorTokenSymbol : userTokenSymbol}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Pool side</span>
-                  <span className="font-medium text-slate-900 dark:text-white">
+              <div className="mt-4 space-y-3 rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-slate-500">Pool side</span>
+                  <span className="font-medium text-slate-100">
                     {isTempoChain ? `${validatorTokenSymbol} validator leg` : `${validatorTokenSymbol} stable hub leg`}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">LP position</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{lpBalanceDisplay}</span>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-slate-500">LP position</span>
+                  <span className="font-medium text-slate-100">{lpBalanceDisplay}</span>
                 </div>
                 {!isTempoChain && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500 dark:text-slate-400">{validatorTokenSymbol} required</span>
-                    <span className="font-medium text-slate-900 dark:text-white">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-slate-500">{validatorTokenSymbol} required</span>
+                    <span className="font-medium text-slate-100">
                       {Number(requiredPathAmount || '0').toFixed(4)} {validatorTokenSymbol}
                     </span>
                   </div>
                 )}
-                <div className="grid gap-3 border-t border-slate-200/80 pt-3 dark:border-white/10 sm:grid-cols-2">
-                  <div className="flex items-center justify-between text-sm sm:block">
-                    <span className="text-slate-500 dark:text-slate-400">Est. LP</span>
-                    <p className="font-semibold text-slate-900 dark:text-white sm:mt-1">
+                <div className="grid gap-3 pt-3 sm:grid-cols-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex items-center justify-between text-[13px] sm:block">
+                    <span className="text-slate-500">Est. LP</span>
+                    <p className="font-semibold text-slate-100 sm:mt-1">
                       {estimatedLpTokens === null ? '--' : estimatedLpTokens.toFixed(4)}
                     </p>
                   </div>
-                  <div className="flex items-center justify-between text-sm sm:block">
-                    <span className="text-slate-500 dark:text-slate-400">New share</span>
-                    <p className="font-semibold text-primary sm:mt-1">
+                  <div className="flex items-center justify-between text-[13px] sm:block">
+                    <span className="text-slate-500">New share</span>
+                    <p className="font-semibold text-[#25c0f4] sm:mt-1">
                       {estimatedPoolShare === null ? '--' : `${estimatedPoolShare.toFixed(2)}%`}
                     </p>
                   </div>
@@ -403,26 +406,28 @@ export function ManageFeeLiquidity({
               <button
                 onClick={handleAddLiquidity}
                 disabled={isAdding || !amount}
-                className="mt-5 w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-white transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 dark:text-background-dark"
+                className="mt-5 w-full rounded-[10px] px-4 py-3 text-[13px] font-bold text-[#090e1a] transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ background: '#25c0f4' }}
               >
                 {isApproving ? 'Approving...' : isAdding ? 'Adding Liquidity...' : `Add ${isTempoChain ? validatorTokenSymbol : userTokenSymbol} Liquidity`}
               </button>
 
               {!isTempoChain && (
-                <div ref={removeActionRef} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/40">
+                <div ref={removeActionRef} className="mt-4 rounded-[12px] p-4" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="mb-3 flex items-center justify-between">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">
                         Remove Liquidity
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                      <p className="mt-1 text-[13px] font-semibold text-slate-100">
                         Exit {userTokenSymbol} / {validatorTokenSymbol}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => balance && onRemoveAmountChange?.(formatUnits(balance, 18))}
-                      className="rounded-full border border-primary/20 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/10"
+                      className="rounded-full px-2.5 py-1 text-[11px] font-bold text-[#25c0f4] transition-colors"
+                      style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
                     >
                       Max LP
                     </button>
@@ -432,12 +437,14 @@ export function ManageFeeLiquidity({
                     value={removeAmount}
                     onChange={(e) => onRemoveAmountChange?.(e.target.value)}
                     placeholder="0.0"
-                    className="mb-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-slate-600"
+                    className="mb-3 w-full rounded-[10px] px-4 py-3 text-[13px] font-semibold text-slate-100 outline-none placeholder:text-slate-600"
+                    style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}
                   />
                   <button
                     onClick={handleRemoveLiquidity}
                     disabled={burnLiquidity.isPending || !removeAmount}
-                    className="w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500 transition-all hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
+                    className="w-full rounded-[10px] px-4 py-3 text-[13px] font-bold text-red-400 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.08)' }}
                   >
                     {burnLiquidity.isPending ? 'Removing...' : 'Remove Position'}
                   </button>
@@ -450,33 +457,31 @@ export function ManageFeeLiquidity({
 
       {isTempoChain && (isFeeSetter || (!!feeTo && feeTo !== ZERO_ADDRESS)) && (
         <div className="grid gap-4 xl:grid-cols-1">
-          <div className="rounded-3xl border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-[14px] p-5" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Protocol Fee
-                </p>
-                <h4 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Advanced controls</h4>
+                <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">Protocol Fee</p>
+                <h4 className="mt-1 text-[15px] font-extrabold text-slate-100">Advanced controls</h4>
               </div>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+              <span className="rounded-full px-3 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-500" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
                 {isFeeSetter ? 'Admin access' : 'Read only'}
               </span>
             </div>
 
             {factoryAddress === ZERO_ADDRESS ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
-                Protocol fee configuration is not available for this Tempo deployment.
+              <div className="rounded-[12px] px-4 py-4 text-[13px] text-slate-500" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+                Protocol fee configuration is not available for this deployment.
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-slate-950/40">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Current recipient</p>
-                    <p className="mt-2 break-all text-sm font-medium text-slate-900 dark:text-white">{feeTo || 'Not set'}</p>
+                  <div className="rounded-[12px] px-4 py-3" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-500">Current recipient</p>
+                    <p className="mt-2 break-all text-[13px] font-medium text-slate-100">{feeTo || 'Not set'}</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-slate-950/40">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Fee setter</p>
-                    <p className="mt-2 break-all text-sm font-medium text-slate-900 dark:text-white">{feeToSetter || 'Unknown'}</p>
+                  <div className="rounded-[12px] px-4 py-3" style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-500">Fee setter</p>
+                    <p className="mt-2 break-all text-[13px] font-medium text-slate-100">{feeToSetter || 'Unknown'}</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -485,18 +490,20 @@ export function ManageFeeLiquidity({
                     value={feeToInput}
                     onChange={(e) => setFeeToInput(e.target.value)}
                     placeholder="0x... fee recipient"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/40 dark:text-white"
+                    className="w-full rounded-[10px] px-4 py-3 text-[13px] text-slate-100 outline-none transition-colors placeholder:text-slate-600"
+                    style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)' }}
                   />
                   <button
                     type="button"
                     onClick={handleSetFeeTo}
                     disabled={!isFeeSetter || isSettingFeeTo}
-                    className="rounded-2xl border border-primary/20 bg-primary/10 px-5 py-3 text-sm font-bold text-primary transition-all hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-[10px] px-5 py-3 text-[13px] font-bold text-[#25c0f4] transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
                   >
                     {isSettingFeeTo ? 'Setting...' : 'Update Fee Recipient'}
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-[12px] text-slate-500">
                   {isFeeSetter ? 'You are the current fee setter for this factory.' : 'Only the current fee setter can update the recipient address.'}
                 </p>
               </div>
@@ -509,17 +516,15 @@ export function ManageFeeLiquidity({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                Pool Maintenance
-              </p>
-              <h4 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Monitor and rebalance</h4>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">Pool Maintenance</p>
+              <h4 className="mt-1 text-[15px] font-extrabold text-slate-100">Monitor and rebalance</h4>
             </div>
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-            <div className="rounded-3xl border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-[14px] p-5" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
               <MonitorSwaps userToken={userToken} validatorToken={validatorToken} />
             </div>
-            <div className="rounded-3xl border border-slate-200 bg-white/85 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-[14px] p-5" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
               <RebalancePool
                 userToken={userToken}
                 validatorToken={validatorToken}

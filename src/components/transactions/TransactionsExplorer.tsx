@@ -93,7 +93,7 @@ function LoadingSkeleton() {
 }
 
 function getFallbackNetworkLabel(chainId: number) {
-  if (isTempoNativeChain(chainId)) return 'Tempo Testnet';
+  if (isTempoNativeChain(chainId)) return 'Testnet';
   if (isArcChain(chainId)) return 'Arc Testnet';
   return 'Supported Network';
 }
@@ -252,10 +252,10 @@ export function TransactionsExplorer() {
 
   const activityDescription = useMemo(() => {
     if (activityMode === 'tempo') {
-      return 'Track swaps, limit orders, and liquidity actions on Tempo.';
+      return 'Track swaps, limit orders, and liquidity actions onchain.';
     }
     if (activityMode === 'arc') {
-      return 'Track stable swaps and liquidity actions on Arc without Tempo-only orderbook assumptions.';
+      return 'Track stable swaps and liquidity actions on Arc.';
     }
     return 'Activity adapts to the active network and only shows flows supported by that deployment.';
   }, [activityMode]);

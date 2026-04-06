@@ -305,7 +305,7 @@ export function useBridgeHistory(deps: {
 
   useEffect(() => {
     const hasPending = bridgeHistoryRef.current.some(
-      (item) => item.state === 'pending' || item.liveState === 'pending',
+      (item) => item.state === 'pending' || item.liveState === 'pending' || item.liveClaimable,
     );
     if (!bridgeHistoryRef.current.length) return;
 
@@ -314,12 +314,20 @@ export function useBridgeHistory(deps: {
     const runReconciliation = async () => {
       const snapshot = bridgeHistoryRef.current;
       if (!snapshot.length) return;
-      const next = await Promise.all(snapshot.map((i) => reconcileBridgeHistoryItem(i)));
+      const activeItems = snapshot.filter(
+        (item) => item.state === 'pending' || item.liveState === 'pending' || item.liveClaimable,
+      );
+      if (!activeItems.length) return;
+
+      const reconciledItems = await Promise.all(activeItems.map((item) => reconcileBridgeHistoryItem(item)));
       if (cancelled) return;
 
-      const changed = next.some((item, index) => {
-        const current = snapshot[index];
-        return item.liveState !== current.liveState || item.liveNote !== current.liveNote;
+      const reconciledMap = new Map(reconciledItems.map((item) => [item.id, item]));
+      const next = snapshot.map((item) => reconciledMap.get(item.id) ?? item);
+
+      const changed = snapshot.some((item, index) => {
+        const updated = next[index];
+        return updated.liveState !== item.liveState || updated.liveNote !== item.liveNote || updated.liveClaimable !== item.liveClaimable;
       });
 
       if (changed) {
@@ -328,7 +336,7 @@ export function useBridgeHistory(deps: {
 
       // Auto-claim: for items where attestation is ready but no mint has
       // happened yet, automatically complete the bridge.
-      for (const item of next) {
+      for (const item of reconciledItems) {
         if (
           item.liveClaimable &&
           item.liveState === 'pending' &&

@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrestoDEX — Redesign 1: Sidebar Nav</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #25c0f4;
+      --primary-dim: rgba(37,192,244,0.12);
+      --primary-glow: rgba(37,192,244,0.25);
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-2: #263347;
+      --border: rgba(255,255,255,0.07);
+      --border-hover: rgba(37,192,244,0.3);
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --green: #22c55e;
+      --red: #f43f5e;
+      --amber: #f59e0b;
+      --sidebar-w: 220px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Sidebar ─────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 40;
+    }
+
+    .sidebar-logo {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 34px; height: 34px;
+      background: var(--primary-dim);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--primary);
+      font-size: 18px;
+    }
+    .logo-text { font-size: 16px; font-weight: 800; color: var(--text); }
+
+    .sidebar-section {
+      padding: 16px 12px 8px;
+    }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      padding: 0 8px;
+      margin-bottom: 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: all 0.15s;
+      text-decoration: none;
+      margin-bottom: 2px;
+      border: 1px solid transparent;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .nav-item.active {
+      background: var(--primary-dim);
+      color: var(--primary);
+      border-color: rgba(37,192,244,0.15);
+    }
+    .nav-item .material-symbols-outlined { font-size: 18px; }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--primary-dim);
+      color: var(--primary);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 20px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .network-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: var(--surface-2);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .network-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
+    .network-name { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .network-chevron { margin-left: auto; color: var(--text-faint); font-size: 16px; }
+
+    .connect-btn {
+      width: 100%;
+      background: var(--primary);
+      color: #0f172a;
+      border: none;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .connect-btn:hover { opacity: 0.88; }
+
+    /* ── Main content ───────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      height: 58px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      background: rgba(15,23,42,0.95);
+      backdrop-filter: blur(12px);
+      z-index: 30;
+    }
+    .topbar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .faucet-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 10px;
+      border: 1px solid rgba(37,192,244,0.2);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .faucet-btn:hover { background: var(--primary-dim); }
+    .faucet-btn .material-symbols-outlined { font-size: 14px; }
+
+    .page-content {
+      padding: 28px;
+      flex: 1;
+      max-width: 920px;
+    }
+
+    /* ── Swap Card ──────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .icon-btn {
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+    .token-box {
+      margin: 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .token-box-label {
+      font-size: 11px;
+      color: var(--text-faint);
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+    .token-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .token-selector {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.15s;
+    }
+    .token-selector:hover { border-color: var(--border-hover); }
+    .token-dot {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; color: #fff;
+    }
+    .token-symbol { font-size: 13px; font-weight: 700; color: var(--text); }
+    .token-chevron { color: var(--text-faint); font-size: 16px; }
+    .token-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      text-align: right;
+      font-family: 'Inter', sans-serif;
+    }
+    .token-input::placeholder { color: var(--text-faint); }
+    .token-balance {
+      display: flex; justify-content: space-between;
+      margin-top: 8px;
+      font-size: 11.5px;
+      color: var(--text-faint);
+    }
+    .token-balance span { color: var(--primary); cursor: pointer; font-weight: 600; }
+
+    .swap-arrow-row {
+      display: flex; justify-content: center; align-items: center;
+      margin: -2px 0;
+      position: relative;
+      z-index: 1;
+    }
+    .swap-arrow-btn {
+      width: 34px; height: 34px;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      color: var(--primary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      transition: all 0.2s;
+    }
+    .swap-arrow-btn:hover { background: var(--primary-dim); border-color: var(--primary); transform: rotate(180deg); }
+
+    .swap-details {
+      margin: 0 16px 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .swap-detail-row {
+      display: flex; justify-content: space-between;
+      font-size: 12px;
+      padding: 3px 0;
+    }
+    .swap-detail-row .key { color: var(--text-faint); }
+    .swap-detail-row .val { color: var(--text-muted); font-weight: 500; }
+    .swap-detail-row .val.good { color: var(--green); }
+
+    .swap-btn {
+      margin: 0 16px 16px;
+      width: calc(100% - 32px);
+      padding: 13px;
+      background: var(--primary);
+      color: #0f172a;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      box-shadow: 0 4px 20px var(--primary-glow);
+    }
+    .swap-btn:hover { opacity: 0.88; }
+
+    /* ── Pool rows ──────────────────────────── */
+    .pools-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .pool-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .pool-row:last-child { border-bottom: none; }
+    .pool-row:hover { background: rgba(255,255,255,0.025); }
+    .pool-icons {
+      display: flex; position: relative;
+      width: 40px; height: 24px;
+    }
+    .pool-icon {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; color: #fff;
+      position: absolute;
+      border: 2px solid var(--surface);
+    }
+    .pool-icon:first-child { left: 0; z-index: 1; }
+    .pool-icon:last-child { left: 14px; }
+    .pool-pair { font-size: 13px; font-weight: 700; color: var(--text); }
+    .pool-tier { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+    .pool-stat { margin-left: auto; text-align: right; }
+    .pool-stat .val { font-size: 13px; font-weight: 600; color: var(--text); }
+    .pool-stat .lbl { font-size: 10.5px; color: var(--text-faint); }
+    .pool-stat-mid { text-align: center; min-width: 80px; }
+    .apy-badge {
+      display: inline-block;
+      background: rgba(34,197,94,0.12);
+      color: var(--green);
+      font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+    }
+
+    /* ── Stats row ──────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+    }
+    .stat-lbl {
+      font-size: 11px;
+      color: var(--text-faint);
+      font-weight: 500;
+      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .stat-val {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .stat-change {
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .stat-change.up { color: var(--green); }
+    .stat-change.dn { color: var(--red); }
+
+    /* ── Tab system ─────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: var(--surface-2);
+      border-radius: 10px;
+      width: fit-content;
+      margin-bottom: 18px;
+    }
+    .tab {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-faint);
+      border: none;
+      background: none;
+      transition: all 0.15s;
+    }
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .tab:hover:not(.active) { color: var(--text-muted); }
+
+    /* ── Bridge panel ───────────────────────── */
+    .bridge-chain-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px;
+    }
+    .chain-box {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .chain-box:hover { border-color: var(--border-hover); }
+    .chain-box .lbl { font-size: 10.5px; color: var(--text-faint); margin-bottom: 6px; }
+    .chain-name { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .chain-flag {
+      width: 20px; height: 20px; border-radius: 6px;
+      background: var(--primary-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; color: var(--primary);
+    }
+    .bridge-arrow {
+      color: var(--text-faint);
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .bridge-fee-row {
+      margin: 0 16px 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+    .bridge-fee-row .key { color: var(--text-faint); }
+    .bridge-fee-row .val { color: var(--text-muted); font-weight: 600; }
+    .speed-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(37,192,244,0.1);
+      color: var(--primary);
+      font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 20px;
+    }
+
+    /* ── Portfolio table ────────────────────── */
+    .ptable {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .ptable thead tr th {
+      padding: 10px 20px;
+      text-align: left;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-faint);
+      border-bottom: 1px solid var(--border);
+    }
+    .ptable thead tr th:last-child { text-align: right; }
+    .ptable tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background 0.12s;
+      cursor: pointer;
+    }
+    .ptable tbody tr:hover { background: rgba(255,255,255,0.025); }
+    .ptable tbody tr:last-child { border-bottom: none; }
+    .ptable td { padding: 13px 20px; font-size: 13px; }
+    .ptable td:last-child { text-align: right; }
+    .token-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; color: #fff;
+    }
+
+    /* ── Activity feed ──────────────────────── */
+    .activity-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-row:hover { background: rgba(255,255,255,0.02); }
+    .activity-icon {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: var(--surface-2);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .activity-icon.swap { background: var(--primary-dim); color: var(--primary); }
+    .activity-icon.bridge { background: rgba(139,92,246,0.12); color: #a78bfa; }
+    .activity-icon.liq { background: rgba(34,197,94,0.1); color: var(--green); }
+    .activity-meta { flex: 1; }
+    .activity-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .activity-sub { font-size: 11.5px; color: var(--text-faint); margin-top: 1px; }
+    .activity-amount { font-size: 13px; font-weight: 700; text-align: right; }
+    .activity-time { font-size: 11px; color: var(--text-faint); text-align: right; margin-top: 2px; }
+
+    /* ── Page sections shown/hidden via JS ──── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Scrollbar ──────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <span class="material-symbols-outlined">toll</span>
+    </div>
+    <span class="logo-text">PrestoDEX</span>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Trade</div>
+    <a class="nav-item active" onclick="showPage('swap',this)">
+      <span class="material-symbols-outlined">swap_horiz</span>
+      Swap
+    </a>
+    <a class="nav-item" onclick="showPage('pools',this)">
+      <span class="material-symbols-outlined">water</span>
+      Pools
+    </a>
+    <a class="nav-item" onclick="showPage('bridge',this)">
+      <span class="material-symbols-outlined">swap_horizontal_circle</span>
+      Bridge
+    </a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Account</div>
+    <a class="nav-item" onclick="showPage('portfolio',this)">
+      <span class="material-symbols-outlined">pie_chart</span>
+      Portfolio
+    </a>
+    <a class="nav-item" onclick="showPage('activity',this)">
+      <span class="material-symbols-outlined">history</span>
+      Activity
+    </a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Insights</div>
+    <a class="nav-item" onclick="showPage('analytics',this)">
+      <span class="material-symbols-outlined">bar_chart</span>
+      Analytics
+    </a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="network-pill">
+      <div class="network-dot"></div>
+      <span class="network-name">Arc Testnet</span>
+      <span class="material-symbols-outlined network-chevron">unfold_more</span>
+    </div>
+    <button class="connect-btn">Connect Wallet</button>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════
+     MAIN
+════════════════════════════════════════════ -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title" id="topbar-title">Swap</span>
+    <div class="topbar-right">
+      <button class="faucet-btn">
+        <span class="material-symbols-outlined">water_drop</span>
+        Faucet
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content">
+
+    <!-- ── SWAP PAGE ────────────────────────── -->
+    <div class="page active" id="page-swap">
+      <div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start">
+        <!-- Swap card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Swap Tokens</div>
+              <div class="card-subtitle">Instant on-chain execution</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="icon-btn"><span class="material-symbols-outlined">tune</span></button>
+              <button class="icon-btn"><span class="material-symbols-outlined">refresh</span></button>
+            </div>
+          </div>
+
+          <div class="token-box">
+            <div class="token-box-label">You pay</div>
+            <div class="token-row">
+              <div class="token-selector">
+                <div class="token-dot" style="background:#3b82f6">USDC</div>
+                <span class="token-symbol">USDC</span>
+                <span class="material-symbols-outlined token-chevron">expand_more</span>
+              </div>
+              <input class="token-input" placeholder="0.00" value="500" />
+            </div>
+            <div class="token-balance">
+              <span>Balance: 1,240.00 USDC</span>
+              <span>MAX</span>
+            </div>
+          </div>
+
+          <div class="swap-arrow-row">
+            <button class="swap-arrow-btn">
+              <span class="material-symbols-outlined">swap_vert</span>
+            </button>
+          </div>
+
+          <div class="token-box">
+            <div class="token-box-label">You receive</div>
+            <div class="token-row">
+              <div class="token-selector">
+                <div class="token-dot" style="background:#8b5cf6">WBTC</div>
+                <span class="token-symbol">WBTC</span>
+                <span class="material-symbols-outlined token-chevron">expand_more</span>
+              </div>
+              <input class="token-input" placeholder="0.00" value="0.01134" />
+            </div>
+            <div class="token-balance">
+              <span>Balance: 0.0821 WBTC</span>
+              <span style="color:var(--text-faint)">≈ $499.32</span>
+            </div>
+          </div>
+
+          <div class="swap-details">
+            <div class="swap-detail-row">
+              <span class="key">Rate</span>
+              <span class="val">1 USDC = 0.0000227 WBTC</span>
+            </div>
+            <div class="swap-detail-row">
+              <span class="key">Price impact</span>
+              <span class="val good">0.08%</span>
+            </div>
+            <div class="swap-detail-row">
+              <span class="key">Slippage tolerance</span>
+              <span class="val">0.5%</span>
+            </div>
+            <div class="swap-detail-row">
+              <span class="key">Network fee</span>
+              <span class="val">~$0.04</span>
+            </div>
+          </div>
+
+          <button class="swap-btn">Swap Tokens</button>
+        </div>
+
+        <!-- Right: quick stats -->
+        <div>
+          <div class="stats-row" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+            <div class="stat-card">
+              <div class="stat-lbl"><span class="material-symbols-outlined" style="font-size:13px">candlestick_chart</span>24h Volume</div>
+              <div class="stat-val">$2.4M</div>
+              <div class="stat-change up">▲ 12.4%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-lbl"><span class="material-symbols-outlined" style="font-size:13px">water</span>Total Liquidity</div>
+              <div class="stat-val">$18.7M</div>
+              <div class="stat-change up">▲ 3.1%</div>
+            </div>
+          </div>
+
+          <!-- Recent pools -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Top Pools</div>
+              <a style="font-size:12px;color:var(--primary);cursor:pointer;font-weight:600" onclick="showPage('pools',document.querySelector('[onclick*=pools]'))">View all →</a>
+            </div>
+            <div class="pools-grid">
+              <div class="pool-row">
+                <div class="pool-icons">
+                  <div class="pool-icon" style="background:#3b82f6">US</div>
+                  <div class="pool-icon" style="background:#8b5cf6">WB</div>
+                </div>
+                <div>
+                  <div class="pool-pair">USDC / WBTC</div>
+                  <div class="pool-tier">Standard · 0.3%</div>
+                </div>
+                <div class="pool-stat">
+                  <div class="val">$4.2M</div>
+                  <div class="lbl">Liquidity</div>
+                </div>
+                <div class="pool-stat" style="min-width:60px">
+                  <div class="apy-badge">8.4%</div>
+                  <div class="lbl" style="text-align:center;margin-top:3px">APY</div>
+                </div>
+              </div>
+              <div class="pool-row">
+                <div class="pool-icons">
+                  <div class="pool-icon" style="background:#25c0f4">AR</div>
+                  <div class="pool-icon" style="background:#3b82f6">US</div>
+                </div>
+                <div>
+                  <div class="pool-pair">ARC / USDC</div>
+                  <div class="pool-tier">Standard · 0.3%</div>
+                </div>
+                <div class="pool-stat">
+                  <div class="val">$7.1M</div>
+                  <div class="lbl">Liquidity</div>
+                </div>
+                <div class="pool-stat" style="min-width:60px">
+                  <div class="apy-badge">12.1%</div>
+                  <div class="lbl" style="text-align:center;margin-top:3px">APY</div>
+                </div>
+              </div>
+              <div class="pool-row">
+                <div class="pool-icons">
+                  <div class="pool-icon" style="background:#f59e0b">ET</div>
+                  <div class="pool-icon" style="background:#3b82f6">US</div>
+                </div>
+                <div>
+                  <div class="pool-pair">WETH / USDC</div>
+                  <div class="pool-tier">Standard · 0.3%</div>
+                </div>
+                <div class="pool-stat">
+                  <div class="val">$6.8M</div>
+                  <div class="lbl">Liquidity</div>
+                </div>
+                <div class="pool-stat" style="min-width:60px">
+                  <div class="apy-badge">9.7%</div>
+                  <div class="lbl" style="text-align:center;margin-top:3px">APY</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── POOLS PAGE ────────────────────────── -->
+    <div class="page" id="page-pools">
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-lbl">Total Value Locked</div>
+          <div class="stat-val">$18.7M</div>
+          <div class="stat-change up">▲ 3.1% today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">24h Volume</div>
+          <div class="stat-val">$2.4M</div>
+          <div class="stat-change up">▲ 12.4%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Active Pools</div>
+          <div class="stat-val">14</div>
+          <div class="stat-change up">▲ 2 new</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active">All Pools</button>
+        <button class="tab">My Positions</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Liquidity Pools</div>
+          <button style="background:var(--primary);color:#0f172a;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">+ Add Liquidity</button>
+        </div>
+        <div class="pools-grid">
+          <div class="pool-row" style="display:grid;grid-template-columns:auto 1fr 120px 100px 100px;align-items:center;gap:14px">
+            <div class="pool-icons"><div class="pool-icon" style="background:#3b82f6">US</div><div class="pool-icon" style="background:#8b5cf6">WB</div></div>
+            <div><div class="pool-pair">USDC / WBTC</div><div class="pool-tier">0.3% fee</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$4.2M</div><div style="font-size:11px;color:var(--text-faint)">Liquidity</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$340K</div><div style="font-size:11px;color:var(--text-faint)">24h Vol</div></div>
+            <div style="text-align:right"><div class="apy-badge">8.4% APY</div></div>
+          </div>
+          <div class="pool-row" style="display:grid;grid-template-columns:auto 1fr 120px 100px 100px;align-items:center;gap:14px">
+            <div class="pool-icons"><div class="pool-icon" style="background:#25c0f4">AR</div><div class="pool-icon" style="background:#3b82f6">US</div></div>
+            <div><div class="pool-pair">ARC / USDC</div><div class="pool-tier">0.3% fee</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$7.1M</div><div style="font-size:11px;color:var(--text-faint)">Liquidity</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$820K</div><div style="font-size:11px;color:var(--text-faint)">24h Vol</div></div>
+            <div style="text-align:right"><div class="apy-badge">12.1% APY</div></div>
+          </div>
+          <div class="pool-row" style="display:grid;grid-template-columns:auto 1fr 120px 100px 100px;align-items:center;gap:14px">
+            <div class="pool-icons"><div class="pool-icon" style="background:#f59e0b">ET</div><div class="pool-icon" style="background:#3b82f6">US</div></div>
+            <div><div class="pool-pair">WETH / USDC</div><div class="pool-tier">0.3% fee</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$6.8M</div><div style="font-size:11px;color:var(--text-faint)">Liquidity</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$610K</div><div style="font-size:11px;color:var(--text-faint)">24h Vol</div></div>
+            <div style="text-align:right"><div class="apy-badge">9.7% APY</div></div>
+          </div>
+          <div class="pool-row" style="display:grid;grid-template-columns:auto 1fr 120px 100px 100px;align-items:center;gap:14px">
+            <div class="pool-icons"><div class="pool-icon" style="background:#ec4899">EU</div><div class="pool-icon" style="background:#3b82f6">US</div></div>
+            <div><div class="pool-pair">EURC / USDC</div><div class="pool-tier">0.05% fee · Stable</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$2.1M</div><div style="font-size:11px;color:var(--text-faint)">Liquidity</div></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--text)">$190K</div><div style="font-size:11px;color:var(--text-faint)">24h Vol</div></div>
+            <div style="text-align:right"><div class="apy-badge">4.2% APY</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BRIDGE PAGE ────────────────────────── -->
+    <div class="page" id="page-bridge">
+      <div style="display:grid;grid-template-columns:400px 1fr;gap:20px;align-items:start">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Bridge USDC</div>
+              <div class="card-subtitle">Powered by Circle CCTP V2</div>
+            </div>
+            <div class="speed-badge">
+              <span class="material-symbols-outlined" style="font-size:12px">bolt</span>
+              Fast Transfer
+            </div>
+          </div>
+
+          <div class="bridge-chain-selector">
+            <div class="chain-box">
+              <div class="lbl">From</div>
+              <div class="chain-name">
+                <div class="chain-flag">AR</div>
+                Arc Testnet
+                <span class="material-symbols-outlined" style="font-size:16px;color:var(--text-faint);margin-left:auto">expand_more</span>
+              </div>
+            </div>
+            <span class="material-symbols-outlined bridge-arrow">arrow_forward</span>
+            <div class="chain-box">
+              <div class="lbl">To</div>
+              <div class="chain-name">
+                <div class="chain-flag" style="background:rgba(99,102,241,0.12);color:#818cf8">BS</div>
+                Base Sepolia
+                <span class="material-symbols-outlined" style="font-size:16px;color:var(--text-faint);margin-left:auto">expand_more</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-box" style="margin:0 16px 12px">
+            <div class="token-box-label">Amount (USDC)</div>
+            <div class="token-row">
+              <div class="token-selector">
+                <div class="token-dot" style="background:#3b82f6">US</div>
+                <span class="token-symbol">USDC</span>
+              </div>
+              <input class="token-input" placeholder="0.00" value="100" />
+            </div>
+            <div class="token-balance">
+              <span>Balance: 1,240.00 USDC</span>
+              <span>MAX</span>
+            </div>
+          </div>
+
+          <div style="margin:0 16px 14px;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px">
+            <div class="bridge-fee-row" style="margin:0 0 4px">
+              <span class="key">Estimated fee</span>
+              <span class="val">~$0.35</span>
+            </div>
+            <div class="bridge-fee-row" style="margin:0 0 4px">
+              <span class="key">You receive</span>
+              <span class="val" style="color:var(--text)">~99.65 USDC</span>
+            </div>
+            <div class="bridge-fee-row" style="margin:0">
+              <span class="key">Transfer time</span>
+              <span class="val" style="color:var(--green)">~20 seconds</span>
+            </div>
+          </div>
+
+          <div style="margin:0 16px 12px;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:11px;color:var(--text-faint);margin-bottom:6px">Destination address</div>
+            <div style="font-size:12px;font-family:monospace;color:var(--text-muted)">0x742d35Cc6634C0532925a3b844Bc454e4438f44e</div>
+          </div>
+
+          <button class="swap-btn" style="background:var(--primary)">Bridge USDC</button>
+        </div>
+
+        <!-- Bridge history -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Transfer History</div>
+          </div>
+          <div class="activity-row">
+            <div class="activity-icon bridge"><span class="material-symbols-outlined">swap_horizontal_circle</span></div>
+            <div class="activity-meta">
+              <div class="activity-title">Arc → Base Sepolia</div>
+              <div class="activity-sub">100 USDC · Completed</div>
+            </div>
+            <div>
+              <div class="activity-amount" style="color:var(--green)">+99.65 USDC</div>
+              <div class="activity-time">2 min ago</div>
+            </div>
+          </div>
+          <div class="activity-row">
+            <div class="activity-icon bridge"><span class="material-symbols-outlined">swap_horizontal_circle</span></div>
+            <div class="activity-meta">
+              <div class="activity-title">Base Sepolia → Arc</div>
+              <div class="activity-sub">500 USDC · Completed</div>
+            </div>
+            <div>
+              <div class="activity-amount" style="color:var(--green)">+499.18 USDC</div>
+              <div class="activity-time">18 min ago</div>
+            </div>
+          </div>
+          <div class="activity-row">
+            <div class="activity-icon" style="background:rgba(244,63,94,0.1);color:var(--red)"><span class="material-symbols-outlined">error</span></div>
+            <div class="activity-meta">
+              <div class="activity-title">Solana → Arc</div>
+              <div class="activity-sub">200 USDC · Failed</div>
+            </div>
+            <div>
+              <div class="activity-amount" style="color:var(--red)">Failed</div>
+              <div class="activity-time">1 hr ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PORTFOLIO PAGE ────────────────────── -->
+    <div class="page" id="page-portfolio">
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-lbl">Total Balance</div>
+          <div class="stat-val">$4,821.40</div>
+          <div class="stat-change up">▲ $142.30 today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">LP Positions</div>
+          <div class="stat-val">$1,204.00</div>
+          <div class="stat-change up">▲ 2 active</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Fees Earned</div>
+          <div class="stat-val">$48.22</div>
+          <div class="stat-change up">▲ $3.10 today</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active">Token Holdings</button>
+        <button class="tab">LP Positions</button>
+      </div>
+
+      <div class="card">
+        <table class="ptable">
+          <thead><tr>
+            <th>Asset</th>
+            <th>Price</th>
+            <th>Balance</th>
+            <th>Value</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:10px"><div class="token-avatar" style="background:#3b82f6">USDC</div><div><div style="font-weight:700;font-size:13px">USD Coin</div><div style="font-size:11px;color:var(--text-faint)">USDC</div></div></div></td>
+              <td style="color:var(--text-muted)">$1.00</td>
+              <td style="font-weight:600">1,240.00 USDC</td>
+              <td style="font-weight:700">$1,240.00</td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:10px"><div class="token-avatar" style="background:#8b5cf6">WBTC</div><div><div style="font-weight:700;font-size:13px">Wrapped Bitcoin</div><div style="font-size:11px;color:var(--text-faint)">WBTC</div></div></div></td>
+              <td style="color:var(--text-muted)">$44,127</td>
+              <td style="font-weight:600">0.0821 WBTC</td>
+              <td style="font-weight:700">$3,622.80</td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:10px"><div class="token-avatar" style="background:#25c0f4">ARC</div><div><div style="font-weight:700;font-size:13px">Arc Token</div><div style="font-size:11px;color:var(--text-faint)">ARC</div></div></div></td>
+              <td style="color:var(--text-muted)">N/A</td>
+              <td style="font-weight:600">820.00 ARC</td>
+              <td style="font-weight:700">--</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ACTIVITY PAGE ────────────────────── -->
+    <div class="page" id="page-activity">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Transaction History</div>
+          <div class="tabs" style="margin-bottom:0">
+            <button class="tab active">All</button>
+            <button class="tab">Swaps</button>
+            <button class="tab">Liquidity</button>
+            <button class="tab">Bridge</button>
+          </div>
+        </div>
+        <div class="activity-row">
+          <div class="activity-icon swap"><span class="material-symbols-outlined">swap_horiz</span></div>
+          <div class="activity-meta">
+            <div class="activity-title">Swap USDC → WBTC</div>
+            <div class="activity-sub">500 USDC → 0.01134 WBTC</div>
+          </div>
+          <div>
+            <div class="activity-amount" style="color:var(--green)">Confirmed</div>
+            <div class="activity-time">3 min ago</div>
+          </div>
+        </div>
+        <div class="activity-row">
+          <div class="activity-icon liq"><span class="material-symbols-outlined">water</span></div>
+          <div class="activity-meta">
+            <div class="activity-title">Add Liquidity ARC/USDC</div>
+            <div class="activity-sub">200 ARC + 120 USDC</div>
+          </div>
+          <div>
+            <div class="activity-amount" style="color:var(--green)">Confirmed</div>
+            <div class="activity-time">1 hr ago</div>
+          </div>
+        </div>
+        <div class="activity-row">
+          <div class="activity-icon bridge"><span class="material-symbols-outlined">swap_horizontal_circle</span></div>
+          <div class="activity-meta">
+            <div class="activity-title">Bridge Arc → Base Sepolia</div>
+            <div class="activity-sub">100 USDC</div>
+          </div>
+          <div>
+            <div class="activity-amount" style="color:var(--green)">Confirmed</div>
+            <div class="activity-time">2 hr ago</div>
+          </div>
+        </div>
+        <div class="activity-row">
+          <div class="activity-icon swap"><span class="material-symbols-outlined">swap_horiz</span></div>
+          <div class="activity-meta">
+            <div class="activity-title">Swap WETH → USDC</div>
+            <div class="activity-sub">0.5 WETH → 1,841.20 USDC</div>
+          </div>
+          <div>
+            <div class="activity-amount" style="color:var(--green)">Confirmed</div>
+            <div class="activity-time">5 hr ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ANALYTICS PAGE ────────────────────── -->
+    <div class="page" id="page-analytics">
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-lbl">All-time Volume</div>
+          <div class="stat-val">$84.2M</div>
+          <div class="stat-change up">▲ Since launch</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">All-time Trades</div>
+          <div class="stat-val">128,401</div>
+          <div class="stat-change up">▲ 1,204 today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Unique Traders</div>
+          <div class="stat-val">3,841</div>
+          <div class="stat-change up">▲ 42 new today</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Volume (7d)</div></div>
+          <div style="padding:20px">
+            <!-- Simple bar chart -->
+            <div style="display:flex;align-items:flex-end;gap:8px;height:120px">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="flex:1;width:100%;background:var(--primary-dim);border-radius:5px 5px 0 0;min-height:30%;position:relative;display:flex;align-items:flex-end"><div style="width:100%;background:var(--primary);border-radius:5px 5px 0 0;height:45%"></div></div>
+                <span style="font-size:10px;color:var(--text-faint)">Mon</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="flex:1;width:100%;background:var(--primary-dim);border-radius:5px 5px 0 0;position:relative;display:flex;align-items:flex-end"><div style="width:100%;background:var(--primary);border-radius:5px 5px 0 0;height:68%"></div></div>
+                <span style="font-size:10px;color:var(--text-faint)">Tue</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="flex:1;width:100%;background:var(--primary-dim);border-radius:5px 5px 0 0;position:relative;display:flex;align-items:flex-end"><div style="width:100%;background:var(--primary);border-radius:5px 5px 0 0;height:52%"></div></div>
+                <span style="font-size:10px;color:var(--text-faint)">Wed</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="flex:1;width:100%;background:var(--primary-dim);border-radius:5px 5px 0 0;position:relative;display:flex;align-items:flex-end"><div style="width:100%;background:var(--primary);border-radius:5px 5px 0 0;height:80%"></div></div>
+                <span style="font-size:10px;color:var(--text-faint)">Thu</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="flex:1;width:100%;background:var(--primary-dim);border-radius:5px 5px 0 0;position:relative;display:flex;align-items:flex-end"><div style="width:100%;background:var(--primary);border-radius:5px 5px 0 0;height:62%"></div></div>
+                <span style="font-size:10px;color:var(--text-faint)">Fri</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="flex:1;width:100%;background:var(--primary-dim);border-radius:5px 5px 0 0;position:relative;display:flex;align-items:flex-end"><div style="width:100%;background:var(--primary);border-radius:5px 5px 0 0;height:95%"></div></div>
+                <span style="font-size:10px;color:var(--text-faint)">Sat</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="flex:1;width:100%;background:var(--primary-dim);border-radius:5px 5px 0 0;position:relative;display:flex;align-items:flex-end"><div style="width:100%;background:rgba(37,192,244,0.5);border-radius:5px 5px 0 0;height:70%"></div></div>
+                <span style="font-size:10px;color:var(--text-faint)">Sun</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Orderbook — WBTC/USDC</div></div>
+          <div style="padding:16px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:6px">
+              <div style="font-size:10.5px;font-weight:600;color:var(--red);text-align:left;padding:0 4px">ASKS</div>
+              <div style="font-size:10.5px;font-weight:600;color:var(--green);text-align:right;padding:0 4px">BIDS</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0;font-size:11.5px">
+              <div style="color:var(--red);padding:3px 4px;text-align:left">0.412</div><div style="color:var(--text-faint);padding:3px 8px;font-weight:700;font-size:12px">44,201</div><div style="color:var(--green);padding:3px 4px;text-align:right">0.218</div>
+              <div style="color:var(--red);padding:3px 4px;text-align:left">0.631</div><div style="color:var(--text-faint);padding:3px 8px;font-weight:700;font-size:12px">44,185</div><div style="color:var(--green);padding:3px 4px;text-align:right">0.541</div>
+              <div style="color:var(--red);padding:3px 4px;text-align:left">1.102</div><div style="color:var(--text-faint);padding:3px 8px;font-weight:700;font-size:12px">44,132</div><div style="color:var(--green);padding:3px 4px;text-align:right">0.884</div>
+              <div style="color:var(--red);padding:3px 4px;text-align:left">2.44</div><div style="color:var(--text-faint);padding:3px 8px;font-weight:700;font-size:12px">44,100</div><div style="color:var(--green);padding:3px 4px;text-align:right">1.310</div>
+              <div style="color:var(--red);padding:3px 4px;text-align:left">3.01</div><div style="color:var(--text-faint);padding:3px 8px;font-weight:700;font-size:12px">44,072</div><div style="color:var(--green);padding:3px 4px;text-align:right">2.100</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-content -->
+</div><!-- /main -->
+
+<script>
+  function showPage(id, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    if (el) el.classList.add('active');
+    document.getElementById('topbar-title').textContent =
+      { swap:'Swap', pools:'Pools', bridge:'Bridge', portfolio:'Portfolio', activity:'Activity', analytics:'Analytics' }[id];
+  }
+</script>
+</body>
+</html>
