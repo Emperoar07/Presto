@@ -7,8 +7,8 @@ import { getHubToken } from '@/config/tokens';
 
 const ARC_CHAIN_ID = 5042002;
 const CACHE_TTL_MS = 60_000;
-const FULL_SCAN_START_BLOCK = 0n;
-const LOG_CHUNK_SIZE = 50_000n;
+const FULL_SCAN_START_BLOCK = 32_600_000n; // HubAMM deployed ~block 32,655,000
+const LOG_CHUNK_SIZE = 9_999n;
 const MAX_PARALLEL_CHUNKS = 6;
 
 const ARC_TESTNET = defineChain({
