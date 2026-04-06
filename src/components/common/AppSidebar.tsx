@@ -97,7 +97,7 @@ export const AppSidebar = memo(function AppSidebar() {
   }, [accountMenuOpen, chainMenuOpen]);
 
   const navLinks = NAV_LINKS.filter((link) => {
-    if (link.href === '/analytics') return isTempoNativeChain(chainId);
+    if (link.href === '/analytics') return true;
     if (link.href === '/bridge') return pathname === '/bridge' || isArcChain(chainId || arcTestnet.id);
     return true;
   });

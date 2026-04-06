@@ -164,7 +164,7 @@ function MyPositionRow({
             {poolStat?.vol24h ?? '$0'} 24h volume
           </span>
           <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            {poolStat?.swapCount ?? 0} swaps
+            {poolStat?.vol24h ?? '$0'} vol
           </span>
         </div>
         <button
@@ -300,18 +300,6 @@ function PoolListRow({
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          <div className="text-right">
-            <span
-              className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
-              style={{
-                color: poolStat.hasLiquidity ? '#34d399' : '#64748b',
-                background: poolStat.hasLiquidity ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
-              }}
-            >
-              {poolStat.hasLiquidity ? `${poolStat.swapCount} swaps` : 'No activity'}
-            </span>
-            <p className="mt-0.5 hidden text-[11px] text-slate-500 md:block">{poolStat.vol24h}</p>
-          </div>
           <span className="hidden rounded-[10px] bg-[#25c0f4] px-3 py-2 text-[12px] font-bold text-[#0f172a] md:inline-block">
             {isActive ? 'Hide Manager' : lpBalance > 0 ? 'Manage' : 'Add Liquidity'}
           </span>
@@ -648,15 +636,12 @@ function PositionManagerInline({
             <p className="mt-1 text-[13px] font-extrabold" style={{ color: item.color }}>{item.value}</p>
           </div>
         ))}
-        {/* snapshot + swap count */}
+        {/* snapshot */}
         <div className="flex flex-1 items-center justify-between gap-3 px-4 py-2.5" style={{ borderLeft: '1px solid rgba(255,255,255,0.05)' }}>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Pool snapshot</p>
             <p className="mt-1 text-[11px] text-slate-400">{userReserveValue.toFixed(4)} {token.symbol} · {hubReserveValue.toFixed(4)} {hubToken.symbol}</p>
           </div>
-          <span className="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            {poolStat?.swapCount ?? 0} swaps
-          </span>
         </div>
       </div>
 
