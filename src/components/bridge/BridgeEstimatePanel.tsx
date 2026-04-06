@@ -75,20 +75,6 @@ export function BridgeEstimatePanel({
         <span className="flex-1 truncate text-[11px] text-slate-400">
           {statusMessage ?? (errorMessage ? 'Bridge needs attention.' : 'Preparing the transfer...')}
         </span>
-        {(estimate || bridgeStatusCard) ? (
-          <span
-            className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-              bridgeStatusCard?.state === 'error'
-                ? 'text-rose-300'
-                : bridgeStatusCard?.state === 'success'
-                  ? 'text-emerald-300'
-                  : 'text-slate-200'
-            }`}
-            style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            {estimate ? (totalUsdc > 0 ? formatUsd(totalUsdc.toString()) : '$0.0000') : bridgeStatusCard?.state ?? 'Live'}
-          </span>
-        ) : null}
       </div>
 
       {/* ── Error message ── */}
@@ -114,15 +100,9 @@ export function BridgeEstimatePanel({
         </div>
       ) : null}
 
-      {/* ── Ticker row: Receive | Fee | Exact toggle ── */}
+      {/* ── Ticker row: Fee | Exact toggle ── */}
       {estimate ? (
         <div className="flex items-center gap-4 px-3 py-2">
-          <div className="flex items-baseline gap-1">
-            <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Receive</span>
-            <span className="text-[12px] font-semibold text-emerald-400">{estimatedReceiveAmount}</span>
-            <span className="text-[9px] text-slate-500">USDC</span>
-          </div>
-          <div className="h-3.5 w-px bg-white/[0.06]" />
           <div className="flex items-baseline gap-1">
             <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">Fee</span>
             <span className="text-[12px] font-semibold text-slate-100">

@@ -1200,7 +1200,6 @@ export function BridgeWorkspace() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-[10px] font-medium text-slate-500">Amount (USDC)</p>
-                        <p className="mt-1 text-[11px] text-slate-500">Bridge from the selected source chain and settle directly into the destination wallet.</p>
                       </div>
                       <button
                         type="button"

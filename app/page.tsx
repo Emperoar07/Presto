@@ -133,9 +133,6 @@ export default function Home() {
               style={{ boxShadow: '0 8px 28px rgba(37,192,244,0.20)' }}
             >
               Launch App
-              <svg width="16" height="16" fill="none" stroke="#090e1a" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
-                <path d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
             </Link>
             <Link
               href="/docs"
