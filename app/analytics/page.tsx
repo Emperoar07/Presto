@@ -12,7 +12,6 @@ const AnalyticsDashboard = dynamic(
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function AnalyticsPage() {
   const chainId = useChainId();
@@ -60,23 +59,41 @@ export default function AnalyticsPage() {
 
       {/* ── Two-column panels ── */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* ── Volume (7d) placeholder ── */}
+        {/* ── Volume by Pool ── */}
         <div className="flex flex-col rounded-[14px]" style={{ background: SURF, border: BDR, minHeight: 260 }}>
           <div className="px-5 pt-5 pb-4">
-            <p className="text-[15px] font-bold text-slate-100">Volume (7d)</p>
+            <p className="text-[15px] font-bold text-slate-100">Volume by Pool</p>
           </div>
           <div className="flex flex-1 flex-col justify-end px-5 pb-4">
-            {/* Bar chart placeholder */}
-            <div className="flex items-end gap-2" style={{ height: 120 }}>
-              {[0.3, 0.5, 0.25, 0.7, 0.45, 0.6, 0.35].map((h, i) => (
-                <div key={i} className="flex-1 rounded-t-[4px]" style={{ height: `${h * 100}%`, background: 'rgba(37,192,244,0.18)' }} />
-              ))}
-            </div>
-            <div className="mt-2 flex gap-2">
-              {DAYS.map((d) => (
-                <p key={d} className="flex-1 text-center text-[10px] font-medium text-slate-500">{d}</p>
-              ))}
-            </div>
+            {(() => {
+              const poolVolumes = pools.map((p: { pair: string; vol24h: string; label: string }) => {
+                const raw = Number.parseFloat((p.vol24h ?? '').replace(/[^0-9.]/g, '')) || 0;
+                return { pair: p.pair, label: p.label, raw };
+              });
+              const maxVol = Math.max(...poolVolumes.map((p: { raw: number }) => p.raw), 1);
+              return (
+                <>
+                  <div className="flex items-end gap-2" style={{ height: 120 }}>
+                    {poolVolumes.map((p: { pair: string; raw: number }, i: number) => (
+                      <div key={i} className="group relative flex-1">
+                        <div
+                          className="w-full rounded-t-[4px] transition-colors hover:!bg-[rgba(37,192,244,0.35)]"
+                          style={{ height: `${Math.max((p.raw / maxVol) * 100, 4)}%`, background: 'rgba(37,192,244,0.22)' }}
+                        />
+                        <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-200 opacity-0 group-hover:opacity-100">
+                          ${p.raw.toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    {poolVolumes.map((p: { pair: string; label: string }, i: number) => (
+                      <p key={i} className="flex-1 text-center text-[10px] font-medium text-slate-500">{p.label}</p>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 

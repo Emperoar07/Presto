@@ -27,7 +27,7 @@ type PoolStat = {
 };
 
 export default function SwapPage() {
-  const { dexStats, poolStats, loading } = useSwapPageStats();
+  const { poolStats, loading } = useSwapPageStats();
   const pools: PoolStat[] = poolStats?.pools ?? [];
 
   return (
@@ -38,32 +38,6 @@ export default function SwapPage() {
         </div>
 
         <div className="w-full space-y-4 xl:flex-1" style={{ maxWidth: 580 }}>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              {
-                icon: 'candlestick_chart',
-                label: 'Total Volume',
-                value: loading ? '--' : (dexStats?.totalVolumeUSDC ?? '$0'),
-                sub: `${dexStats?.totalSwaps ?? 0} swaps`,
-              },
-              {
-                icon: 'water',
-                label: 'Total Liquidity',
-                value: loading ? '--' : (poolStats?.totalLiquidityUsdc ?? '$0'),
-                sub: `${pools.filter((p) => p.hasLiquidity).length} active pools`,
-              },
-            ].map(({ icon, label, value, sub }) => (
-              <div key={label} className="rounded-[16px] px-5 py-5" style={{ background: SURF, border: BDR }}>
-                <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-slate-500">
-                  <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{icon}</span>
-                  {label}
-                </p>
-                <p className="text-[20px] font-extrabold leading-none tracking-tight text-slate-100">{value}</p>
-                <p className="mt-1 text-[11px] font-semibold text-emerald-400">{sub}</p>
-              </div>
-            ))}
-          </div>
-
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
             <div className="flex items-center justify-between px-5 py-[14px]" style={{ borderBottom: BDR }}>
               <p className="text-[14px] font-bold text-slate-100">Top Pools</p>

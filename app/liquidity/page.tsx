@@ -1275,19 +1275,6 @@ export default function LiquidityPage() {
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        {[
-          { label: 'Total Value Locked', value: loading ? '--' : (data?.totalLiquidityUsdc ?? '$0'), sub: 'Stable liquidity' },
-          { label: 'Total Volume', value: loading ? '--' : (data?.totalVolumeUsdc ?? '$0'), sub: `${data?.totalSwaps ?? 0} swaps` },
-          { label: 'Active Pools', value: loading ? '--' : String(activePools.length), sub: `${activePools.length} live now` },
-        ].map(({ label, value, sub }) => (
-          <div key={label} className="rounded-[16px] px-3 py-4 md:px-5 md:py-5" style={{ background: SURF, border: BDR }}>
-            <p className="mb-1 text-[10px] font-medium text-slate-500 md:mb-1.5 md:text-[11px]">{label}</p>
-            <p className="text-[15px] font-extrabold leading-none tracking-tight text-slate-100 md:text-[20px]">{value}</p>
-            <p className="mt-1 text-[10px] font-semibold text-emerald-400 md:text-[11px]">{sub}</p>
-          </div>
-        ))}
-      </div>
 
       <div className="mb-[18px] flex w-fit gap-1 rounded-[10px] p-1" style={{ background: '#263347' }}>
         {(['pools', 'positions'] as const).map((tab) => (
