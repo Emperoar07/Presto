@@ -131,8 +131,16 @@ function aggregateStats(
   }
 
   for (const log of addLogs) {
-    const provider = (log.args as { provider: `0x${string}` }).provider;
+    const { provider, pathAmount } = log.args as {
+      provider: `0x${string}`;
+      token: `0x${string}`;
+      tokenAmount: bigint;
+      pathAmount: bigint;
+      shares: bigint;
+    };
     if (provider) traders.add(provider.toLowerCase());
+    // Count the USDC (hub) side of every liquidity add as protocol volume
+    if (pathAmount) volumeRaw += pathAmount;
   }
 
   totalSwaps += swapLogs.length;

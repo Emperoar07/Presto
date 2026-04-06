@@ -23,6 +23,11 @@ const liveArcAssets = [
     address: '0x175CdB1D338945f0D851A741ccF787D343E57952',
     note: 'Live on Arc through the normalized USDC hub with seeded liquidity in Presto.',
   },
+  {
+    symbol: 'USYC',
+    address: '0x825Ae482558415310C71B7E03d2BbBe409345903',
+    note: 'US Yield Coin. Deployed as a test token with seeded USYC/USDC liquidity on Arc.',
+  },
 ];
 
 const publicArcAssets = [
@@ -268,9 +273,20 @@ export default function DocsPage() {
 
             <Section id="analytics" title="Analytics and Activity">
               <p>
-                Activity on Arc reads hub AMM swap and liquidity events from the deployed contract instead of relying on brittle block
-                scraping. Analytics stays focused on lightweight market summaries rather than pretending Arc exposes the same native
-                orderbook analytics surface as Tempo.
+                The Analytics page tracks all-time protocol volume, including swap volume, liquidity additions, and bridge
+                inflows. Stats are read directly from on-chain Swap and LiquidityAdded events emitted by the Hub AMM contract,
+                scanning from block 0 with parallel chunk fetching for fast cold starts.
+              </p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li><strong>All-time Volume</strong> combines the USDC side of every swap and every liquidity deposit since launch.</li>
+                <li><strong>All-time Trades</strong> counts every Swap event across all pools.</li>
+                <li><strong>Unique Traders</strong> tracks distinct wallet addresses from both swaps and liquidity adds.</li>
+              </ul>
+
+              <p>
+                Activity reads the same hub AMM events tied to the connected wallet, showing recent swaps, liquidity adds
+                and removals, and bridge actions in a single timeline.
               </p>
 
               <div className="grid gap-4 md:grid-cols-2">
