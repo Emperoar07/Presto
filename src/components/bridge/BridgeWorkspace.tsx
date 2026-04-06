@@ -1116,7 +1116,7 @@ export function BridgeWorkspace() {
 
         return (
           <section className="grid w-full items-start gap-6 xl:grid-cols-[381px_minmax(0,1fr)]">
-            <div className="w-full max-w-[381px]">
+            <div className="mx-auto w-full max-w-[381px] xl:mx-0">
             <div className="overflow-hidden rounded-[16px]" style={{ background: '#141e30', border: '1px solid rgba(255,255,255,0.07)' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1319,9 +1319,14 @@ export function BridgeWorkspace() {
             {/* ---- Confirmation modal ---- */}
             {confirmOpen && estimate ? (
               <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/65 px-4 py-8">
-                <div className="w-full max-w-md rounded-[18px] border border-white/10 bg-[#151f33] p-4 shadow-[0_20px_60px_rgba(2,6,23,0.55)]">
+                <div className="w-full max-w-[520px] rounded-[20px] border border-white/10 bg-[#172234] p-5 shadow-[0_24px_70px_rgba(2,6,23,0.5)]">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Confirm Bridge</p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Confirm Bridge</p>
+                      <p className="mt-1 text-[15px] font-bold text-slate-100">
+                        {sourceNetwork.shortLabel} to {destinationNetwork.shortLabel}
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setConfirmOpen(false)}
@@ -1331,46 +1336,44 @@ export function BridgeWorkspace() {
                     </button>
                   </div>
 
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {/* Amount */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5">
+                    <div className="rounded-[14px] border border-white/10 bg-[#132238] px-4 py-3">
                       <span className="text-xs text-slate-400">{exactAmountMode ? 'Sending (incl. fees)' : 'Amount'}</span>
-                      <span className="text-sm font-semibold text-white">{compactAmount(exactAmountMode ? effectiveBridgeAmount : amount, 6)} USDC</span>
+                      <p className="mt-2 text-[14px] font-bold text-white">{compactAmount(exactAmountMode ? effectiveBridgeAmount : amount, 6)} USDC</p>
                     </div>
 
                     {/* Route */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5">
+                    <div className="rounded-[14px] border border-white/10 bg-[#132238] px-4 py-3">
                       <span className="text-xs text-slate-400">Route</span>
-                      <span className="text-sm font-semibold text-white">
-                        {sourceNetwork.shortLabel} &rarr; {destinationNetwork.shortLabel}
-                      </span>
+                      <p className="mt-2 text-[14px] font-bold text-white">{sourceNetwork.shortLabel} to {destinationNetwork.shortLabel}</p>
                     </div>
 
                     {/* Source address */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5">
+                    <div className="rounded-[14px] border border-white/10 bg-[#132238] px-4 py-3">
                       <span className="text-xs text-slate-400">From</span>
-                      <span className="text-xs font-mono text-slate-300 truncate max-w-[200px]" title={sourceAddress}>
+                      <p className="mt-2 truncate text-[12px] font-mono text-slate-300" title={sourceAddress}>
                         {sourceAddress.slice(0, 6)}...{sourceAddress.slice(-4)}
-                      </span>
+                      </p>
                     </div>
 
                     {/* Destination address */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5">
+                    <div className="rounded-[14px] border border-white/10 bg-[#132238] px-4 py-3">
                       <span className="text-xs text-slate-400">To</span>
-                      <span className="text-xs font-mono text-slate-300 truncate max-w-[200px]" title={resolvedDestinationAddress}>
+                      <p className="mt-2 truncate text-[12px] font-mono text-slate-300" title={resolvedDestinationAddress}>
                         {resolvedDestinationAddress.slice(0, 6)}...{resolvedDestinationAddress.slice(-4)}
-                      </span>
+                      </p>
                     </div>
 
                     {/* You receive */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5">
+                    <div className="rounded-[14px] border border-white/10 bg-[#132238] px-4 py-3">
                       <span className="text-xs text-slate-400">You receive</span>
-                      <span className="text-sm font-semibold text-emerald-400">{estimatedReceiveAmount} USDC</span>
+                      <p className="mt-2 text-[14px] font-bold text-emerald-400">{estimatedReceiveAmount} USDC</p>
                     </div>
 
                     {/* Fees */}
                     {estimate.fees.length > 0 ? (
-                      <div className="rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5">
+                      <div className="rounded-[14px] border border-white/10 bg-[#132238] px-4 py-3 sm:col-span-2">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Fees</p>
                         <div className="mt-2 space-y-1.5">
                           {estimate.fees.map((fee, i) => (
@@ -1392,14 +1395,14 @@ export function BridgeWorkspace() {
                     ) : null}
 
                     {/* Estimated time */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5">
+                    <div className="rounded-[14px] border border-white/10 bg-[#132238] px-4 py-3 sm:col-span-2">
                       <span className="text-xs text-slate-400">Estimated time</span>
-                      <span className="text-xs text-slate-300">~1-3 minutes</span>
+                      <p className="mt-2 text-[12px] font-semibold text-emerald-400">1 to 3 min</p>
                     </div>
 
                     {/* Cross-ecosystem warning */}
                     {isCrossEcosystem ? (
-                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 sm:col-span-2">
                         <p className="text-[11px] text-amber-300">
                           This is a cross-ecosystem bridge ({sourceNetwork.ecosystem.toUpperCase()} &rarr; {destinationNetwork.ecosystem.toUpperCase()}).
                           Ensure the destination address is correct — funds sent to the wrong address cannot be recovered.
@@ -1414,7 +1417,8 @@ export function BridgeWorkspace() {
                       setConfirmOpen(false);
                       void handleBridge();
                     }}
-                    className="mt-4 w-full rounded-[16px] bg-gradient-to-r from-[#1fb6ff] to-[#0ea5e9] px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-background-dark transition-opacity hover:opacity-95"
+                    className="mt-4 w-full rounded-[14px] px-5 py-3 text-sm font-black uppercase tracking-[0.08em] text-background-dark transition-opacity hover:opacity-95"
+                    style={{ background: '#25c0f4' }}
                   >
                     CONFIRM BRIDGE
                   </button>

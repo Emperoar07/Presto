@@ -6,7 +6,7 @@ import { useChainId, useSwitchChain } from 'wagmi';
 import { AppSidebar } from '@/components/common/AppSidebar';
 import { AppFooter } from '@/components/common/AppFooter';
 import { PageTopbar } from '@/components/common/PageTopbar';
-import { SidebarProvider } from '@/components/common/SidebarContext';
+import { SidebarProvider, useSidebar } from '@/components/common/SidebarContext';
 
 const ARC_CHAIN_ID = 5042002;
 
@@ -16,6 +16,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const prevPathname = useRef(pathname);
+  const { collapsed } = useSidebar();
 
   useEffect(() => {
     const wasBridge = prevPathname.current === '/bridge';
@@ -36,7 +37,13 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         <AppSidebar />
       </Suspense>
 
-      <div className="flex min-h-screen w-full flex-col md:pl-[220px]">
+      <div
+        className="flex min-h-screen w-full flex-col pl-0 md:pl-[var(--sidebar-offset)]"
+        style={{
+          ['--sidebar-offset' as string]: `${collapsed ? 64 : 220}px`,
+          transition: 'padding-left 0.3s ease',
+        }}
+      >
         <div className="h-14 md:hidden" />
         <Suspense fallback={null}>
           <PageTopbar />

@@ -160,8 +160,8 @@ export default function DocsPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Presto Docs</p>
               <h1 className="mt-3 text-[34px] font-extrabold tracking-tight text-slate-100">Getting started</h1>
               <p className="mt-4 text-[15px] leading-7 text-slate-300">
-                Presto is a testnet first DEX surface for Arc. These docs explain what is live today, how the app works,
-                what assets are enabled, and which parts of the product still need more liquidity or policy decisions.
+                Presto is a testnet first DEX surface for Arc. These docs cover the live product, the current network setup,
+                supported assets, developer references, and the legal policies linked across the app footer and landing page.
               </p>
             </div>
           </div>

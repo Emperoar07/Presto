@@ -39,13 +39,16 @@ export function BridgeHistoryPanel({
 
   return (
     <div
-      className="overflow-hidden rounded-[22px]"
-      style={{ background: '#1a2436', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 10px 28px rgba(2,6,23,0.22)' }}
+      className="overflow-hidden rounded-[18px]"
+      style={{ background: '#1a2436', border: '1px solid rgba(255,255,255,0.07)' }}
     >
-      <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div
+        className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+      >
         <div>
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-slate-500">Bridge History</p>
-          <p className="mt-1 text-[16px] font-bold tracking-tight text-slate-50">Recent Transfers</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Bridge History</p>
+          <p className="mt-1 text-[15px] font-bold tracking-tight text-slate-50">Recent Transfers</p>
         </div>
         <span
           className="rounded-full px-3 py-1.5 text-[11px] font-semibold text-slate-300"
@@ -54,10 +57,11 @@ export function BridgeHistoryPanel({
           {bridgeHistory.length} {bridgeHistory.length === 1 ? 'entry' : 'entries'}
         </span>
       </div>
-      <div className="space-y-3 px-4 py-4">
+
+      <div className="max-h-[420px] space-y-3 overflow-y-auto px-4 py-4">
         {bridgeHistory.length === 0 ? (
           <div
-            className="rounded-[18px] px-5 py-10 text-center text-[13px] text-slate-500"
+            className="rounded-[16px] px-5 py-10 text-center text-[13px] text-slate-500"
             style={{ background: '#162133', border: '1px solid rgba(255,255,255,0.06)' }}
           >
             No bridge transfers yet.
@@ -80,12 +84,15 @@ export function BridgeHistoryPanel({
             return (
               <div
                 key={item.id}
-                className="rounded-[18px] px-5 py-5 transition-colors"
+                className="rounded-[16px] px-4 py-4"
                 style={{ background: '#162133', border: '1px solid rgba(255,255,255,0.06)' }}
               >
-                <div className="flex items-start gap-3.5">
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full" style={{ background: iconBg }}>
-                    <span className="material-symbols-outlined text-[20px]" style={{ color: iconColor }}>
+                <div className="flex items-start gap-3">
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
+                    style={{ background: iconBg }}
+                  >
+                    <span className="material-symbols-outlined text-[19px]" style={{ color: iconColor }}>
                       {isFailed ? 'error' : 'sync_alt'}
                     </span>
                   </div>
@@ -101,7 +108,9 @@ export function BridgeHistoryPanel({
 
                       <div className="text-right">
                         {isSuccess ? (
-                          <p className="text-[13px] font-bold text-emerald-400">+{formatTokenAmount(item.amount, 6)} USDC</p>
+                          <p className="text-[13px] font-bold text-emerald-400">
+                            +{formatTokenAmount(item.amount, 6)} USDC
+                          </p>
                         ) : isFailed ? (
                           <p className="text-[13px] font-bold text-rose-400">Failed</p>
                         ) : (
@@ -137,8 +146,12 @@ export function BridgeHistoryPanel({
                       </span>
                     </div>
 
-                    {item.liveNote ? <p className="mt-4 text-[12px] leading-6 text-slate-400">{item.liveNote}</p> : null}
-                    {isFailed && item.errorMessage ? <p className="mt-2 text-[12px] text-rose-300">{item.errorMessage}</p> : null}
+                    {item.liveNote ? (
+                      <p className="mt-3 text-[12px] leading-6 text-slate-400">{item.liveNote}</p>
+                    ) : null}
+                    {isFailed && item.errorMessage ? (
+                      <p className="mt-2 text-[12px] text-rose-300">{item.errorMessage}</p>
+                    ) : null}
 
                     {(() => {
                       const stepsWithHash = item.steps.filter((step) => step.txHash);
@@ -146,10 +159,11 @@ export function BridgeHistoryPanel({
                       const fallbackHash = !hasStepLinks ? item.sourceTxHash : null;
 
                       return hasStepLinks || fallbackHash ? (
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {stepsWithHash.map((step, index) => {
                             const stepName = step.name ?? step.action ?? `Step ${index + 1}`;
-                            const stepChainKey = stepName.toLowerCase() === 'mint' ? item.destinationKey : item.sourceKey;
+                            const stepChainKey =
+                              stepName.toLowerCase() === 'mint' ? item.destinationKey : item.sourceKey;
                             const explorerBase = getExplorerBase(stepChainKey);
                             return (
                               <a
@@ -187,7 +201,7 @@ export function BridgeHistoryPanel({
                         type="button"
                         disabled={claimingItemId === item.id}
                         onClick={() => onManualClaim(item)}
-                        className="mt-5 flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] border border-primary/20 px-3 text-[13px] font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="mt-4 flex h-[48px] w-full items-center justify-center gap-2 rounded-[12px] border border-primary/20 px-3 text-[13px] font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                         style={{ background: '#162e45' }}
                       >
                         {claimingItemId === item.id ? (

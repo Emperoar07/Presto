@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useState, useEffect, useMemo } from 'react';
 import { formatUnits, parseUnits, type PublicClient } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
@@ -11,11 +10,6 @@ import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount } from '@
 import { TxToast } from '@/components/common/TxToast';
 import { isTempoNativeChain } from '@/config/contracts';
 import { usePoolStats } from '@/hooks/useApiQueries';
-
-const LiquidityCard = dynamic(
-  () => import('@/components/liquidity/LiquidityCard').then((m) => m.LiquidityCard),
-  { ssr: false, loading: () => null }
-);
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
@@ -189,6 +183,146 @@ function MyPositionRow({
   );
 }
 
+function PoolListRow({
+  token,
+  hubToken,
+  poolStat,
+  walletAddress,
+  isActive,
+  onManage,
+}: {
+  token: Token;
+  hubToken: Token;
+  poolStat: PoolStat;
+  walletAddress?: `0x${string}`;
+  isActive: boolean;
+  onManage: (tokenAddress: string) => void;
+}) {
+  const { data: liquidity } = (Hooks.amm.useLiquidityBalance
+    ? Hooks.amm.useLiquidityBalance({
+        address: walletAddress,
+        userToken: token.address as `0x${string}`,
+        validatorToken: hubToken.address as `0x${string}`,
+      })
+    : { data: null }) as { data: bigint | null };
+
+  const { data: totalShares } = (Hooks.amm.useTotalShares
+    ? Hooks.amm.useTotalShares({
+        userToken: token.address as `0x${string}`,
+        validatorToken: hubToken.address as `0x${string}`,
+      })
+    : { data: null }) as { data: bigint | null };
+
+  const { data: pool } = (Hooks.amm.usePool
+    ? Hooks.amm.usePool({
+        userToken: token.address as `0x${string}`,
+        validatorToken: hubToken.address as `0x${string}`,
+      })
+    : { data: null }) as {
+    data:
+      | {
+          reserveUserToken: bigint;
+          reserveValidatorToken: bigint;
+        }
+      | null;
+  };
+
+  const lpBalance = liquidity ? Number(formatUnits(liquidity, 18)) : 0;
+  const sharePercent =
+    liquidity && totalShares && totalShares > 0n
+      ? Number((liquidity * 10000n) / totalShares) / 100
+      : 0;
+  const reserveUserValue = pool?.reserveUserToken ? Number(formatUnits(pool.reserveUserToken, token.decimals)) : 0;
+  const reserveHubValue = pool?.reserveValidatorToken ? Number(formatUnits(pool.reserveValidatorToken, hubToken.decimals)) : 0;
+  const estimatedValue = reserveUserValue + reserveHubValue > 0 ? ((reserveUserValue + reserveHubValue) * sharePercent) / 100 : 0;
+
+  return (
+    <div
+      className="border-b border-white/[0.04] last:border-b-0"
+      style={{ background: isActive ? 'rgba(37,192,244,0.04)' : 'transparent' }}
+    >
+      <button
+        type="button"
+        onClick={() => onManage(token.address)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.02] md:grid md:gap-3.5 md:px-5"
+        style={{ gridTemplateColumns: 'auto 1fr 140px 140px 124px' }}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="relative flex h-6 w-10 flex-shrink-0">
+            {[{ bg: poolStat.color, lbl: poolStat.label }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
+              <div
+                key={idx}
+                className="absolute flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
+                style={{
+                  background: ic.bg,
+                  left: idx === 0 ? 0 : 14,
+                  zIndex: idx === 0 ? 1 : 0,
+                  border: `2px solid ${SURF}`,
+                }}
+              >
+                {ic.lbl}
+              </div>
+            ))}
+          </div>
+          <div className="min-w-0 md:hidden">
+            <p className="text-[13px] font-bold text-slate-100">{poolStat.pair}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{poolStat.hasLiquidity ? poolStat.liquidity : 'No liquidity'}</p>
+          </div>
+        </div>
+
+        <div className="hidden md:block">
+          <p className="text-[13px] font-bold text-slate-100">{poolStat.pair}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            {poolStat.hasLiquidity ? 'Stable hub / 0.3%' : 'No liquidity seeded'}
+          </p>
+        </div>
+
+        <div className="hidden md:block">
+          <p className="text-[13px] font-semibold text-slate-100">{poolStat.liquidity}</p>
+          <p className="text-[11px] text-slate-500">Liquidity</p>
+        </div>
+
+        <div className="hidden md:block">
+          <p className="text-[13px] font-semibold text-slate-100">{poolStat.vol24h}</p>
+          <p className="text-[11px] text-slate-500">24h Vol</p>
+        </div>
+
+        <div className="flex items-center justify-end gap-3">
+          <span
+            className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
+            style={{
+              color: poolStat.hasLiquidity ? '#34d399' : '#64748b',
+              background: poolStat.hasLiquidity ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
+            }}
+          >
+            {poolStat.hasLiquidity ? `${poolStat.swapCount} swaps` : 'No activity'}
+          </span>
+          <span className="hidden rounded-[10px] bg-[#25c0f4] px-3 py-2 text-[12px] font-bold text-[#0f172a] md:inline-block">
+            {isActive ? 'Hide Manager' : lpBalance > 0 ? 'Manage' : 'Add Liquidity'}
+          </span>
+        </div>
+      </button>
+
+      {isActive ? (
+        <div className="px-4 pb-4 md:px-5">
+          <PositionManagerInline
+            token={token}
+            hubToken={hubToken}
+            poolStat={poolStat}
+            liquidity={liquidity ?? 0n}
+            totalShares={totalShares ?? 0n}
+            reserveUserToken={pool?.reserveUserToken ?? 0n}
+            reserveHubToken={pool?.reserveValidatorToken ?? 0n}
+            lpBalance={lpBalance}
+            sharePercent={sharePercent}
+            estimatedValue={estimatedValue}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PositionManagerInline({
   token,
   hubToken,
@@ -223,6 +357,7 @@ function PositionManagerInline({
 
   const [addAmount, setAddAmount] = useState('');
   const [removeAmount, setRemoveAmount] = useState('');
+  const [actionMode, setActionMode] = useState<'add' | 'remove'>('add');
   const [requiredHubAmount, setRequiredHubAmount] = useState('0');
   const [userTokenBalance, setUserTokenBalance] = useState('0');
   const [hubTokenBalance, setHubTokenBalance] = useState('0');
@@ -360,12 +495,13 @@ function PositionManagerInline({
     if (!liquidity) return;
     const nextAmount = Number(formatUnits(liquidity, 18)) * fraction;
     setRemoveAmount(nextAmount.toFixed(4));
+    setActionMode('remove');
   };
 
   return (
     <div
-      className="mt-4 rounded-[14px] p-4"
-      style={{ background: '#1b2638', border: '1px solid rgba(255,255,255,0.07)' }}
+      className="mt-4 rounded-[12px] p-4"
+      style={{ background: '#172234', border: '1px solid rgba(255,255,255,0.06)' }}
     >
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
@@ -385,8 +521,8 @@ function PositionManagerInline({
           ].map((item) => (
             <div
               key={item.label}
-              className="min-w-[132px] rounded-[11px] px-3 py-2.5"
-              style={{ background: '#243247', border: '1px solid rgba(255,255,255,0.06)' }}
+              className="min-w-[132px] rounded-[10px] px-3 py-2.5"
+              style={{ background: '#1f2b3f', border: '1px solid rgba(255,255,255,0.05)' }}
             >
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                 {item.label}
@@ -397,8 +533,8 @@ function PositionManagerInline({
         </div>
 
         <div
-          className="rounded-[11px] px-4 py-3"
-          style={{ background: '#111b2d', border: '1px solid rgba(255,255,255,0.06)' }}
+          className="rounded-[10px] px-4 py-3"
+          style={{ background: '#121c2d', border: '1px solid rgba(255,255,255,0.05)' }}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -409,132 +545,148 @@ function PositionManagerInline({
             </div>
             <span
               className="rounded-full px-2.5 py-1 text-[10px] font-semibold text-slate-400"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+              style={{ background: '#1b2739', border: '1px solid rgba(255,255,255,0.05)' }}
             >
               {poolStat?.swapCount ?? 0} swaps
             </span>
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div
-            className="rounded-[12px] p-4"
-            style={{ background: '#111b2d', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Add</p>
-                <p className="mt-1 text-[14px] font-extrabold text-slate-100">Top up position</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAddAmount(userTokenBalance)}
-                className="rounded-full px-2.5 py-1 text-[11px] font-bold text-[#25c0f4]"
-                style={{ background: 'rgba(37,192,244,0.08)', border: '1px solid rgba(37,192,244,0.2)' }}
-              >
-                Max
-              </button>
+        <div
+          className="rounded-[12px] p-4"
+          style={{ background: '#121c2d', border: '1px solid rgba(255,255,255,0.05)' }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Position actions</p>
+              <p className="mt-1 text-[14px] font-extrabold text-slate-100">
+                {actionMode === 'add' ? 'Top up position' : 'Trim position'}
+              </p>
             </div>
 
-            <div className="mb-3 grid gap-2 sm:grid-cols-2">
-              <div
-                className="rounded-[10px] px-3 py-2"
-                style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}
-              >
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{token.symbol} wallet</p>
-                <p className="mt-1 text-[13px] font-semibold text-slate-100">
-                  {Number(userTokenBalance).toFixed(4)} {token.symbol}
-                </p>
-              </div>
-              <div
-                className="rounded-[10px] px-3 py-2"
-                style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}
-              >
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{hubToken.symbol} wallet</p>
-                <p className="mt-1 text-[13px] font-semibold text-slate-100">
-                  {Number(hubTokenBalance).toFixed(4)} {hubToken.symbol}
-                </p>
-              </div>
+            <div className="flex items-center gap-2 rounded-full p-1" style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {(['add', 'remove'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setActionMode(mode)}
+                  className="rounded-full px-3 py-1.5 text-[11px] font-bold transition-all"
+                  style={
+                    actionMode === mode
+                      ? {
+                          background: mode === 'add' ? '#25c0f4' : 'rgba(239,68,68,0.16)',
+                          color: mode === 'add' ? '#09111d' : '#fca5a5',
+                        }
+                      : {
+                          color: '#94a3b8',
+                        }
+                  }
+                >
+                  {mode === 'add' ? 'Add' : 'Remove'}
+                </button>
+              ))}
             </div>
-
-            <div
-              className="rounded-[10px] px-3 py-3"
-              style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}
-            >
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                  {token.symbol} amount
-                </p>
-                <input
-                  type="number"
-                  value={addAmount}
-                  onChange={(event) => setAddAmount(event.target.value)}
-                  placeholder="0.0"
-                  className="w-full bg-transparent text-[24px] font-semibold tracking-tight text-slate-100 outline-none placeholder:text-slate-700"
-                />
-              </div>
-
-            <div className="mt-3 space-y-1.5 text-[12px]">
-              {!isTempoChain ? (
-                <div className="flex items-center justify-between text-slate-400">
-                  <span>{hubToken.symbol} required</span>
-                  <span className="font-semibold text-slate-100">
-                    {Number(requiredHubAmount || '0').toFixed(4)} {hubToken.symbol}
-                  </span>
-                </div>
-              ) : null}
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Est. LP</span>
-                <span className="font-semibold text-slate-100">
-                  {estimatedLpTokens === null ? '--' : estimatedLpTokens.toFixed(4)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span>New share</span>
-                <span className="font-semibold text-[#25c0f4]">
-                  {projectedShare === null ? '--' : `${projectedShare.toFixed(2)}%`}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleAddLiquidity}
-              disabled={isAdding || !addAmount}
-              className="mt-4 w-full rounded-[10px] px-4 py-2.5 text-[13px] font-bold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ background: '#25c0f4' }}
-            >
-              {isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
-            </button>
           </div>
 
-          <div
-            className="rounded-[12px] p-4"
-            style={{ background: '#111b2d', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Remove</p>
-                <p className="mt-1 text-[14px] font-extrabold text-slate-100">Trim position</p>
+          {actionMode === 'add' ? (
+            <div className="mt-4 space-y-3">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                <div
+                  className="rounded-[10px] px-3 py-2"
+                  style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{token.symbol} wallet</p>
+                  <p className="mt-1 text-[13px] font-semibold text-slate-100">
+                    {Number(userTokenBalance).toFixed(4)} {token.symbol}
+                  </p>
+                </div>
+                <div
+                  className="rounded-[10px] px-3 py-2"
+                  style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{hubToken.symbol} wallet</p>
+                  <p className="mt-1 text-[13px] font-semibold text-slate-100">
+                    {Number(hubTokenBalance).toFixed(4)} {hubToken.symbol}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAddAmount(userTokenBalance)}
+                  className="rounded-full px-3 py-2 text-[11px] font-bold text-[#25c0f4]"
+                  style={{ background: '#15314a', border: '1px solid rgba(37,192,244,0.16)' }}
+                >
+                  Max
+                </button>
               </div>
-              <div className="flex gap-2">
+
+              <div
+                className="rounded-[10px] px-3 py-3"
+                style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{token.symbol} amount</p>
+                    <input
+                      type="number"
+                      value={addAmount}
+                      onChange={(event) => setAddAmount(event.target.value)}
+                      placeholder="0.0"
+                      className="w-full bg-transparent text-[24px] font-semibold tracking-tight text-slate-100 outline-none placeholder:text-slate-700"
+                    />
+                  </div>
+                  <div className="rounded-full px-3 py-1.5 text-[12px] font-bold text-slate-100" style={{ background: '#233146', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {token.symbol}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-[12px] sm:grid-cols-3">
+                {!isTempoChain ? (
+                  <div className="rounded-[10px] px-3 py-2.5" style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p className="text-slate-500">{hubToken.symbol} required</p>
+                    <p className="mt-1 font-semibold text-slate-100">{Number(requiredHubAmount || '0').toFixed(4)} {hubToken.symbol}</p>
+                  </div>
+                ) : null}
+                <div className="rounded-[10px] px-3 py-2.5" style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="text-slate-500">Est. LP</p>
+                  <p className="mt-1 font-semibold text-slate-100">{estimatedLpTokens === null ? '--' : estimatedLpTokens.toFixed(4)}</p>
+                </div>
+                <div className="rounded-[10px] px-3 py-2.5" style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="text-slate-500">New share</p>
+                  <p className="mt-1 font-semibold text-[#25c0f4]">{projectedShare === null ? '--' : `${projectedShare.toFixed(2)}%`}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddLiquidity}
+                disabled={isAdding || !addAmount}
+                className="w-full rounded-[10px] px-4 py-2.5 text-[13px] font-bold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ background: '#25c0f4' }}
+              >
+                {isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <div className="flex flex-wrap gap-2">
                 {[0.25, 0.5, 1].map((fraction) => (
                   <button
                     key={fraction}
                     type="button"
                     onClick={() => presetRemoval(fraction)}
-                    className="rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-300"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    className="rounded-full px-3 py-1.5 text-[11px] font-bold text-slate-300"
+                    style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}
                   >
                     {fraction === 1 ? 'Max' : `${fraction * 100}%`}
                   </button>
                 ))}
               </div>
-            </div>
 
-            <div
-              className="rounded-[10px] px-3 py-3"
-              style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}
-            >
+              <div
+                className="rounded-[10px] px-3 py-3"
+                style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}
+              >
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">LP amount</p>
                 <input
                   type="number"
@@ -545,27 +697,28 @@ function PositionManagerInline({
                 />
               </div>
 
-            <div className="mt-3 rounded-[10px] px-3 py-3 text-[12px]" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Current LP</span>
-                <span className="font-semibold text-slate-100">{lpBalance.toFixed(4)}</span>
+              <div className="grid gap-2 text-[12px] sm:grid-cols-2">
+                <div className="rounded-[10px] px-3 py-2.5" style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="text-slate-500">Current LP</p>
+                  <p className="mt-1 font-semibold text-slate-100">{lpBalance.toFixed(4)}</p>
+                </div>
+                <div className="rounded-[10px] px-3 py-2.5" style={{ background: '#182235', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="text-slate-500">Current share</p>
+                  <p className="mt-1 font-semibold text-slate-100">{sharePercent.toFixed(2)}%</p>
+                </div>
               </div>
-              <div className="mt-2 flex items-center justify-between text-slate-400">
-                <span>Current share</span>
-                <span className="font-semibold text-slate-100">{sharePercent.toFixed(2)}%</span>
-              </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleRemoveLiquidity}
-              disabled={burnLiquidity.isPending || !removeAmount}
-              className="mt-4 w-full rounded-[10px] px-4 py-2.5 text-[13px] font-bold text-red-300 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)' }}
-            >
-              {burnLiquidity.isPending ? 'Removing...' : 'Remove Position'}
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleRemoveLiquidity}
+                disabled={burnLiquidity.isPending || !removeAmount}
+                className="w-full rounded-[10px] px-4 py-2.5 text-[13px] font-bold text-red-300 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)' }}
+              >
+                {burnLiquidity.isPending ? 'Removing...' : 'Remove Position'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -578,7 +731,6 @@ const USDC_COLOR = '#3b82f6';
 const USDC_LABEL = 'US';
 
 export default function LiquidityPage() {
-  const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'pools' | 'positions'>('pools');
   const [selectedPoolToken, setSelectedPoolToken] = useState<string | undefined>(undefined);
   const { data, isLoading: loading } = usePoolStats();
@@ -586,12 +738,6 @@ export default function LiquidityPage() {
   const chainId = useChainId();
   const tokens = useMemo(() => getTokens(chainId), [chainId]);
   const hubToken = useMemo(() => getHubToken(chainId) || tokens[0], [chainId, tokens]);
-
-  const handlePoolClick = (tokenAddress: string) => {
-    setSelectedPoolToken(tokenAddress);
-    setShowForm(true);
-    setActiveTab('pools');
-  };
 
   const pools = data?.pools ?? [];
   const activePools = pools.filter((pool) => pool.hasLiquidity);
@@ -628,12 +774,16 @@ export default function LiquidityPage() {
         ))}
       </div>
 
-      {activeTab === 'pools' && !showForm && (
+      {activeTab === 'pools' && (
         <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
           <div className="flex items-center justify-between px-5 py-[14px]" style={{ borderBottom: BDR }}>
             <p className="text-[14px] font-bold text-slate-100">Liquidity Pools</p>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() =>
+                setSelectedPoolToken((current) =>
+                  current ? undefined : availablePositionTokens[0]?.address
+                )
+              }
               className="rounded-lg px-3.5 py-1.5 text-[12px] font-bold text-[#0f172a]"
               style={{ background: '#25c0f4' }}
             >
@@ -647,88 +797,34 @@ export default function LiquidityPage() {
             <div className="px-5 py-8 text-center text-[13px] text-slate-500">No pool data available</div>
           ) : (
             <div>
-              {pools.map(({ pair, color, label, liquidity, vol24h, swapCount, hasLiquidity, tokenAddress }) => (
-                <div
-                  key={pair}
-                  onClick={() => handlePoolClick(tokenAddress)}
-                  className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.025] md:grid md:gap-3.5 md:px-5"
-                  style={{
-                    gridTemplateColumns: 'auto 1fr 140px 140px 96px',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                  }}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="relative flex h-6 w-10 flex-shrink-0">
-                      {[{ bg: color, lbl: label }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
-                        <div
-                          key={idx}
-                          className="absolute flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
-                          style={{
-                            background: ic.bg,
-                            left: idx === 0 ? 0 : 14,
-                            zIndex: idx === 0 ? 1 : 0,
-                            border: `2px solid ${SURF}`,
-                          }}
-                        >
-                          {ic.lbl}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="min-w-0 md:hidden">
-                      <p className="text-[13px] font-bold text-slate-100">{pair}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">{hasLiquidity ? liquidity : 'No liquidity'}</p>
-                    </div>
-                  </div>
+              {pools.map((pool) => {
+                const token = availablePositionTokens.find(
+                  (item) => item.address.toLowerCase() === pool.tokenAddress.toLowerCase()
+                );
+                if (!token) return null;
 
-                  <div className="hidden md:block">
-                    <p className="text-[13px] font-bold text-slate-100">{pair}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {hasLiquidity ? 'Stable hub / 0.3%' : 'No liquidity seeded'}
-                    </p>
-                  </div>
-
-                  <div className="hidden md:block">
-                    <p className="text-[13px] font-semibold text-slate-100">{liquidity}</p>
-                    <p className="text-[11px] text-slate-500">Liquidity</p>
-                  </div>
-
-                  <div className="hidden md:block">
-                    <p className="text-[13px] font-semibold text-slate-100">{vol24h}</p>
-                    <p className="text-[11px] text-slate-500">24h Vol</p>
-                  </div>
-
-                  <div className="text-right">
-                    <span
-                      className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
-                      style={{
-                        color: hasLiquidity ? '#34d399' : '#64748b',
-                        background: hasLiquidity ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
-                      }}
-                    >
-                      {hasLiquidity ? `${swapCount} swaps` : 'No activity'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                return (
+                  <PoolListRow
+                    key={pool.pair}
+                    token={token}
+                    hubToken={hubToken}
+                    poolStat={pool}
+                    walletAddress={address}
+                    isActive={selectedPoolToken?.toLowerCase() === token.address.toLowerCase()}
+                    onManage={(tokenAddress) =>
+                      setSelectedPoolToken((current) =>
+                        current?.toLowerCase() === tokenAddress.toLowerCase() ? undefined : tokenAddress
+                      )
+                    }
+                  />
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
-      {showForm && (
-        <div>
-          <button
-            onClick={() => { setShowForm(false); setSelectedPoolToken(undefined); }}
-            className="mb-4 flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition-colors hover:text-slate-200"
-          >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            Back to pools
-          </button>
-          <LiquidityCard initialTokenAddress={showForm ? selectedPoolToken : undefined} />
-        </div>
-      )}
-
-      {activeTab === 'positions' && !showForm && (
+      {activeTab === 'positions' && (
         <div className="space-y-5">
           <div className="grid grid-cols-3 gap-3">
             {[

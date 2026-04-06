@@ -1,14 +1,15 @@
-# PrestoDEX
+# Presto
 
-A decentralized exchange frontend for Tempo and Arc testnets, with a live Arc normalized hub AMM, Tempo-native fee routing, and an in-progress Arc stable-swap upgrade path.
+A testnet first decentralized exchange frontend for Arc and Tempo, with a live Arc normalized hub AMM, wallet aware bridge flows, chain specific liquidity management, and a redesigned app shell.
 
 ## Features
 
 - Instant swaps across Tempo and Arc
-- Tempo-native fee routing and limit-order support
+- Arc and EVM bridge workspace for USDC routes
+- Tempo native fee routing and limit order support
 - Live Arc hub liquidity for `USDC`, `EURC`, `USDT`, and `WUSDC`
-- Chain-aware liquidity, portfolio, and activity flows
-- Mobile-responsive frontend
+- Chain aware liquidity, portfolio, activity, and docs flows
+- Mobile responsive frontend with a redesigned sidebar shell
 
 ## Tech Stack
 
@@ -28,8 +29,8 @@ A decentralized exchange frontend for Tempo and Arc testnets, with a live Arc no
 ### Installation
 
 ```bash
-git clone <your-repo-url>
-cd tempo-mini-dex
+git clone https://github.com/Emperoar07/Presto.git
+cd Presto
 npm install
 cp .env.example .env
 npm run dev
@@ -93,6 +94,16 @@ contracts/          Solidity contracts
 scripts/            Deployment and indexing scripts
 data/               Local deployment and analytics snapshots
 ```
+
+## Docs
+
+Presto ships a built in docs surface at `/docs` with:
+
+- product guidance
+- developer references
+- privacy policy
+- terms of use
+- cookie policy
 
 ## Network Support
 

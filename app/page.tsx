@@ -237,7 +237,7 @@ export default function Home() {
             <div className="flex gap-4">
               {[
                 ['Docs', '/docs'],
-                ['GitHub', 'https://github.com/Emperoar07/tempo-mini-dapp'],
+                ['GitHub', 'https://github.com/Emperoar07/Presto'],
               ].map(([label, href]) => (
                 <Link key={href} href={href} className="text-[12px] text-[#4b6280] transition-colors hover:text-[#25c0f4]">
                   {label}

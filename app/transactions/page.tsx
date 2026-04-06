@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTransactions } from '@/hooks/useApiQueries';
+import type { BridgeHistoryItem } from '@/components/bridge/types';
+import { BRIDGE_HISTORY_STORAGE_KEY, isValidBridgeHistoryItem } from '@/components/bridge/constants';
 
 const SURF = '#1e293b';
 const SURF_2 = '#263347';
@@ -13,26 +15,145 @@ type TxItem = {
   type: string;
   status: string;
   amount: string;
+  timestamp?: number;
 };
 
-function activityIcon(type: string) {
-  const normalized = type.toLowerCase();
-  if (normalized.includes('swap')) return { icon: 'swap_horiz', bg: 'rgba(37,192,244,0.12)', color: '#25c0f4' };
-  if (normalized.includes('liquidity') || normalized.includes('mint') || normalized.includes('burn')) return { icon: 'water', bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
-  if (normalized.includes('bridge')) return { icon: 'swap_horizontal_circle', bg: 'rgba(139,92,246,0.12)', color: '#a78bfa' };
-  return { icon: 'receipt_long', bg: 'rgba(255,255,255,0.06)', color: '#94a3b8' };
+type ActivityCategory = 'swaps' | 'liquidity' | 'bridge';
+
+type ActivityItem = {
+  id: string;
+  category: ActivityCategory;
+  title: string;
+  subtitle: string;
+  statusLabel: string;
+  statusTone: string;
+  timeLabel: string;
+  timestamp: number;
+  hashLabel?: string;
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+};
+
+function formatRelativeTime(timestamp: number) {
+  if (!timestamp) return 'Recent';
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+
+  if (diffSeconds < 5) return 'Just now';
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hr ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+}
+
+function buildApiActivity(item: TxItem): ActivityItem {
+  const normalized = item.type.toLowerCase();
+  const category: ActivityCategory = normalized.includes('swap')
+    ? 'swaps'
+    : normalized.includes('bridge')
+      ? 'bridge'
+      : 'liquidity';
+
+  const success = item.status === 'Success' || item.status === 'Confirmed';
+  const failed = item.status === 'Failed';
+  const statusLabel = success ? 'Confirmed' : failed ? 'Failed' : item.status || 'Pending';
+  const statusTone = success ? 'text-emerald-400' : failed ? 'text-rose-400' : 'text-amber-400';
+
+  const visual =
+    category === 'swaps'
+      ? { icon: 'swap_horiz', bg: 'rgba(37,192,244,0.12)', color: '#25c0f4' }
+      : category === 'bridge'
+        ? { icon: 'sync_alt', bg: 'rgba(139,92,246,0.12)', color: '#a78bfa' }
+        : { icon: 'water', bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
+
+  return {
+    id: `api-${item.hash}-${item.block}`,
+    category,
+    title: item.type,
+    subtitle: item.amount && item.amount !== '0' ? `Amount ${item.amount}` : `Block ${item.block}`,
+    statusLabel,
+    statusTone,
+    timeLabel: formatRelativeTime(item.timestamp ?? 0),
+    timestamp: item.timestamp ?? 0,
+    hashLabel: `${item.hash.slice(0, 6)}...${item.hash.slice(-4)}`,
+    icon: visual.icon,
+    iconBg: visual.bg,
+    iconColor: visual.color,
+  };
+}
+
+function buildBridgeActivity(item: BridgeHistoryItem): ActivityItem {
+  const effectiveState = item.liveState ?? item.state;
+  const success = effectiveState === 'success';
+  const failed = effectiveState === 'error';
+  const routeTitle = `${item.sourceKey.replace('-devnet', '').replace('-', ' ')} to ${item.destinationKey
+    .replace('-devnet', '')
+    .replace('-', ' ')}`;
+
+  return {
+    id: `bridge-${item.id}`,
+    category: 'bridge',
+    title: routeTitle.replace(/\b\w/g, (char) => char.toUpperCase()),
+    subtitle: `${item.amount} USDC`,
+    statusLabel: success ? 'Completed' : failed ? 'Failed' : 'Pending',
+    statusTone: success ? 'text-emerald-400' : failed ? 'text-rose-400' : 'text-amber-400',
+    timeLabel: formatRelativeTime(item.createdAt),
+    timestamp: item.createdAt,
+    hashLabel: item.sourceTxHash ? `${item.sourceTxHash.slice(0, 6)}...${item.sourceTxHash.slice(-4)}` : undefined,
+    icon: failed ? 'error' : 'sync_alt',
+    iconBg: failed ? 'rgba(244,63,94,0.10)' : success ? 'rgba(167,139,250,0.12)' : 'rgba(245,158,11,0.12)',
+    iconColor: failed ? '#f43f5e' : success ? '#a78bfa' : '#fbbf24',
+  };
 }
 
 export default function TransactionsPage() {
   const [filter, setFilter] = useState<'all' | 'swaps' | 'liquidity' | 'bridge'>('all');
+  const [bridgeHistory, setBridgeHistory] = useState<BridgeHistoryItem[]>([]);
   const { data: items = [], isLoading } = useTransactions();
 
+  useEffect(() => {
+    const readBridgeHistory = () => {
+      try {
+        const raw = localStorage.getItem(BRIDGE_HISTORY_STORAGE_KEY);
+        if (!raw) {
+          setBridgeHistory([]);
+          return;
+        }
+        const parsed = JSON.parse(raw) as unknown[];
+        setBridgeHistory(Array.isArray(parsed) ? parsed.filter(isValidBridgeHistoryItem) : []);
+      } catch {
+        setBridgeHistory([]);
+      }
+    };
+
+    readBridgeHistory();
+    const intervalId = window.setInterval(readBridgeHistory, 10_000);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === BRIDGE_HISTORY_STORAGE_KEY) readBridgeHistory();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  const activityItems = useMemo(() => {
+    const apiItems = (items as TxItem[]).map(buildApiActivity);
+    const bridgeItems = bridgeHistory.map(buildBridgeActivity);
+    return [...apiItems, ...bridgeItems].sort((a, b) => b.timestamp - a.timestamp);
+  }, [bridgeHistory, items]);
+
   const filteredItems = useMemo(() => {
-    if (filter === 'all') return items as TxItem[];
-    return (items as TxItem[]).filter((item) =>
-      item.type.toLowerCase().includes(filter === 'swaps' ? 'swap' : filter)
-    );
-  }, [filter, items]);
+    if (filter === 'all') return activityItems;
+    return activityItems.filter((item) => item.category === filter);
+  }, [activityItems, filter]);
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
@@ -67,39 +188,29 @@ export default function TransactionsPage() {
           <div className="px-5 py-10 text-[13px] text-slate-400">No transactions found for this wallet yet.</div>
         ) : (
           <div>
-            {filteredItems.map((item) => {
-              const visual = activityIcon(item.type);
-              const success = item.status === 'Success' || item.status === 'Confirmed';
-
-              return (
-                <div
-                  key={`${item.hash}-${item.block}`}
-                  className="flex items-center gap-3 border-b px-5 py-3 last:border-b-0"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+            {filteredItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 border-b px-5 py-3 last:border-b-0"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+              >
+                <span
+                  className="flex size-8 items-center justify-center rounded-[10px]"
+                  style={{ background: item.iconBg, color: item.iconColor }}
                 >
-                  <span
-                    className="flex size-8 items-center justify-center rounded-[10px]"
-                    style={{ background: visual.bg, color: visual.color }}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">{visual.icon}</span>
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-[13px] font-semibold text-slate-100">{item.type}</p>
-                    <p className="mt-0.5 text-[11.5px] text-slate-500">
-                      {item.amount && item.amount !== '0' ? `Amount ${item.amount}` : `Block ${item.block}`}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-[13px] font-bold ${success ? 'text-emerald-400' : item.status === 'Failed' ? 'text-rose-400' : 'text-amber-400'}`}>
-                      {success ? 'Confirmed' : item.status}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {item.hash.slice(0, 6)}...{item.hash.slice(-4)}
-                    </p>
-                  </div>
+                  <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold text-slate-100">{item.title}</p>
+                  <p className="mt-0.5 truncate text-[11.5px] text-slate-500">{item.subtitle}</p>
                 </div>
-              );
-            })}
+                <div className="text-right">
+                  <p className={`text-[13px] font-bold ${item.statusTone}`}>{item.statusLabel}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{item.timeLabel}</p>
+                  {item.hashLabel ? <p className="mt-0.5 text-[10px] text-slate-600">{item.hashLabel}</p> : null}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -33,12 +33,13 @@ export function BridgeEstimatePanel({
 
   if (estimate) {
     const protocolTotal = estimate.fees.reduce((sum, fee) => sum + Number(fee.amount ?? 0), 0);
-
     const gasByToken = new Map<string, number>();
+
     for (const g of estimate.gasFees) {
       if (!g.fees?.fee) continue;
       const feeStr = g.fees.fee;
-      const value = feeStr.includes('.') ? Number(feeStr) : Number(BigInt(feeStr)) / 10 ** (g.token === 'SOL' ? 9 : 18);
+      const value =
+        feeStr.includes('.') ? Number(feeStr) : Number(BigInt(feeStr)) / 10 ** (g.token === 'SOL' ? 9 : 18);
       gasByToken.set(g.token, (gasByToken.get(g.token) ?? 0) + value);
     }
 
@@ -50,11 +51,42 @@ export function BridgeEstimatePanel({
 
   const hasEstimateFees = estimate && (totalUsdc > 0 || nativeGasEntries.length > 0);
 
+  if (!hasBridgeActivity) return null;
+
   return (
-    <>
-      {bridgeStatusCard ? (
-        <div className="mt-3 rounded-[12px] border border-white/10 bg-[#151f33] px-3 py-2.5">
-          <div className="flex items-center gap-2">
+    <div className="mt-3 overflow-hidden rounded-[16px]" style={{ background: '#161f31', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="flex items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Bridge Progress</p>
+          <p className="mt-1 text-[13px] font-medium text-slate-200">
+            {statusMessage ?? (errorMessage ? 'Bridge needs attention.' : 'Preparing the transfer...')}
+          </p>
+        </div>
+        {(estimate || bridgeStatusCard) ? (
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10.5px] font-semibold ${
+              bridgeStatusCard?.state === 'error'
+                ? 'text-rose-300'
+                : bridgeStatusCard?.state === 'success'
+                  ? 'text-emerald-300'
+                  : 'text-slate-200'
+            }`}
+            style={{ background: '#223046', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            {estimate ? (totalUsdc > 0 ? formatUsd(totalUsdc.toString()) : '$0.0000') : bridgeStatusCard?.state ?? 'Live'}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="space-y-3 px-4 py-4">
+        {errorMessage ? (
+          <div className="rounded-[12px] border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-[12px] text-rose-300">
+            {errorMessage}
+          </div>
+        ) : null}
+
+        {bridgeStatusCard ? (
+          <div className="flex items-center gap-2 rounded-[12px] border border-white/5 bg-[#121a2a] px-3 py-2.5">
             <span
               className={`inline-flex h-2 w-2 rounded-full ${
                 bridgeStatusCard.state === 'success'
@@ -64,111 +96,86 @@ export function BridgeEstimatePanel({
                     : 'bg-amber-400 animate-pulse'
               }`}
             />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
-              {bridgeStatusCard.state === 'success'
-                ? 'Success'
-                : bridgeStatusCard.state === 'error'
-                  ? 'Failed'
-                  : 'Pending'}
-            </span>
+            <span className="text-[12px] text-slate-300">{bridgeStatusCard.message}</span>
           </div>
-          <p className="mt-1.5 text-xs text-slate-300">{bridgeStatusCard.message}</p>
-        </div>
-      ) : null}
+        ) : null}
 
-      {hasBridgeActivity ? (
-        <div className="mt-3 rounded-[12px] border border-white/10 bg-[#151f33] px-3 py-2.5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bridge progress</p>
-              <p className="mt-1 text-[12px] text-slate-300">
-                {statusMessage ?? (errorMessage ? 'Bridge needs attention.' : 'Waiting for bridge activity.')}
-              </p>
-            </div>
-            {estimate ? (
-              <span className="rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1 text-[10.5px] font-semibold text-slate-200">
-                {totalUsdc > 0 ? formatUsd(totalUsdc.toString()) : '$0.0000'}
-              </span>
-            ) : null}
-          </div>
-
-          {errorMessage ? <p className="mt-2 text-xs text-rose-300">{errorMessage}</p> : null}
-
-          {estimate ? (
-            <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
-              <div className="rounded-[10px] border border-white/5 bg-[#0d1829] px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Receive</p>
-                <p className="mt-1 text-[13px] font-semibold text-emerald-400">{estimatedReceiveAmount} USDC</p>
+        {estimate ? (
+          <>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-[12px] border border-white/5 bg-[#111a2a] px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Receive</p>
+                <p className="mt-1.5 text-[12px] font-semibold text-emerald-400">{estimatedReceiveAmount} USDC</p>
               </div>
-              <div className="rounded-[10px] border border-white/5 bg-[#0d1829] px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Estimated fee</p>
-                <p className="mt-1 text-[13px] font-semibold text-slate-200">
+              <div className="rounded-[12px] border border-white/5 bg-[#111a2a] px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Estimated Fee</p>
+                <p className="mt-1.5 text-[12px] font-semibold text-slate-100">
                   {hasEstimateFees && totalUsdc > 0 ? `${totalUsdc.toFixed(totalUsdc >= 1 ? 2 : 6)} USDC` : 'No fees'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => onExactAmountModeChange(!exactAmountMode)}
-                className="flex w-full items-center justify-between rounded-[10px] border border-white/5 bg-[#0d1829] px-3 py-2 text-left text-[10px] text-slate-400 transition-colors hover:border-primary/20 hover:text-slate-300"
+                className="flex items-center justify-between rounded-[12px] border border-white/5 bg-[#111a2a] px-3 py-2.5 text-left transition-colors hover:border-primary/20"
               >
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Fee mode</p>
-                  <p className="mt-1 text-[12px] text-slate-300">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Fee Mode</p>
+                  <p className="mt-1.5 text-[12px] font-semibold text-slate-100">
                     {exactAmountMode ? 'Exact receive' : 'Fees from amount'}
                   </p>
                 </div>
-                <span className="font-semibold text-slate-300">{exactAmountMode ? 'On' : 'Off'}</span>
+                <span className="text-[11px] font-semibold text-slate-400">{exactAmountMode ? 'On' : 'Off'}</span>
               </button>
             </div>
-          ) : null}
 
-          {estimate && nativeGasEntries.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {nativeGasEntries.map(({ token, amount }) => (
-                <span
-                  key={token}
-                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#132238] px-2.5 py-1 text-[10px] text-slate-300"
-                >
-                  <span className="text-slate-500">Gas</span>
-                  <span>
-                    {amount < 0.000001 ? '<0.000001' : amount.toFixed(6)} {token}
+            {nativeGasEntries.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {nativeGasEntries.map(({ token, amount }) => (
+                  <span
+                    key={token}
+                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#132238] px-2.5 py-1 text-[10px] text-slate-300"
+                  >
+                    <span className="text-slate-500">Gas</span>
+                    <span>
+                      {amount < 0.000001 ? '<0.000001' : amount.toFixed(6)} {token}
+                    </span>
                   </span>
-                </span>
-              ))}
-            </div>
-          ) : null}
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : null}
 
-          {bridgeResult?.steps?.some((step) => step.txHash) ? (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {bridgeResult.steps
-                .filter((step) => step.txHash)
-                .map((step, index) => {
-                  const stepName = step.name ?? step.action ?? `Step ${index + 1}`;
-                  const stepChainKey = stepName.toLowerCase() === 'mint' ? destinationKey : sourceKey;
-                  const explorerBase = getExplorerBase(stepChainKey);
+        {bridgeResult?.steps?.some((step) => step.txHash) ? (
+          <div className="flex flex-wrap gap-1.5">
+            {bridgeResult.steps
+              .filter((step) => step.txHash)
+              .map((step, index) => {
+                const stepName = step.name ?? step.action ?? `Step ${index + 1}`;
+                const stepChainKey = stepName.toLowerCase() === 'mint' ? destinationKey : sourceKey;
+                const explorerBase = getExplorerBase(stepChainKey);
 
-                  return (
-                    <a
-                      key={`${stepName}-${index}`}
-                      href={`${explorerBase}${step.txHash}${stepChainKey === 'solana-devnet' ? '?cluster=devnet' : ''}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#132238] px-2.5 py-1 text-[10px] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"
-                    >
-                      <span
-                        className={`inline-flex h-1.5 w-1.5 rounded-full ${
-                          step.state === 'success' ? 'bg-emerald-400' : step.state === 'error' ? 'bg-rose-400' : 'bg-slate-500'
-                        }`}
-                      />
-                      <span className="capitalize">{stepName}</span>
-                      <span className="material-symbols-outlined text-[11px]">open_in_new</span>
-                    </a>
-                  );
-                })}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </>
+                return (
+                  <a
+                    key={`${stepName}-${index}`}
+                    href={`${explorerBase}${step.txHash}${stepChainKey === 'solana-devnet' ? '?cluster=devnet' : ''}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#132238] px-2.5 py-1 text-[10px] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"
+                  >
+                    <span
+                      className={`inline-flex h-1.5 w-1.5 rounded-full ${
+                        step.state === 'success' ? 'bg-emerald-400' : step.state === 'error' ? 'bg-rose-400' : 'bg-slate-500'
+                      }`}
+                    />
+                    <span className="capitalize">{stepName}</span>
+                    <span className="material-symbols-outlined text-[11px]">open_in_new</span>
+                  </a>
+                );
+              })}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }

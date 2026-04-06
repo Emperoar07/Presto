@@ -32,7 +32,7 @@ export default function SwapPage() {
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
-      <div className="flex flex-col items-start gap-5 xl:flex-row">
+      <div className="flex flex-col items-center gap-5 xl:flex-row xl:items-start">
         <div className="w-full xl:w-auto xl:flex-shrink-0">
           <SwapCardEnhanced />
         </div>
