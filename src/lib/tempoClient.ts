@@ -598,13 +598,12 @@ export async function addFeeLiquidity(
 
   onStage?.('approving');
 
-  onStage?.('adding');
-
   if (isTempoChain) {
     if (validatorToken !== ZERO_ADDRESS) {
       await approveToken(client, publicClient, account, validatorToken, targetAddress, amount);
     }
 
+    onStage?.('adding');
     // Tempo chain uses FEE_AMM_ABI.mint
     return client.writeContract({
       address: targetAddress,

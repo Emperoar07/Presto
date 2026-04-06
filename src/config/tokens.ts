@@ -33,7 +33,8 @@ export const CHAIN_TOKENS: Record<number, Token[]> = {
     { id: "usdc", symbol: "USDC", name: "USD Coin", address: "0x3600000000000000000000000000000000000000", decimals: 6, image: "/icons/usdc.png" },
     { id: "eurc", symbol: "EURC", name: "Euro Coin", address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6, image: "/icons/eurc.png", quoteTokenId: "usdc" },
     { id: "usdt", symbol: "USDT", name: "Tether USD", address: "0x175CdB1D338945f0D851A741ccF787D343E57952", decimals: 18, quoteTokenId: "usdc" },
-    { id: "wusdc", symbol: "WUSDC", name: "Wrapped USDC", address: "0x911b4000D3422F482F4062a913885f7b035382Df", decimals: 18, quoteTokenId: "usdc" }
+    { id: "wusdc", symbol: "WUSDC", name: "Wrapped USDC", address: "0x911b4000D3422F482F4062a913885f7b035382Df", decimals: 18, quoteTokenId: "usdc" },
+    { id: "usyc", symbol: "USYC", name: "US Yield Coin", address: "0xe9185F0c5F296Ed1797AaE4238D26CCaBEadb86C", decimals: 6, quoteTokenId: "usdc" }
   ]
 };
 

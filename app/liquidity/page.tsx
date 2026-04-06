@@ -817,7 +817,9 @@ function CompactPositionManagerInline({
     ? Hooks.amm.useBurnSync()
     : { mutate: () => {}, isPending: false };
 
-  const [addAmount, setAddAmount] = useState('');
+  const [addAmount, setAddAmountRaw] = useState('');
+  const [hubAddAmount, setHubAddAmountRaw] = useState('');
+  const [addInputSource, setAddInputSource] = useState<'token' | 'hub'>('token');
   const [removeAmount, setRemoveAmount] = useState('');
   const [actionMode, setActionMode] = useState<'add' | 'remove'>('add');
   const [requiredHubAmount, setRequiredHubAmount] = useState('0');
@@ -829,6 +831,43 @@ function CompactPositionManagerInline({
   const userReserveValue = Number(formatUnits(reserveUserToken, token.decimals));
   const hubReserveValue = Number(formatUnits(reserveHubToken, hubToken.decimals));
   const poolRatio = userReserveValue > 0 ? hubReserveValue / userReserveValue : null;
+  const inverseRatio = hubReserveValue > 0 ? userReserveValue / hubReserveValue : null;
+  const numericUserBalance = Number.parseFloat(userTokenBalance || '0');
+  const numericHubBalance = Number.parseFloat(hubTokenBalance || '0');
+
+  const handleTokenAmountChange = (value: string) => {
+    setAddAmountRaw(value);
+    setAddInputSource('token');
+    const num = Number.parseFloat(value);
+    if (Number.isFinite(num) && num > 0 && poolRatio && Number.isFinite(poolRatio)) {
+      setHubAddAmountRaw((num * poolRatio).toFixed(6));
+    } else {
+      setHubAddAmountRaw('');
+    }
+  };
+
+  const handleHubAmountChange = (value: string) => {
+    setHubAddAmountRaw(value);
+    setAddInputSource('hub');
+    const num = Number.parseFloat(value);
+    if (Number.isFinite(num) && num > 0 && inverseRatio && Number.isFinite(inverseRatio)) {
+      setAddAmountRaw((num * inverseRatio).toFixed(6));
+    } else {
+      setAddAmountRaw('');
+    }
+  };
+
+  const setAddAmount = (value: string) => handleTokenAmountChange(value);
+  const maxAddAmount = (() => {
+    if (isTempoChain) return hubTokenBalance;
+    if (!Number.isFinite(numericUserBalance) || numericUserBalance <= 0) return '0';
+    if (!Number.isFinite(numericHubBalance) || numericHubBalance <= 0) return '0';
+    if (!Number.isFinite(userReserveValue) || !Number.isFinite(hubReserveValue) || userReserveValue <= 0 || hubReserveValue <= 0) {
+      return formatEditableAmount(numericUserBalance, token.decimals);
+    }
+    const affordableByHub = numericHubBalance * (userReserveValue / hubReserveValue);
+    return formatEditableAmount(Math.min(numericUserBalance, affordableByHub), token.decimals);
+  })();
 
   useEffect(() => {
     const fetchBalances = async () => {
@@ -970,16 +1009,31 @@ function CompactPositionManagerInline({
     }
   };
 
-  const handleRemoveLiquidity = () => {
+  const handleRemoveLiquidity = async () => {
     if (!address || !removeAmount) return;
-
-    burnLiquidity.mutate({
+    const payload = {
       userTokenAddress: token.address as `0x${string}`,
       validatorTokenAddress: hubToken.address as `0x${string}`,
       liquidityAmount: parseUnits(removeAmount, 18),
       to: address,
       feeToken: hubToken.address as `0x${string}`,
-    });
+    };
+
+    try {
+      if (typeof burnLiquidity.mutateAsync === 'function') {
+        const hash = await burnLiquidity.mutateAsync(payload);
+        if (hash) {
+          toast.custom(() => <TxToast hash={hash} title="Liquidity removal submitted" />);
+          await publicClient?.waitForTransactionReceipt({ hash });
+        }
+      } else {
+        burnLiquidity.mutate(payload);
+      }
+      setRemoveAmount('');
+    } catch (error: unknown) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to remove liquidity');
+    }
   };
 
   const presetRemoval = (fraction: number) => {
@@ -1091,7 +1145,7 @@ function CompactPositionManagerInline({
               </div>
             </div>
 
-            <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_140px_90px_130px] xl:items-end">
+            <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px_130px] xl:items-end">
               <div>
                 <div className="mb-1 flex items-center justify-between">
                   <label className="text-[10px] text-slate-500">{token.symbol} amount</label>
@@ -1107,7 +1161,7 @@ function CompactPositionManagerInline({
                   <input
                     type="number"
                     value={addAmount}
-                    onChange={(e) => setAddAmount(e.target.value)}
+                    onChange={(e) => handleTokenAmountChange(e.target.value)}
                     placeholder="0.0"
                     className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700"
                   />
@@ -1118,9 +1172,27 @@ function CompactPositionManagerInline({
               </div>
 
               <div>
-                <p className="mb-1 text-[10px] text-slate-500">{hubToken.symbol} required</p>
-                <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
-                  {Number(requiredHubAmount || '0').toFixed(4)} {hubToken.symbol}
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-[10px] text-slate-500">{hubToken.symbol} amount</label>
+                  <button
+                    type="button"
+                    onClick={() => handleHubAmountChange(hubTokenBalance)}
+                    className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]"
+                  >
+                    Max
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
+                  <input
+                    type="number"
+                    value={hubAddAmount}
+                    onChange={(e) => handleHubAmountChange(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700"
+                  />
+                  <span className="shrink-0 rounded-full border border-white/10 bg-[#1e293b] px-2.5 py-1 text-[10px] font-bold text-slate-100">
+                    {hubToken.symbol}
+                  </span>
                 </div>
               </div>
 

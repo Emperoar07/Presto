@@ -189,20 +189,30 @@ export function SwapCardEnhanced() {
   const calculateArcSpotOutput = useCallback((amount: bigint) => {
     if (amount <= 0n) return 0n;
 
+    // Use the constant product formula WITH fee to match the on-chain getQuote.
+    // amountOut = (amountIn * 997 * reserveOut) / (reserveIn * 1000 + amountIn * 997)
+    // This way price impact only reflects curve slippage, not the 0.3% fee.
+    const cpSwap = (amtIn: bigint, rIn: bigint, rOut: bigint): bigint => {
+      if (rIn <= 0n || rOut <= 0n) return 0n;
+      const amtWithFee = amtIn * 997n;
+      return (amtWithFee * rOut) / (rIn * 1000n + amtWithFee);
+    };
+
     const inputIsHub = !inputToken.quoteTokenId;
     const outputIsHub = !outputToken.quoteTokenId;
 
     if (inputIsHub && outputReserves && outputPathReserves && outputPathReserves > 0n) {
-      return (amount * outputReserves) / outputPathReserves;
+      return cpSwap(amount, outputPathReserves, outputReserves);
     }
 
     if (outputIsHub && inputReserves && inputPathReserves && inputReserves > 0n) {
-      return (amount * inputPathReserves) / inputReserves;
+      return cpSwap(amount, inputReserves, inputPathReserves);
     }
 
     if (inputReserves && inputPathReserves && outputReserves && outputPathReserves && inputReserves > 0n && outputPathReserves > 0n) {
-      const hubAmount = (amount * inputPathReserves) / inputReserves;
-      return (hubAmount * outputReserves) / outputPathReserves;
+      // Two-hop: token -> hub -> token
+      const hubAmount = cpSwap(amount, inputReserves, inputPathReserves);
+      return cpSwap(hubAmount, outputPathReserves, outputReserves);
     }
 
     return 0n;
@@ -268,10 +278,27 @@ export function SwapCardEnhanced() {
 
           // Calculate price impact using the correct reserve model per chain
           if (!isTempoChain && isArcTestnet) {
-            const spotOutput = calculateArcSpotOutput(amount);
-            if (spotOutput > 0n && result > 0n) {
-              const quoteDelta = spotOutput > result ? spotOutput - result : 0n;
-              const impact = (Number(quoteDelta) / Number(spotOutput)) * 100;
+            // Price impact = difference between spot rate and effective rate.
+            // Spot rate: output for an infinitely small trade (reserves ratio).
+            // Effective rate: actual output / input from the on-chain quote.
+            const inputIsHub = !inputToken.quoteTokenId;
+            const outputIsHub = !outputToken.quoteTokenId;
+
+            let spotRate = 0;
+            if (inputIsHub && outputReserves && outputPathReserves && outputPathReserves > 0n) {
+              spotRate = Number(outputReserves) / Number(outputPathReserves);
+            } else if (outputIsHub && inputReserves && inputPathReserves && inputReserves > 0n) {
+              spotRate = Number(inputPathReserves) / Number(inputReserves);
+            } else if (inputReserves && inputPathReserves && outputReserves && outputPathReserves && inputReserves > 0n && outputPathReserves > 0n) {
+              const spotHub = Number(inputPathReserves) / Number(inputReserves);
+              spotRate = spotHub * (Number(outputReserves) / Number(outputPathReserves));
+            }
+
+            if (spotRate > 0 && result > 0n) {
+              const inputValue = Number(formatUnits(amount, inputToken.decimals));
+              const outputValue = Number(formatUnits(result, outputToken.decimals));
+              const effectiveRate = outputValue / inputValue;
+              const impact = ((spotRate - effectiveRate) / spotRate) * 100;
               setPriceImpact(impact > 0.01 ? impact : 0);
             } else {
               setPriceImpact(0);
