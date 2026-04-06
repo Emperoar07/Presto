@@ -41,6 +41,13 @@ type PoolStatsResponse = {
   updatedAt: number;
 };
 
+function formatEditableAmount(value: number, decimals: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  return value
+    .toFixed(Math.min(decimals, 6))
+    .replace(/\.?0+$/, '');
+}
+
 function MyPositionRow({
   token,
   hubToken,
@@ -375,6 +382,18 @@ function PositionManagerInline({
   const userReserveValue = Number(formatUnits(reserveUserToken, token.decimals));
   const hubReserveValue = Number(formatUnits(reserveHubToken, hubToken.decimals));
   const poolRatio = userReserveValue > 0 ? hubReserveValue / userReserveValue : null;
+  const numericUserBalance = Number.parseFloat(userTokenBalance || '0');
+  const numericHubBalance = Number.parseFloat(hubTokenBalance || '0');
+  const maxAddAmount = (() => {
+    if (isTempoChain) return validatorTokenBalance;
+    if (!Number.isFinite(numericUserBalance) || numericUserBalance <= 0) return '0';
+    if (!Number.isFinite(numericHubBalance) || numericHubBalance <= 0) return '0';
+    if (!Number.isFinite(userReserveValue) || !Number.isFinite(hubReserveValue) || userReserveValue <= 0 || hubReserveValue <= 0) {
+      return formatEditableAmount(numericUserBalance, token.decimals);
+    }
+    const affordableByHub = numericHubBalance * (userReserveValue / hubReserveValue);
+    return formatEditableAmount(Math.min(numericUserBalance, affordableByHub), token.decimals);
+  })();
 
   useEffect(() => {
     const fetchBalances = async () => {
@@ -907,6 +926,27 @@ function CompactPositionManagerInline({
     setIsApproving(false);
 
     try {
+      const numericAddAmount = Number.parseFloat(addAmount);
+      const availableInputBalance = isTempoChain ? numericHubBalance : numericUserBalance;
+      if (!Number.isFinite(numericAddAmount) || numericAddAmount <= 0) {
+        toast.error('Enter a valid amount');
+        return;
+      }
+      if (!Number.isFinite(availableInputBalance) || numericAddAmount > availableInputBalance + 1e-8) {
+        toast.error(`Insufficient ${isTempoChain ? hubToken.symbol : token.symbol} balance`);
+        return;
+      }
+      if (!isTempoChain) {
+        const quotedHubAmount = Number.parseFloat(requiredHubAmount || '0');
+        const fallbackHubAmount =
+          Number.isFinite(poolRatio) && poolRatio && poolRatio > 0 ? numericAddAmount * poolRatio : 0;
+        const effectiveHubNeeded = quotedHubAmount > 0 ? quotedHubAmount : fallbackHubAmount;
+        if (!Number.isFinite(numericHubBalance) || effectiveHubNeeded > numericHubBalance + 1e-8) {
+          toast.error(`Need ${effectiveHubNeeded.toFixed(4)} ${hubToken.symbol} but only ${numericHubBalance.toFixed(4)} is available`);
+          return;
+        }
+      }
+
       const hash = await addFeeLiquidity(
         walletClient,
         publicClient as PublicClient,
@@ -971,7 +1011,7 @@ function CompactPositionManagerInline({
   ];
 
   return (
-    <div className="mt-2 overflow-hidden rounded-[12px] border border-white/8 bg-[#182336]">
+    <div className="mt-2 overflow-hidden rounded-[12px] border border-white/[0.08] bg-[#182336]">
       <div className="flex flex-col gap-2 px-3 py-2.5">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-2 min-w-0">
@@ -1004,7 +1044,7 @@ function CompactPositionManagerInline({
             <span className="inline-flex rounded-full bg-[#16384b] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">
               {sharePercent.toFixed(2)}%
             </span>
-            <div className="flex rounded-[8px] border border-white/8 bg-[#1e293b] p-0.5">
+            <div className="flex rounded-[8px] border border-white/[0.08] bg-[#1e293b] p-0.5">
               {(['add', 'remove'] as const).map((mode) => (
                 <button
                   key={mode}
@@ -1027,8 +1067,8 @@ function CompactPositionManagerInline({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[8px] border border-white/6 bg-[#172134]">
-          <div className="grid divide-y divide-white/6 md:grid-cols-5 md:divide-x md:divide-y-0">
+        <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
+          <div className="grid divide-y divide-white/[0.06] md:grid-cols-5 md:divide-x md:divide-y-0">
             {statItems.map((item) => (
               <div key={item.label} className="px-3 py-1.5">
                 <p className="text-[9px] text-slate-500">{item.label}</p>
@@ -1039,13 +1079,13 @@ function CompactPositionManagerInline({
         </div>
 
         {actionMode === 'add' ? (
-          <div className="overflow-hidden rounded-[8px] border border-white/6 bg-[#172134]">
-            <div className="grid gap-2 border-b border-white/6 px-3 py-2 md:grid-cols-2">
-              <div className="rounded-[8px] border border-white/6 bg-[#11192a] px-3 py-1.5">
+          <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
+            <div className="grid gap-2 border-b border-white/[0.06] px-3 py-2 md:grid-cols-2">
+              <div className="rounded-[8px] border border-white/[0.06] bg-[#11192a] px-3 py-1.5">
                 <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">{token.symbol} wallet</p>
                 <p className="mt-0.5 text-[13px] font-extrabold text-slate-50">{Number(userTokenBalance).toFixed(4)}</p>
               </div>
-              <div className="rounded-[8px] border border-white/6 bg-[#11192a] px-3 py-1.5">
+              <div className="rounded-[8px] border border-white/[0.06] bg-[#11192a] px-3 py-1.5">
                 <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">{hubToken.symbol} wallet</p>
                 <p className="mt-0.5 text-[13px] font-extrabold text-slate-50">{Number(hubTokenBalance).toFixed(4)}</p>
               </div>
@@ -1057,13 +1097,13 @@ function CompactPositionManagerInline({
                   <label className="text-[10px] text-slate-500">{token.symbol} amount</label>
                   <button
                     type="button"
-                    onClick={() => setAddAmount(userTokenBalance)}
+                    onClick={() => setAddAmount(maxAddAmount)}
                     className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]"
                   >
                     Max
                   </button>
                 </div>
-                <div className="flex items-center gap-2 rounded-[8px] border border-white/8 bg-[#101827] px-3 py-2">
+                <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
                   <input
                     type="number"
                     value={addAmount}
@@ -1079,14 +1119,14 @@ function CompactPositionManagerInline({
 
               <div>
                 <p className="mb-1 text-[10px] text-slate-500">{hubToken.symbol} required</p>
-                <div className="rounded-[8px] border border-white/8 bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
+                <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
                   {Number(requiredHubAmount || '0').toFixed(4)} {hubToken.symbol}
                 </div>
               </div>
 
               <div>
                 <p className="mb-1 text-[10px] text-slate-500">Est. LP</p>
-                <div className="rounded-[8px] border border-white/8 bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
+                <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
                   {estimatedLpTokens === null ? '--' : estimatedLpTokens.toFixed(4)}
                 </div>
               </div>
@@ -1102,14 +1142,14 @@ function CompactPositionManagerInline({
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-[8px] border border-white/6 bg-[#172134]">
-            <div className="flex flex-wrap gap-1.5 border-b border-white/6 px-3 py-2">
+          <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
+            <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-3 py-2">
               {[0.25, 0.5, 1].map((f) => (
                 <button
                   key={f}
                   type="button"
                   onClick={() => presetRemoval(f)}
-                  className="rounded-[6px] border border-white/8 bg-[#1a2435] px-3 py-1 text-[11px] font-bold text-slate-300"
+                  className="rounded-[6px] border border-white/[0.08] bg-[#1a2435] px-3 py-1 text-[11px] font-bold text-slate-300"
                 >
                   {f === 1 ? 'Max' : `${f * 100}%`}
                 </button>
@@ -1119,7 +1159,7 @@ function CompactPositionManagerInline({
             <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_140px_100px_130px] xl:items-end">
               <div>
                 <p className="mb-1 text-[10px] text-slate-500">LP amount · current {lpBalance.toFixed(4)}</p>
-                <div className="flex items-center gap-2 rounded-[8px] border border-white/8 bg-[#101827] px-3 py-2">
+                <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
                   <input
                     type="number"
                     value={removeAmount}
@@ -1132,14 +1172,14 @@ function CompactPositionManagerInline({
 
               <div>
                 <p className="mb-1 text-[10px] text-slate-500">Current share</p>
-                <div className="rounded-[8px] border border-white/8 bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
+                <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
                   {sharePercent.toFixed(2)}%
                 </div>
               </div>
 
               <div>
                 <p className="mb-1 text-[10px] text-slate-500">You receive</p>
-                <div className="rounded-[8px] border border-white/8 bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
+                <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">
                   {receiveSummary}
                 </div>
               </div>
@@ -1259,26 +1299,9 @@ export default function LiquidityPage() {
 
       {activeTab === 'positions' && (
         <div className="space-y-5">
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Available Pairs', value: String(availablePositionTokens.length), sub: 'Manageable liquidity pairs' },
-              { label: 'Hub Asset', value: hubToken.symbol, sub: 'Stable route base' },
-              { label: 'Focus', value: 'Manage LP', sub: 'Add or remove from one place' },
-            ].map(({ label, value, sub }) => (
-              <div key={label} className="rounded-[16px] px-3 py-4 md:px-5 md:py-5" style={{ background: SURF, border: BDR }}>
-                <p className="mb-1.5 text-[11px] font-medium text-slate-500">{label}</p>
-                <p className="text-[20px] font-extrabold leading-none tracking-tight text-slate-100">{value}</p>
-                <p className="mt-1 text-[11px] font-semibold text-slate-400">{sub}</p>
-              </div>
-            ))}
-          </div>
-
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
             <div className="flex items-center justify-between px-5 py-[14px]" style={{ borderBottom: BDR }}>
-              <div>
-                <p className="text-[14px] font-bold text-slate-100">My Positions</p>
-                <p className="mt-1 text-[12px] text-slate-500">Review each live LP position and expand a simple manager when you want to add or remove liquidity.</p>
-              </div>
+              <p className="text-[14px] font-bold text-slate-100">My Positions</p>
             </div>
 
             <div className="space-y-3 px-5 py-5">

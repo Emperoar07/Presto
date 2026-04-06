@@ -18,6 +18,13 @@ import {
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
 
+function formatEditableAmount(value: number, decimals: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  return value
+    .toFixed(Math.min(decimals, 6))
+    .replace(/\.?0+$/, '');
+}
+
 interface ManageFeeLiquidityProps {
   userToken: string;
   validatorToken: string;
@@ -193,6 +200,20 @@ export function ManageFeeLiquidity({
     const share = (newUserShares / newTotal) * 100;
     return Number.isFinite(share) ? share : null;
   })();
+  const numericUserBalance = Number.parseFloat(userTokenBalance || '0');
+  const numericValidatorBalance = Number.parseFloat(validatorTokenBalance || '0');
+  const reserveUserValue = pool?.reserveUserToken ? Number(formatUnits(pool.reserveUserToken, userTokenDecimals)) : 0;
+  const reserveValidatorValue = pool?.reserveValidatorToken ? Number(formatUnits(pool.reserveValidatorToken, validatorTokenDecimals)) : 0;
+  const maxAddAmount = (() => {
+    if (isTempoChain) return validatorTokenBalance;
+    if (!Number.isFinite(numericUserBalance) || numericUserBalance <= 0) return '0';
+    if (!Number.isFinite(numericValidatorBalance) || numericValidatorBalance <= 0) return '0';
+    if (!Number.isFinite(reserveUserValue) || !Number.isFinite(reserveValidatorValue) || reserveUserValue <= 0 || reserveValidatorValue <= 0) {
+      return formatEditableAmount(numericUserBalance, userTokenDecimals);
+    }
+    const affordableByHub = numericValidatorBalance * (reserveUserValue / reserveValidatorValue);
+    return formatEditableAmount(Math.min(numericUserBalance, affordableByHub), userTokenDecimals);
+  })();
 
   const handleAddLiquidity = async () => {
     if (!address || !amount || !walletClient || !publicClient) return;
@@ -201,6 +222,29 @@ export function ManageFeeLiquidity({
     let activityId: string | null = null;
     let hash: `0x${string}` | undefined;
     try {
+      const numericAmount = Number.parseFloat(amount);
+      const availableInputBalance = isTempoChain ? numericValidatorBalance : numericUserBalance;
+      if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+        toast.error('Enter a valid amount');
+        return;
+      }
+      if (!Number.isFinite(availableInputBalance) || numericAmount > availableInputBalance + 1e-8) {
+        toast.error(`Insufficient ${isTempoChain ? validatorTokenSymbol : userTokenSymbol} balance`);
+        return;
+      }
+      if (!isTempoChain) {
+        const quotedHubAmount = Number.parseFloat(requiredPathAmount || '0');
+        const fallbackHubAmount =
+          reserveUserValue > 0 && reserveValidatorValue > 0
+            ? numericAmount * (reserveValidatorValue / reserveUserValue)
+            : 0;
+        const effectiveHubNeeded = quotedHubAmount > 0 ? quotedHubAmount : fallbackHubAmount;
+        if (!Number.isFinite(numericValidatorBalance) || effectiveHubNeeded > numericValidatorBalance + 1e-8) {
+          toast.error(`Need ${effectiveHubNeeded.toFixed(4)} ${validatorTokenSymbol} but only ${numericValidatorBalance.toFixed(4)} is available`);
+          return;
+        }
+      }
+
       hash = await addFeeLiquidity(
         walletClient,
         publicClient as unknown as PublicClient,
@@ -437,7 +481,7 @@ export function ManageFeeLiquidity({
                   <span>{isTempoChain ? 'Amount' : `${userTokenSymbol} amount`}</span>
                   <button
                     type="button"
-                    onClick={() => setAmount(isTempoChain ? validatorTokenBalance : userTokenBalance)}
+                    onClick={() => setAmount(maxAddAmount)}
                     className="rounded-full px-2.5 py-1 text-[11px] font-bold text-[#25c0f4] transition-colors"
                     style={{ border: '1px solid rgba(37,192,244,0.2)', background: 'rgba(37,192,244,0.08)' }}
                   >

@@ -231,6 +231,8 @@ export function BridgeWorkspace() {
   });
   const [amount, setAmount] = useState('');
   const [exactAmountMode, setExactAmountMode] = useState(false);
+  const [manualDestination, setManualDestination] = useState('');
+  const [useManualDestination, setUseManualDestination] = useState(false);
   const [solanaAddress, setSolanaAddress] = useState('');
   const [estimate, setEstimate] = useState<EstimateSummary | null>(null);
   const [bridgeResult, setBridgeResult] = useState<BridgeSummary | null>(null);
@@ -281,9 +283,10 @@ export function BridgeWorkspace() {
 
   // Cross-ecosystem: source and destination use different wallet types.
   const resolvedDestinationAddress = useMemo(() => {
+    if (useManualDestination && manualDestination.trim()) return manualDestination.trim();
     if (destinationNetwork.ecosystem === 'solana') return solanaAddress;
     return evmAddress ?? '';
-  }, [destinationNetwork.ecosystem, evmAddress, solanaAddress]);
+  }, [destinationNetwork.ecosystem, evmAddress, solanaAddress, useManualDestination, manualDestination]);
 
   const sourceAddress = sourceNetwork.ecosystem === 'solana' ? solanaAddress : evmAddress ?? '';
 
@@ -1247,10 +1250,32 @@ export function BridgeWorkspace() {
                       <p className="mt-2 text-[13px] font-semibold text-slate-100">{summaryReceiveLabel}</p>
                     </div>
                     <div className="rounded-[12px] px-3.5 py-3" style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Destination</p>
-                      <p className="mt-2 font-mono text-[11px] text-slate-300">
-                        {resolvedDestinationAddress ? `${resolvedDestinationAddress.slice(0, 8)}...${resolvedDestinationAddress.slice(-6)}` : 'Waiting for wallet'}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Destination</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUseManualDestination((v) => !v);
+                            if (useManualDestination) setManualDestination('');
+                          }}
+                          className="text-[9px] font-semibold text-[#25c0f4] hover:opacity-80"
+                        >
+                          {useManualDestination ? 'Use wallet' : 'Custom'}
+                        </button>
+                      </div>
+                      {useManualDestination ? (
+                        <input
+                          type="text"
+                          value={manualDestination}
+                          onChange={(e) => setManualDestination(e.target.value)}
+                          placeholder="Paste address..."
+                          className="mt-1.5 w-full bg-transparent font-mono text-[11px] text-slate-300 outline-none placeholder:text-slate-600"
+                        />
+                      ) : (
+                        <p className="mt-2 font-mono text-[11px] text-slate-300">
+                          {resolvedDestinationAddress ? `${resolvedDestinationAddress.slice(0, 8)}...${resolvedDestinationAddress.slice(-6)}` : 'Waiting for wallet'}
+                        </p>
+                      )}
                     </div>
                   </div>
 
