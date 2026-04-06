@@ -14,14 +14,14 @@ const liveArcAssets = [
     note: 'Live against the deployed normalized Arc hub AMM.',
   },
   {
-    symbol: 'WUSDC',
-    address: '0x911b4000D3422F482F4062a913885f7b035382Df',
-    note: 'Live on the normalized Arc deployment as a mixed decimal wrapped stable asset.',
-  },
-  {
     symbol: 'USDT',
     address: '0x175CdB1D338945f0D851A741ccF787D343E57952',
-    note: 'Live on Arc through the normalized USDC hub with seeded liquidity in Presto.',
+    note: 'Live on Arc through the normalized USDC hub with seeded liquidity.',
+  },
+  {
+    symbol: 'WUSDC',
+    address: '0x911b4000D3422F482F4062a913885f7b035382Df',
+    note: 'Wrapped USDC on the normalized Arc deployment as a mixed decimal stable asset.',
   },
   {
     symbol: 'USYC',
@@ -93,7 +93,7 @@ function DataTable({
   rows: React.ReactNode[][];
 }) {
   return (
-    <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1b2434]">
+    <div className="overflow-x-auto rounded-[14px] border border-white/[0.07] bg-[#1b2434]">
       <table className="w-full border-collapse">
         <thead>
           <tr>
