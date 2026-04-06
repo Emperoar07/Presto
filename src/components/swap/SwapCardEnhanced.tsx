@@ -26,6 +26,11 @@ import {
 import { writeContractWithRetry } from '@/lib/txRetry';
 import { readContractWithFallback, invalidateQuoteCache } from '@/lib/rpc';
 import { TokenModal } from '@/components/common/TokenModal';
+import {
+  createLocalActivityItem,
+  patchLocalActivityItem,
+  upsertLocalActivityHistoryItem,
+} from '@/lib/activityHistory';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
@@ -324,6 +329,9 @@ export function SwapCardEnhanced() {
     setIsSwapping(true);
     setSwapStage('approving');
 
+    let hash: `0x${string}` | undefined;
+    let activityId: string | null = null;
+
     try {
       const amount = parseUnits(inputAmount, inputToken.decimals);
       if (!outputAmount || Number(outputAmount) <= 0) {
@@ -336,8 +344,6 @@ export function SwapCardEnhanced() {
         return;
       }
       const minOut = calculateMinAmountOut(expectedOut, slippageTolerance);
-
-      let hash: `0x${string}`;
 
       if (isTempoChain) {
         if (!publicClient) {
@@ -417,10 +423,27 @@ export function SwapCardEnhanced() {
         );
       }
 
+      const pendingActivity = createLocalActivityItem({
+        category: 'swaps',
+        title: `Swap ${inputToken.symbol} to ${outputToken.symbol}`,
+        subtitle: `${inputAmount} ${inputToken.symbol} to ${outputAmount || '--'} ${outputToken.symbol}`,
+        status: 'pending',
+        hash,
+      });
+      activityId = pendingActivity.id;
+      upsertLocalActivityHistoryItem(pendingActivity);
+
       toast.custom(() => <TxToast hash={hash} title="Swap submitted" />);
 
       // Wait for transaction confirmation
       await publicClient.waitForTransactionReceipt({ hash });
+
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'success',
+          hash,
+        });
+      }
 
       // Clear inputs, invalidate cache, and refresh balances
       setInputAmount('');
@@ -431,6 +454,26 @@ export function SwapCardEnhanced() {
       toast.success('Swap completed successfully!');
     } catch (e: unknown) {
       logError(e, 'Swap failed');
+
+      const errorMessage = e instanceof Error ? e.message : 'Swap execution failed';
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'error',
+          hash: hash ?? null,
+          errorMessage,
+        });
+      } else {
+        upsertLocalActivityHistoryItem(
+          createLocalActivityItem({
+            category: 'swaps',
+            title: `Swap ${inputToken.symbol} to ${outputToken.symbol}`,
+            subtitle: `${inputAmount || '0'} ${inputToken.symbol} to ${outputAmount || '--'} ${outputToken.symbol}`,
+            status: 'error',
+            hash: hash ?? null,
+            errorMessage,
+          }),
+        );
+      }
 
       if (!isUserCancellation(e)) {
         const parsed = parseContractError(e);

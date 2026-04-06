@@ -472,45 +472,52 @@ export const Hooks = {
             return arcTotalShares;
         },
         useMintSync: () => {
-             const { writeContract, isPending } = useWriteContract();
+             const { writeContract, writeContractAsync, isPending } = useWriteContract();
              const chainId = useChainId();
+             const buildConfig = (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; validatorTokenAmount: bigint; to: `0x${string}` }) => ({
+                address: getFeeManagerAddressForChain(chainId),
+                abi: FEE_AMM_ABI,
+                functionName: 'mint' as const,
+                args: [args.userTokenAddress, args.validatorTokenAddress, args.validatorTokenAmount, args.to] as const,
+             });
              return {
                  mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; validatorTokenAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
-                     writeContract({
-                        address: getFeeManagerAddressForChain(chainId),
-                        abi: FEE_AMM_ABI,
-                        functionName: 'mint',
-                        args: [args.userTokenAddress, args.validatorTokenAddress, args.validatorTokenAmount, args.to]
-                     });
+                     writeContract(buildConfig(args));
                  },
+                 mutateAsync: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; validatorTokenAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) =>
+                    writeContractAsync(buildConfig(args)),
                  isPending
              };
         },
         useBurnSync: () => {
-             const { writeContract, isPending } = useWriteContract();
+             const { writeContract, writeContractAsync, isPending } = useWriteContract();
              const chainId = useChainId();
              const isTempoChain = isTempoNativeChain(chainId);
              const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
+             const buildConfig = (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
+                 if (isTempoChain) {
+                    return {
+                       address: getFeeManagerAddressForChain(chainId),
+                       abi: FEE_AMM_ABI,
+                       functionName: 'burn' as const,
+                       args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, args.to] as const,
+                    };
+                 }
+
+                 const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60));
+                 return {
+                    address: arcHubAddress,
+                    abi: HUB_AMM_ABI,
+                    functionName: 'removeLiquidity' as const,
+                    args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, 0n, 0n, deadlineTimestamp] as const,
+                 };
+             };
              return {
                  mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
-                     if (isTempoChain) {
-                        writeContract({
-                           address: getFeeManagerAddressForChain(chainId),
-                           abi: FEE_AMM_ABI,
-                           functionName: 'burn',
-                           args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, args.to],
-                        });
-                        return;
-                     }
-
-                     const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60));
-                     writeContract({
-                        address: arcHubAddress,
-                        abi: HUB_AMM_ABI,
-                        functionName: 'removeLiquidity',
-                        args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, 0n, 0n, deadlineTimestamp],
-                     });
+                     writeContract(buildConfig(args));
                  },
+                 mutateAsync: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) =>
+                    writeContractAsync(buildConfig(args)),
                  isPending
              };
         },

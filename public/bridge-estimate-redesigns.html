@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bridge Estimate Panel — 5 Redesigns</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:32px 20px;display:flex;flex-direction:column;align-items:center;gap:48px}
+  h1{font-size:18px;font-weight:700;color:#94a3b8;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px}
+  .subtitle{font-size:12px;color:#475569;margin-bottom:24px}
+  .design-label{font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#25c0f4;margin-bottom:10px;padding-left:2px}
+  .design-desc{font-size:11px;color:#64748b;margin-bottom:12px;padding-left:2px}
+  .panel{width:381px;border-radius:12px;overflow:hidden}
+  .status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .dot-pending{background:#fbbf24;animation:pulse 1.5s infinite}
+  .dot-success{background:#34d399}
+  .dot-error{background:#fb7185}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .toggle{position:relative;width:28px;height:16px;border-radius:99px;cursor:pointer;transition:background .2s}
+  .toggle.off{background:#334155}
+  .toggle.on{background:#25c0f4}
+  .toggle::after{content:'';position:absolute;top:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .2s}
+  .toggle.off::after{left:2px}
+  .toggle.on::after{left:14px}
+  .tx-pill{display:inline-flex;align-items:center;gap:4px;border-radius:99px;border:1px solid rgba(255,255,255,0.1);background:#132238;padding:3px 8px;font-size:10px;color:#94a3b8;cursor:pointer;transition:border-color .15s}
+  .tx-pill:hover{border-color:rgba(37,192,244,0.35);color:#25c0f4}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20}
+</style>
+</head>
+<body>
+
+<div>
+  <h1>Bridge Estimate Panel Redesigns</h1>
+  <p class="subtitle">5 compact variations — same 381px width as bridge card</p>
+</div>
+
+<!-- DESIGN 1 — Ticker Strip -->
+<div>
+  <p class="design-label">1 — Ticker Strip</p>
+  <p class="design-desc">Ultra-compact two-row: status top, all stats inline below</p>
+  <div class="panel" style="background:#131d2e;border:1px solid rgba(255,255,255,0.07)">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <span class="status-dot dot-pending"></span>
+      <span style="flex:1;font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Route ready — review fees and bridge</span>
+      <span style="font-size:10px;font-weight:600;color:#e2e8f0;background:#1e293b;border:1px solid rgba(255,255,255,0.08);border-radius:99px;padding:2px 8px;white-space:nowrap">$0.2091</span>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 12px;gap:16px">
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#475569">Receive</span>
+        <span style="font-size:12px;font-weight:600;color:#34d399">9.790913</span>
+        <span style="font-size:9px;color:#64748b">USDC</span>
+      </div>
+      <div style="width:1px;height:14px;background:rgba(255,255,255,0.06)"></div>
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#475569">Fee</span>
+        <span style="font-size:12px;font-weight:600;color:#e2e8f0">0.209086</span>
+        <span style="font-size:9px;color:#64748b">USDC</span>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:6px;cursor:pointer" onclick="this.querySelector('.toggle').classList.toggle('on');this.querySelector('.toggle').classList.toggle('off')">
+        <span style="font-size:9px;font-weight:600;color:#64748b">Exact</span>
+        <div class="toggle off"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;padding:0 12px 8px 12px">
+      <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Burn <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+      <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Mint <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- DESIGN 2 — Key-Value Rows -->
+<div>
+  <p class="design-label">2 — Key-Value Rows</p>
+  <p class="design-desc">Dense label:value pairs stacked vertically — easy to scan</p>
+  <div class="panel" style="background:#131d2e;border:1px solid rgba(255,255,255,0.07)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="status-dot dot-pending"></span>
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#64748b">Bridge Estimate</span>
+      </div>
+      <span style="font-size:10px;font-weight:600;color:#94a3b8;background:#1e293b;border:1px solid rgba(255,255,255,0.08);border-radius:99px;padding:2px 8px">$0.2091</span>
+    </div>
+    <div style="font-size:11.5px">
+      <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(255,255,255,0.015)">
+        <span style="color:#64748b;font-weight:500">Status</span>
+        <span style="color:#cbd5e1;font-weight:500">Route ready</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:7px 12px">
+        <span style="color:#64748b;font-weight:500">You receive</span>
+        <span style="color:#34d399;font-weight:600">9.790913 USDC</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(255,255,255,0.015)">
+        <span style="color:#64748b;font-weight:500">Network fee</span>
+        <span style="color:#cbd5e1;font-weight:500">0.209086 USDC</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px">
+        <span style="color:#64748b;font-weight:500">Exact receive</span>
+        <div style="display:flex;align-items:center;gap:6px;cursor:pointer" onclick="var t=this.querySelector('.toggle');t.classList.toggle('on');t.classList.toggle('off');var l=this.querySelector('.lbl');l.textContent=l.textContent==='Off'?'On':'Off'">
+          <span class="lbl" style="font-size:10px;color:#94a3b8;font-weight:600">Off</span>
+          <div class="toggle off"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;padding:6px 12px 8px 12px;border-top:1px solid rgba(255,255,255,0.05)">
+      <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Burn <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+      <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Mint <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- DESIGN 3 — Pill Grid -->
+<div>
+  <p class="design-label">3 — Pill Grid</p>
+  <p class="design-desc">Inline pill badges for each metric — minimal height</p>
+  <div class="panel" style="background:#131d2e;border:1px solid rgba(255,255,255,0.07)">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <span class="status-dot dot-pending"></span>
+      <span style="flex:1;font-size:11px;color:#94a3b8">Route ready — review fees and bridge</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:6px;border-radius:99px;background:#0f2a1f;border:1px solid rgba(52,211,153,0.15);padding:4px 10px">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#34d399">Receive</span>
+        <span style="font-size:11.5px;font-weight:600;color:#34d399">9.790913</span>
+        <span style="font-size:9px;color:rgba(52,211,153,0.6)">USDC</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;border-radius:99px;background:#1e293b;border:1px solid rgba(255,255,255,0.08);padding:4px 10px">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b">Fee</span>
+        <span style="font-size:11.5px;font-weight:600;color:#e2e8f0">0.209086</span>
+        <span style="font-size:9px;color:#64748b">USDC</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;border-radius:99px;background:#1e293b;border:1px solid rgba(255,255,255,0.08);padding:4px 10px">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b">Cost</span>
+        <span style="font-size:11.5px;font-weight:600;color:#e2e8f0">$0.2091</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;border-radius:99px;background:#1e293b;border:1px solid rgba(255,255,255,0.08);padding:4px 10px;cursor:pointer" onclick="var t=this.querySelector('.toggle');t.classList.toggle('on');t.classList.toggle('off');var l=this.querySelector('.mlbl');l.textContent=t.classList.contains('on')?'Exact':'Standard'">
+        <span class="mlbl" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b">Standard</span>
+        <div class="toggle off"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;padding:0 12px 8px 12px">
+      <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Burn <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+      <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Mint <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- DESIGN 4 — Split Card -->
+<div>
+  <p class="design-label">4 — Split Card</p>
+  <p class="design-desc">Left: status + receive. Right: fee details column. Very compact.</p>
+  <div class="panel" style="background:#131d2e;border:1px solid rgba(255,255,255,0.07);display:flex">
+    <div style="flex:1;padding:10px 12px;border-right:1px solid rgba(255,255,255,0.06)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span class="status-dot dot-pending"></span>
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#64748b">Route Ready</span>
+      </div>
+      <div style="margin-bottom:4px">
+        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#475569">You receive</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <span style="font-size:18px;font-weight:700;color:#34d399">9.790913</span>
+        <span style="font-size:10px;font-weight:600;color:rgba(52,211,153,0.6)">USDC</span>
+      </div>
+      <div style="display:flex;gap:5px;margin-top:8px">
+        <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Burn <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+        <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Mint <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+      </div>
+    </div>
+    <div style="width:140px;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:8px">
+      <div>
+        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#475569">Network fee</span>
+        <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-top:2px">0.209086 <span style="font-size:9px;color:#64748b">USDC</span></div>
+      </div>
+      <div>
+        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#475569">Total cost</span>
+        <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-top:2px">$0.2091</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#475569">Exact</span>
+        <div class="toggle off" style="cursor:pointer" onclick="this.classList.toggle('on');this.classList.toggle('off')"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DESIGN 5 — Accordion -->
+<div>
+  <p class="design-label">5 — Accordion Summary</p>
+  <p class="design-desc">Single row that expands — smallest default footprint</p>
+  <div class="panel" style="background:#131d2e;border:1px solid rgba(255,255,255,0.07)">
+    <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer" onclick="var d=document.getElementById('acc-detail');var a=document.getElementById('acc-arrow');if(d.style.maxHeight==='0px'){d.style.maxHeight='200px';a.style.transform='rotate(180deg)'}else{d.style.maxHeight='0px';a.style.transform='rotate(0)'}">
+      <span class="status-dot dot-pending"></span>
+      <span style="flex:1;font-size:11px;font-weight:500;color:#94a3b8">Route ready</span>
+      <span style="font-size:11.5px;font-weight:600;color:#34d399">9.790913 USDC</span>
+      <span style="font-size:10px;color:#64748b;margin-left:2px">|</span>
+      <span style="font-size:10px;font-weight:600;color:#94a3b8;background:#1e293b;border:1px solid rgba(255,255,255,0.08);border-radius:99px;padding:2px 7px">$0.21</span>
+      <span id="acc-arrow" class="material-symbols-outlined" style="font-size:16px;color:#64748b;transition:transform .2s">expand_more</span>
+    </div>
+    <div id="acc-detail" style="max-height:0px;overflow:hidden;transition:max-height .25s ease">
+      <div style="padding:0 12px 10px 12px;border-top:1px solid rgba(255,255,255,0.05)">
+        <div style="display:flex;gap:16px;padding-top:8px">
+          <div>
+            <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#475569">Receive</span>
+            <div style="font-size:12px;font-weight:600;color:#34d399;margin-top:2px">9.790913 USDC</div>
+          </div>
+          <div>
+            <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#475569">Fee</span>
+            <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-top:2px">0.209086 USDC</div>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+            <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#475569">Exact</span>
+            <div class="toggle off" style="cursor:pointer" onclick="event.stopPropagation();this.classList.toggle('on');this.classList.toggle('off')"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Burn <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+          <span class="tx-pill"><span class="status-dot dot-success" style="width:5px;height:5px"></span> Mint <span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="height:40px"></div>
+</body>
+</html>

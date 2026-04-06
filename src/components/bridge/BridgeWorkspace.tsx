@@ -759,7 +759,7 @@ export function BridgeWorkspace() {
 
       console.log('[bridge] estimate result:', { amount: result.amount, fees: result.fees, gasFees: result.gasFees });
       setEstimate(result);
-      setStatusMessage('Route ready. Review the fees and then bridge when you are ready.');
+      setStatusMessage('Route ready.');
     } catch (error) {
       setEstimate(null);
       setStatusMessage(null);

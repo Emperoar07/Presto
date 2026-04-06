@@ -12,6 +12,11 @@ import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount } from '@
 import { TxToast } from '@/components/common/TxToast';
 import type { PublicClient } from 'viem';
 import { FACTORY_ABI, getContractAddresses, isArcChain, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
+import {
+  createLocalActivityItem,
+  patchLocalActivityItem,
+  upsertLocalActivityHistoryItem,
+} from '@/lib/activityHistory';
 
 interface ManageFeeLiquidityProps {
   userToken: string;
@@ -193,8 +198,10 @@ export function ManageFeeLiquidity({
     if (!address || !amount || !walletClient || !publicClient) return;
     setIsAdding(true);
     setIsApproving(false);
+    let activityId: string | null = null;
+    let hash: `0x${string}` | undefined;
     try {
-      const hash = await addFeeLiquidity(
+      hash = await addFeeLiquidity(
         walletClient,
         publicClient as unknown as PublicClient,
         address,
@@ -210,12 +217,45 @@ export function ManageFeeLiquidity({
         },
         chainId
       );
+      const pendingActivity = createLocalActivityItem({
+        category: 'liquidity',
+        title: `Add Liquidity ${userTokenSymbol}/${validatorTokenSymbol}`,
+        subtitle: `${amount} ${isTempoChain ? validatorTokenSymbol : userTokenSymbol}`,
+        status: 'pending',
+        hash,
+      });
+      activityId = pendingActivity.id;
+      upsertLocalActivityHistoryItem(pendingActivity);
       toast.custom(() => <TxToast hash={hash} title="Liquidity added" />);
       await publicClient.waitForTransactionReceipt({ hash });
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'success',
+          hash,
+        });
+      }
       setAmount('');
     } catch (e: unknown) {
       console.error(e);
       const msg = e instanceof Error ? e.message : 'Transaction failed';
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'error',
+          hash: hash ?? null,
+          errorMessage: msg,
+        });
+      } else {
+        upsertLocalActivityHistoryItem(
+          createLocalActivityItem({
+            category: 'liquidity',
+            title: `Add Liquidity ${userTokenSymbol}/${validatorTokenSymbol}`,
+            subtitle: `${amount || '0'} ${isTempoChain ? validatorTokenSymbol : userTokenSymbol}`,
+            status: 'error',
+            hash: hash ?? null,
+            errorMessage: msg,
+          }),
+        );
+      }
       if (msg.includes('TransferHelper: TRANSFER_FROM_FAILED')) {
         toast.error('Failed to transfer tokens. Check your balance and approval.');
       } else {
@@ -227,15 +267,65 @@ export function ManageFeeLiquidity({
     }
   };
 
-  const handleRemoveLiquidity = () => {
+  const handleRemoveLiquidity = async () => {
     if (!address || !removeAmount) return;
-    burnLiquidity.mutate({
+    let activityId: string | null = null;
+    let hash: `0x${string}` | undefined;
+    const payload = {
       userTokenAddress: userToken as `0x${string}`,
       validatorTokenAddress: validatorToken as `0x${string}`,
       liquidityAmount: parseUnits(removeAmount, 18),
       to: address,
       feeToken: validatorToken as `0x${string}`,
-    });
+    };
+
+    try {
+      if (typeof burnLiquidity.mutateAsync === 'function') {
+        hash = await burnLiquidity.mutateAsync(payload);
+      } else {
+        burnLiquidity.mutate(payload);
+      }
+
+      const pendingActivity = createLocalActivityItem({
+        category: 'liquidity',
+        title: `Remove Liquidity ${userTokenSymbol}/${validatorTokenSymbol}`,
+        subtitle: `${removeAmount} LP`,
+        status: 'pending',
+        hash: hash ?? null,
+      });
+      activityId = pendingActivity.id;
+      upsertLocalActivityHistoryItem(pendingActivity);
+
+      if (hash) {
+        toast.custom(() => <TxToast hash={hash} title="Liquidity removal submitted" />);
+        await publicClient?.waitForTransactionReceipt({ hash });
+        patchLocalActivityItem(activityId, {
+          status: 'success',
+          hash,
+        });
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to remove liquidity';
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'error',
+          hash: hash ?? null,
+          errorMessage: msg,
+        });
+      } else {
+        upsertLocalActivityHistoryItem(
+          createLocalActivityItem({
+            category: 'liquidity',
+            title: `Remove Liquidity ${userTokenSymbol}/${validatorTokenSymbol}`,
+            subtitle: `${removeAmount || '0'} LP`,
+            status: 'error',
+            hash: hash ?? null,
+            errorMessage: msg,
+          }),
+        );
+      }
+      toast.error(msg);
+    }
   };
 
   const handleSetFeeTo = async () => {

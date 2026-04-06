@@ -17,6 +17,11 @@ import { useFeeToken } from '@/context/FeeTokenContext';
 import { TxToast } from '@/components/common/TxToast';
 import { isUserCancellation } from '@/lib/errorHandling';
 import type { PublicClient } from 'viem';
+import {
+  createLocalActivityItem,
+  patchLocalActivityItem,
+  upsertLocalActivityHistoryItem,
+} from '@/lib/activityHistory';
 
 const DEX_PLACE_ABI = parseAbi(['function place(address token, uint128 amount, bool isBid, int16 tick) external returns (uint128 id)']);
 const DEX_PLACE_FLIP_ABI = parseAbi(['function placeFlip(address token, uint128 amount, bool isBid, int16 tick, int16 flipTick) external returns (uint128 id)']);
@@ -249,15 +254,65 @@ export function LiquidityCard({
     setActiveTab('fee');
   }, [lpBalance, searchParams]);
 
-  const handleRemoveFeeLiquidity = () => {
+  const handleRemoveFeeLiquidity = async () => {
     if (!address || !removeAmount) return;
-    burnLiquidity.mutate({
+    let activityId: string | null = null;
+    let hash: `0x${string}` | undefined;
+    const payload = {
       userTokenAddress: selectedToken.address,
       validatorTokenAddress: pathToken.address,
       liquidityAmount: parseUnits(removeAmount, 18),
       to: address,
       feeToken: feeToken?.address || pathToken.address,
-    });
+    };
+
+    try {
+      if (typeof burnLiquidity.mutateAsync === 'function') {
+        hash = await burnLiquidity.mutateAsync(payload);
+      } else {
+        burnLiquidity.mutate(payload);
+      }
+
+      const pendingActivity = createLocalActivityItem({
+        category: 'liquidity',
+        title: `Remove Liquidity ${selectedToken.symbol}/${pathToken.symbol}`,
+        subtitle: `${removeAmount} LP`,
+        status: 'pending',
+        hash: hash ?? null,
+      });
+      activityId = pendingActivity.id;
+      upsertLocalActivityHistoryItem(pendingActivity);
+
+      if (hash) {
+        toast.custom(() => <TxToast hash={hash} title="Liquidity removal submitted" />);
+        await publicClient?.waitForTransactionReceipt({ hash });
+        patchLocalActivityItem(activityId, {
+          status: 'success',
+          hash,
+        });
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to remove liquidity';
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'error',
+          hash: hash ?? null,
+          errorMessage: message,
+        });
+      } else {
+        upsertLocalActivityHistoryItem(
+          createLocalActivityItem({
+            category: 'liquidity',
+            title: `Remove Liquidity ${selectedToken.symbol}/${pathToken.symbol}`,
+            subtitle: `${removeAmount || '0'} LP`,
+            status: 'error',
+            hash: hash ?? null,
+            errorMessage: message,
+          }),
+        );
+      }
+      toast.error(message);
+    }
   };
 
   const handleApplyRemovePercent = (token: Token, percent: number, rawLiquidity: bigint) => {
@@ -344,6 +399,8 @@ export function LiquidityCard({
     setIsApproving(false);
     setIsOrdering(true);
     setOrderDebug(null);
+    let activityId: string | null = null;
+    let hash: `0x${string}` | undefined;
 
     try {
       const tickVal = Number.parseInt(tick, 10) || 0;
@@ -366,7 +423,7 @@ export function LiquidityCard({
       const flipTick = isFlip ? (isBid ? tickVal + 10 : tickVal - 10) : undefined;
       const placeArgs = [selectedToken.address, toUint128(amount), isBid, tickVal] as const;
 
-      const hash = await placeOrder(
+      hash = await placeOrder(
         walletClient,
         publicClient as unknown as PublicClient,
         address,
@@ -379,11 +436,45 @@ export function LiquidityCard({
         chainId,
         flipTick
       );
+      const pendingActivity = createLocalActivityItem({
+        category: 'liquidity',
+        title: `${orderType === 'buy' ? 'Buy' : 'Sell'} Limit Order ${selectedToken.symbol}`,
+        subtitle: `${orderAmount} ${selectedToken.symbol} at tick ${tickVal}`,
+        status: 'pending',
+        hash,
+      });
+      activityId = pendingActivity.id;
+      upsertLocalActivityHistoryItem(pendingActivity);
       toast.custom(() => <TxToast hash={hash} title="Order submitted" />);
       setOrderAmount('');
+      await publicClient.waitForTransactionReceipt({ hash });
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'success',
+          hash,
+        });
+      }
     } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Order placement failed';
+      if (activityId) {
+        patchLocalActivityItem(activityId, {
+          status: 'error',
+          hash: hash ?? null,
+          errorMessage: msg,
+        });
+      } else {
+        upsertLocalActivityHistoryItem(
+          createLocalActivityItem({
+            category: 'liquidity',
+            title: `${orderType === 'buy' ? 'Buy' : 'Sell'} Limit Order ${selectedToken.symbol}`,
+            subtitle: `${orderAmount || '0'} ${selectedToken.symbol}`,
+            status: 'error',
+            hash: hash ?? null,
+            errorMessage: msg,
+          }),
+        );
+      }
       if (!isUserCancellation(e)) {
-        const msg = e instanceof Error ? e.message : 'Order placement failed';
         toast.error(msg.length > 200 ? `${msg.slice(0, 200)}...` : msg);
       }
     } finally {

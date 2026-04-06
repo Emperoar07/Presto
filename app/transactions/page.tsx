@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTransactions } from '@/hooks/useApiQueries';
 import type { BridgeHistoryItem } from '@/components/bridge/types';
 import { BRIDGE_HISTORY_STORAGE_KEY, NETWORKS, isValidBridgeHistoryItem } from '@/components/bridge/constants';
+import {
+  LOCAL_ACTIVITY_STORAGE_KEY,
+  type LocalActivityRecord,
+  readLocalActivityHistory,
+} from '@/lib/activityHistory';
 
 const SURF = '#1e293b';
 const SURF_2 = '#263347';
@@ -30,6 +35,7 @@ type ActivityItem = {
   timeLabel: string;
   timestamp: number;
   hashLabel?: string;
+  hash?: string;
   icon: string;
   iconBg: string;
   iconColor: string;
@@ -82,6 +88,7 @@ function buildApiActivity(item: TxItem): ActivityItem {
     timeLabel: formatRelativeTime(item.timestamp ?? 0),
     timestamp: item.timestamp ?? 0,
     hashLabel: `${item.hash.slice(0, 6)}...${item.hash.slice(-4)}`,
+    hash: item.hash,
     icon: visual.icon,
     iconBg: visual.bg,
     iconColor: visual.color,
@@ -105,36 +112,75 @@ function buildBridgeActivity(item: BridgeHistoryItem): ActivityItem {
     timeLabel: formatRelativeTime(item.createdAt),
     timestamp: item.createdAt,
     hashLabel: item.sourceTxHash ? `${item.sourceTxHash.slice(0, 6)}...${item.sourceTxHash.slice(-4)}` : undefined,
+    hash: item.sourceTxHash ?? undefined,
     icon: failed ? 'error' : 'sync_alt',
     iconBg: failed ? 'rgba(244,63,94,0.10)' : success ? 'rgba(167,139,250,0.12)' : 'rgba(245,158,11,0.12)',
     iconColor: failed ? '#f43f5e' : success ? '#a78bfa' : '#fbbf24',
   };
 }
 
+function buildLocalActivity(item: LocalActivityRecord): ActivityItem {
+  const success = item.status === 'success';
+  const failed = item.status === 'error';
+  const visual =
+    item.category === 'swaps'
+      ? { icon: 'swap_horiz', bg: 'rgba(37,192,244,0.12)', color: '#25c0f4' }
+      : { icon: 'water', bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
+
+  return {
+    id: `local-${item.id}`,
+    category: item.category,
+    title: item.title,
+    subtitle: failed && item.errorMessage ? item.errorMessage : item.subtitle,
+    statusLabel: success ? 'Confirmed' : failed ? 'Failed' : 'Pending',
+    statusTone: success ? 'text-emerald-400' : failed ? 'text-rose-400' : 'text-amber-400',
+    timeLabel: formatRelativeTime(item.updatedAt || item.createdAt),
+    timestamp: item.updatedAt || item.createdAt,
+    hashLabel: item.hash ? `${item.hash.slice(0, 6)}...${item.hash.slice(-4)}` : undefined,
+    hash: item.hash ?? undefined,
+    icon: visual.icon,
+    iconBg: visual.bg,
+    iconColor: visual.color,
+  };
+}
+
 export default function TransactionsPage() {
   const [filter, setFilter] = useState<'all' | 'swaps' | 'liquidity' | 'bridge'>('all');
   const [bridgeHistory, setBridgeHistory] = useState<BridgeHistoryItem[]>([]);
+  const [localActivity, setLocalActivity] = useState<LocalActivityRecord[]>([]);
   const { data: items = [], isLoading } = useTransactions();
 
   useEffect(() => {
+    const syncLocalActivity = () => {
+      try {
+        setLocalActivity(readLocalActivityHistory());
+      } catch {
+        setLocalActivity([]);
+      }
+    };
+
     const readBridgeHistory = () => {
       try {
         const raw = localStorage.getItem(BRIDGE_HISTORY_STORAGE_KEY);
         if (!raw) {
           setBridgeHistory([]);
-          return;
+        } else {
+          const parsed = JSON.parse(raw) as unknown[];
+          setBridgeHistory(Array.isArray(parsed) ? parsed.filter(isValidBridgeHistoryItem) : []);
         }
-        const parsed = JSON.parse(raw) as unknown[];
-        setBridgeHistory(Array.isArray(parsed) ? parsed.filter(isValidBridgeHistoryItem) : []);
       } catch {
         setBridgeHistory([]);
       }
+
+      syncLocalActivity();
     };
 
     readBridgeHistory();
     const intervalId = window.setInterval(readBridgeHistory, 10_000);
     const onStorage = (event: StorageEvent) => {
-      if (event.key === BRIDGE_HISTORY_STORAGE_KEY) readBridgeHistory();
+      if (event.key === BRIDGE_HISTORY_STORAGE_KEY || event.key === LOCAL_ACTIVITY_STORAGE_KEY) {
+        readBridgeHistory();
+      }
     };
     window.addEventListener('storage', onStorage);
     return () => {
@@ -146,8 +192,15 @@ export default function TransactionsPage() {
   const activityItems = useMemo(() => {
     const apiItems = (items as TxItem[]).map(buildApiActivity);
     const bridgeItems = bridgeHistory.map(buildBridgeActivity);
-    return [...apiItems, ...bridgeItems].sort((a, b) => b.timestamp - a.timestamp);
-  }, [bridgeHistory, items]);
+    const apiHashes = new Set(apiItems.map((item) => item.hash).filter(Boolean));
+    const localItems = localActivity
+      .map(buildLocalActivity)
+      .filter((item) => {
+        if (item.hash && apiHashes.has(item.hash) && item.statusLabel === 'Confirmed') return false;
+        return true;
+      });
+    return [...localItems, ...apiItems, ...bridgeItems].sort((a, b) => b.timestamp - a.timestamp);
+  }, [bridgeHistory, items, localActivity]);
 
   const filteredItems = useMemo(() => {
     if (filter === 'all') return activityItems;
