@@ -33,7 +33,7 @@ const publicArcAssets = [
 
 const developerLinks = [
   {
-    href: 'https://github.com/Emperoar07/tempo-mini-dapp',
+    href: 'https://github.com/Emperoar07/Presto',
     label: 'Presto App Repository',
     description: 'Frontend, contracts, scripts, and local deployment flow.',
   },
