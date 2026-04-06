@@ -39,31 +39,16 @@ export function BridgeHistoryPanel({
 
   return (
     <div
-      className="overflow-hidden rounded-[16px]"
-      style={{ background: '#1a2436', border: '1px solid rgba(255,255,255,0.07)' }}
+      className="overflow-hidden rounded-[14px]"
+      style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
     >
-      <div
-        className="flex items-center justify-between px-4 py-3.5"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-      >
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Bridge History</p>
-          <p className="mt-1 text-[14px] font-bold tracking-tight text-slate-50">Recent Transfers</p>
-        </div>
-        <span
-          className="rounded-full px-2.5 py-1 text-[10.5px] font-semibold text-slate-300"
-          style={{ background: '#223046', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          {bridgeHistory.length} {bridgeHistory.length === 1 ? 'entry' : 'entries'}
-        </span>
+      <div className="px-4 pt-3.5 pb-2">
+        <p className="text-[13px] font-bold text-slate-50">Transfer History</p>
       </div>
 
-      <div className="max-h-[360px] space-y-2.5 overflow-y-auto px-3 py-3">
+      <div className="h-[240px] overflow-y-auto">
         {bridgeHistory.length === 0 ? (
-          <div
-            className="rounded-[14px] px-4 py-8 text-center text-[13px] text-slate-500"
-            style={{ background: '#162133', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
+          <div className="px-4 py-6 text-center text-[12px] text-slate-500">
             No bridge transfers yet.
           </div>
         ) : (
@@ -73,85 +58,61 @@ export function BridgeHistoryPanel({
             const isFailed = effectiveState === 'error';
             const sourceNet = NETWORKS[item.sourceKey];
             const destNet = NETWORKS[item.destinationKey];
-            const label = `${sourceNet?.shortLabel ?? item.sourceKey} to ${destNet?.shortLabel ?? item.destinationKey}`;
+            const label = `${sourceNet?.shortLabel ?? item.sourceKey} → ${destNet?.shortLabel ?? item.destinationKey}`;
             const amountLabel = item.amount ? `${formatTokenAmount(item.amount, 6)} USDC` : 'USDC';
             const stateLabel = isSuccess ? 'Completed' : isFailed ? 'Failed' : 'Pending';
             const timeLabel = formatRelativeTime(item.createdAt, now);
             const iconColor = isSuccess ? '#a78bfa' : isFailed ? '#f43f5e' : '#fbbf24';
             const iconBg = isSuccess ? 'rgba(167,139,250,0.12)' : isFailed ? 'rgba(244,63,94,0.10)' : 'rgba(245,158,11,0.12)';
-            const statusTone = isSuccess ? 'text-emerald-400' : isFailed ? 'text-rose-400' : 'text-amber-400';
 
             return (
-              <div
-                key={item.id}
-                className="rounded-[14px] px-3.5 py-3.5"
-                style={{ background: '#162133', border: '1px solid rgba(255,255,255,0.06)' }}
-              >
-                <div className="flex items-start gap-3">
+              <div key={item.id}>
+                <div
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  {/* Icon */}
                   <div
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
                     style={{ background: iconBg }}
                   >
-                    <span className="material-symbols-outlined text-[18px]" style={{ color: iconColor }}>
+                    <span className="material-symbols-outlined text-[16px]" style={{ color: iconColor }}>
                       {isFailed ? 'error' : 'sync_alt'}
                     </span>
                   </div>
 
+                  {/* Left: route + subtitle */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[13px] font-semibold text-slate-100">{label}</p>
-                        <p className="mt-0.5 text-[11.5px] text-slate-500">
-                          {amountLabel} · {stateLabel}
-                        </p>
-                      </div>
+                    <p className="text-[12.5px] font-semibold text-slate-100">{label}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {amountLabel} · {stateLabel}
+                    </p>
+                  </div>
 
-                      <div className="text-right">
-                        {isSuccess ? (
-                          <p className="text-[12.5px] font-bold text-emerald-400">
-                            +{formatTokenAmount(item.amount, 6)} USDC
-                          </p>
-                        ) : isFailed ? (
-                          <p className="text-[12.5px] font-bold text-rose-400">Failed</p>
-                        ) : (
-                          <p className="text-[12.5px] font-bold text-amber-400">Pending</p>
-                        )}
-                        <p className="mt-1 text-[10.5px] text-slate-500">{timeLabel}</p>
-                      </div>
-                    </div>
+                  {/* Right: amount or status + time */}
+                  <div className="flex-shrink-0 text-right">
+                    {isSuccess ? (
+                      <p className="text-[12.5px] font-bold text-emerald-400">
+                        +{formatTokenAmount(item.amount, 6)} USDC
+                      </p>
+                    ) : isFailed ? (
+                      <p className="text-[12.5px] font-bold text-rose-400">Failed</p>
+                    ) : (
+                      <p className="text-[12.5px] font-bold text-amber-400">Pending</p>
+                    )}
+                    <p className="text-[10px] text-slate-500">{timeLabel}</p>
+                  </div>
+                </div>
 
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${statusTone}`}
-                        style={{
-                          background: isSuccess
-                            ? 'rgba(16,185,129,0.10)'
-                            : isFailed
-                              ? 'rgba(244,63,94,0.10)'
-                              : 'rgba(245,158,11,0.10)',
-                          border: isSuccess
-                            ? '1px solid rgba(16,185,129,0.18)'
-                            : isFailed
-                              ? '1px solid rgba(244,63,94,0.18)'
-                              : '1px solid rgba(245,158,11,0.18)',
-                        }}
-                      >
-                        {stateLabel}
-                      </span>
-                      <span
-                        className="rounded-full px-2.5 py-1 text-[10px] font-semibold text-slate-400"
-                        style={{ background: '#1c2940', border: '1px solid rgba(255,255,255,0.06)' }}
-                      >
-                        {timeLabel}
-                      </span>
-                    </div>
-
+                {/* Expandable details: notes, errors, tx links, claim */}
+                {(item.liveNote || (isFailed && item.errorMessage) || item.steps.some((s) => s.txHash) || item.sourceTxHash || (stateLabel !== 'Completed' && item.rawResult) || (stateLabel === 'Pending' && !item.rawResult)) ? (
+                  <div className="px-4 pb-2.5 pl-[60px]">
                     {item.liveNote ? (
-                      <p className="mt-2.5 text-[11.5px] leading-6 text-slate-400">{item.liveNote}</p>
+                      <p className="text-[11px] leading-5 text-slate-400">{item.liveNote}</p>
                     ) : null}
 
                     {isFailed && item.errorMessage ? (
-                      <p className="mt-2 text-[11.5px] text-rose-300">{item.errorMessage}</p>
+                      <p className="text-[11px] text-rose-300">{item.errorMessage}</p>
                     ) : null}
 
                     {(() => {
@@ -162,7 +123,7 @@ export function BridgeHistoryPanel({
                       if (!hasStepLinks && !fallbackHash) return null;
 
                       return (
-                        <div className="mt-2.5 flex flex-wrap gap-2">
+                        <div className="mt-1 flex flex-wrap gap-1.5">
                           {stepsWithHash.map((step, index) => {
                             const stepName = step.name ?? step.action ?? `Step ${index + 1}`;
                             const stepChainKey =
@@ -175,11 +136,15 @@ export function BridgeHistoryPanel({
                                 href={`${explorerBase}${step.txHash}${stepChainKey === 'solana-devnet' ? '?cluster=devnet' : ''}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1.5 text-[10.5px] text-slate-200 transition-colors hover:border-primary/30 hover:text-primary"
-                                style={{ background: '#192538' }}
+                                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#192538] px-2 py-0.5 text-[10px] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"
                               >
-                                <span>{stepName}</span>
-                                <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                                <span
+                                  className={`inline-flex h-[5px] w-[5px] rounded-full ${
+                                    step.state === 'success' ? 'bg-emerald-400' : step.state === 'error' ? 'bg-rose-400' : 'bg-slate-500'
+                                  }`}
+                                />
+                                <span className="capitalize">{stepName}</span>
+                                <span className="material-symbols-outlined text-[11px]">open_in_new</span>
                               </a>
                             );
                           })}
@@ -189,11 +154,10 @@ export function BridgeHistoryPanel({
                               href={`${getExplorerBase(item.sourceKey)}${fallbackHash}${item.sourceKey === 'solana-devnet' ? '?cluster=devnet' : ''}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1.5 text-[10.5px] text-slate-200 transition-colors hover:border-primary/30 hover:text-primary"
-                              style={{ background: '#192538' }}
+                              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#192538] px-2 py-0.5 text-[10px] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"
                             >
                               <span>View on {NETWORKS[item.sourceKey].shortLabel}</span>
-                              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                              <span className="material-symbols-outlined text-[11px]">open_in_new</span>
                             </a>
                           ) : null}
                         </div>
@@ -205,26 +169,25 @@ export function BridgeHistoryPanel({
                         type="button"
                         disabled={claimingItemId === item.id}
                         onClick={() => onManualClaim(item)}
-                        className="mt-3 flex h-[42px] w-full items-center justify-center gap-2 rounded-[10px] border border-primary/20 px-3 text-[12px] font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{ background: '#162e45' }}
+                        className="mt-2 flex h-[34px] w-full items-center justify-center gap-1.5 rounded-[8px] border border-primary/20 bg-[#162e45] text-[11px] font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {claimingItemId === item.id ? (
                           <>
-                            <span className="inline-flex h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                            <span className="inline-flex h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
                             <span>Claiming...</span>
                           </>
                         ) : (
                           <>
-                            <span className="material-symbols-outlined text-[15px]">replay</span>
+                            <span className="material-symbols-outlined text-[13px]">replay</span>
                             <span>Complete Mint</span>
                           </>
                         )}
                       </button>
                     ) : stateLabel === 'Pending' && !item.rawResult ? (
-                      <p className="mt-2.5 text-[10px] text-slate-500">Auto claiming when attestation is ready...</p>
+                      <p className="mt-1 text-[10px] text-slate-500">Auto claiming when attestation is ready...</p>
                     ) : null}
                   </div>
-                </div>
+                ) : null}
               </div>
             );
           })
