@@ -9,6 +9,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/swap': 'Swap',
   '/liquidity': 'Pools',
   '/bridge': 'Bridge',
+  '/send': 'Send',
+  '/deploy': 'Deploy',
   '/portfolio': 'Portfolio',
   '/transactions': 'Activity',
   '/analytics': 'Analytics',
@@ -22,7 +24,9 @@ export const PageTopbar = memo(function PageTopbar() {
   const chainId = useChainId();
   const { address } = useAccount();
 
-  const title = PAGE_TITLES[pathname] ?? '';
+  const title = PAGE_TITLES[pathname]
+    ?? (pathname.startsWith('/deploy') ? 'Deploy' : '')
+    ?? '';
 
   if (!title) {
     return null;

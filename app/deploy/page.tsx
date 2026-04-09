@@ -67,11 +67,6 @@ export default function DeployPage() {
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
-      <div className="mb-6">
-        <h1 className="text-[20px] font-bold text-slate-100">Deploy on Arc Testnet</h1>
-        <p className="mt-1 text-[13px] text-slate-500">Launch tokens, NFTs, or smart contracts directly from your wallet.</p>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {DEPLOY_OPTIONS.map((opt) => (
           <Link
