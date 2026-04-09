@@ -40,6 +40,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/swap', label: 'Swap', icon: 'swap_horiz', section: 'trade' },
   { href: '/liquidity', label: 'Pools', icon: 'water', section: 'trade' },
   { href: '/bridge', label: 'Bridge', icon: 'swap_horizontal_circle', section: 'trade' },
+  { href: '/send', label: 'Send', icon: 'send', section: 'trade' },
   { href: '/portfolio', label: 'Portfolio', icon: 'pie_chart', section: 'account' },
   { href: '/transactions', label: 'Activity', icon: 'history', section: 'account' },
   { href: '/analytics', label: 'Analytics', icon: 'bar_chart', section: 'insights' },

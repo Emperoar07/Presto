@@ -1,6 +1,6 @@
 export const LOCAL_ACTIVITY_STORAGE_KEY = 'prestodex-local-activity-history';
 
-export type LocalActivityCategory = 'swaps' | 'liquidity';
+export type LocalActivityCategory = 'swaps' | 'liquidity' | 'send';
 export type LocalActivityStatus = 'pending' | 'success' | 'error';
 
 export type LocalActivityRecord = {
@@ -23,7 +23,7 @@ function isValidLocalActivityRecord(value: unknown): value is LocalActivityRecor
 
   return (
     typeof item.id === 'string' &&
-    (item.category === 'swaps' || item.category === 'liquidity') &&
+    (item.category === 'swaps' || item.category === 'liquidity' || item.category === 'send') &&
     typeof item.title === 'string' &&
     typeof item.subtitle === 'string' &&
     (item.status === 'pending' || item.status === 'success' || item.status === 'error') &&
