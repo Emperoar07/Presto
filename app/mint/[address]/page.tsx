@@ -26,6 +26,7 @@ const NFT_READ_ABI = parseAbi([
 
 const NFT_MINT_ABI = parseAbi([
   'function mint(address to) external payable',
+  'function mintWithURI(address to, string uri) external payable',
 ]);
 
 type CollectionInfo = {
@@ -48,6 +49,10 @@ export default function MintPage() {
   const [loading, setLoading] = useState(true);
   const [minting, setMinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const [nftName, setNftName] = useState('');
+  const [nftDescription, setNftDescription] = useState('');
+  const [nftImage, setNftImage] = useState('');
 
   const explorerBase = getExplorerBaseUrl(ARC_CHAIN_ID);
 
@@ -76,21 +81,45 @@ export default function MintPage() {
     if (!walletClient || !publicClient || !address || !info) return;
     setMinting(true);
     try {
-      const hash = await walletClient.writeContract({
-        address: contractAddress,
-        abi: NFT_MINT_ABI,
-        functionName: 'mint',
-        args: [address],
-        value: info.mintPrice,
-        account: address as `0x${string}`,
-        chain: null,
-      });
+      const hasMetadata = showMetadata && (nftName.trim() || nftDescription.trim() || nftImage.trim());
+
+      let hash: `0x${string}`;
+      if (hasMetadata) {
+        const metadata: Record<string, string> = {};
+        if (nftName.trim()) metadata.name = nftName.trim();
+        if (nftDescription.trim()) metadata.description = nftDescription.trim();
+        if (nftImage.trim()) metadata.image = nftImage.trim();
+        const tokenURI = `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
+
+        hash = await walletClient.writeContract({
+          address: contractAddress,
+          abi: NFT_MINT_ABI,
+          functionName: 'mintWithURI',
+          args: [address, tokenURI],
+          value: info.mintPrice,
+          account: address as `0x${string}`,
+          chain: null,
+        });
+      } else {
+        hash = await walletClient.writeContract({
+          address: contractAddress,
+          abi: NFT_MINT_ABI,
+          functionName: 'mint',
+          args: [address],
+          value: info.mintPrice,
+          account: address as `0x${string}`,
+          chain: null,
+        });
+      }
       await publicClient.waitForTransactionReceipt({ hash });
       toast.custom(() => <TxToast hash={hash} title="NFT Minted!" />, { duration: 6000 });
 
       // Refresh info
       const totalMinted = await publicClient.readContract({ address: contractAddress, abi: NFT_READ_ABI, functionName: 'totalMinted' });
       setInfo((prev) => prev ? { ...prev, totalMinted } : prev);
+      setNftName('');
+      setNftDescription('');
+      setNftImage('');
     } catch (err) {
       if (!isUserCancellation(err)) toast.error(parseContractError(err).message);
     } finally {
@@ -147,6 +176,45 @@ export default function MintPage() {
                   {info.mintPrice === 0n ? 'Free' : `${formatEther(info.mintPrice)} USDC`}
                 </span>
               </div>
+
+              {/* Optional Metadata */}
+              {address && !soldOut && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowMetadata(!showMetadata)}
+                    className="mb-2 flex items-center gap-1 text-[11.5px] font-semibold text-slate-500 transition-colors hover:text-slate-300"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">{showMetadata ? 'expand_less' : 'expand_more'}</span>
+                    {showMetadata ? 'Hide metadata' : 'Add metadata (name, image, description)'}
+                  </button>
+                  {showMetadata && (
+                    <div className="space-y-2 rounded-[10px] border border-white/[0.05] bg-[#1a2740] p-3">
+                      <input
+                        type="text"
+                        value={nftName}
+                        onChange={(e) => setNftName(e.target.value)}
+                        placeholder="NFT name (optional)"
+                        className="w-full rounded-[8px] border border-white/[0.07] bg-[#263347] px-3 py-2 text-[12px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
+                      />
+                      <textarea
+                        value={nftDescription}
+                        onChange={(e) => setNftDescription(e.target.value)}
+                        placeholder="Description (optional)"
+                        rows={2}
+                        className="w-full rounded-[8px] border border-white/[0.07] bg-[#263347] px-3 py-2 text-[12px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
+                      />
+                      <input
+                        type="text"
+                        value={nftImage}
+                        onChange={(e) => setNftImage(e.target.value)}
+                        placeholder="Image URL: ipfs://... or https://... (optional)"
+                        className="w-full rounded-[8px] border border-white/[0.07] bg-[#263347] px-3 py-2 text-[12px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Mint Button */}
               {!address ? (

@@ -53,7 +53,7 @@ function formatUsdc(raw: bigint): string {
   const frac = raw % 1_000_000n;
   if (whole >= 1_000_000n) return `$${(Number(whole) / 1_000_000).toFixed(1)}M`;
   if (whole >= 1_000n) return `$${(Number(whole) / 1_000).toFixed(1)}K`;
-  return `$${whole}.${frac.toString().padStart(6, '0').slice(0, 2)}`;
+  return `$${Number(whole).toLocaleString('en-US')}.${frac.toString().padStart(6, '0').slice(0, 2)}`;
 }
 
 function normalizeToUsdcRaw(amount: bigint, decimals: number): bigint {
@@ -156,12 +156,7 @@ function aggregateStats(
       shares: bigint;
     } }).args;
     if (!args) continue;
-    const { provider, token, tokenAmount, pathAmount } = args;
-    if (provider) traders.add(provider.toLowerCase());
-
-    const tokenDecimals = tokenDecimalsByAddress.get(token?.toLowerCase() ?? '') ?? hubDecimals;
-    volumeRaw += normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals);
-    volumeRaw += normalizeToUsdcRaw(pathAmount ?? 0n, hubDecimals);
+    // Liquidity events are tracked for event count only — not added to volume or traders
   }
 
   totalSwaps += swapLogs.length;

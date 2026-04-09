@@ -30,10 +30,25 @@ contract DeployableNFT is ERC721, ERC721URIStorage, Ownable {
         _safeMint(to, tokenId);
     }
 
+    function mintWithURI(address to, string memory uri) external payable {
+        require(msg.value >= mintPrice, "Insufficient payment");
+        require(_nextTokenId < maxSupply, "Max supply reached");
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
+    }
+
     function ownerMint(address to) external onlyOwner {
         require(_nextTokenId < maxSupply, "Max supply reached");
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
+    }
+
+    function ownerMintWithURI(address to, string memory uri) external onlyOwner {
+        require(_nextTokenId < maxSupply, "Max supply reached");
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
     }
 
     function setBaseURI(string memory baseURI_) external onlyOwner {

@@ -3,6 +3,17 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+const FEATURES = [
+  { t: 'Token Swaps', d: 'Instant onchain execution against stable hub pools. No offchain order books and no hidden routing fees.', icon: 'swap_horiz', color: '#25c0f4' },
+  { t: 'Cross Chain Bridge', d: 'Circle CCTP V2 moves USDC across Arc, Base, Ethereum, and Solana. Live fee estimates and retry support.', icon: 'link', color: '#22c55e' },
+  { t: 'Liquidity Pools', d: 'Provide liquidity, manage positions, and earn trading fees on every swap through your pool.', icon: 'water_drop', color: '#a78bfa' },
+  { t: 'Send Tokens', d: 'Transfer any ERC20 on Arc Testnet to any address. Paste a custom contract address to load unlisted tokens.', icon: 'send', color: '#f59e0b' },
+  { t: 'Deploy Hub', d: 'Launch ERC20 tokens with seed liquidity, NFT collections with public mint pages, or any contract from ABI and bytecode.', icon: 'rocket_launch', color: '#ec4899' },
+  { t: 'Portfolio', d: 'Token balances, LP positions, and fee earnings. All in one dashboard.', icon: 'account_balance_wallet', color: '#06b6d4' },
+  { t: 'Activity Feed', d: 'Complete history of swaps, liquidity events, bridge transfers, and deployments for your wallet.', icon: 'history', color: '#8b5cf6' },
+  { t: 'Analytics', d: 'Onchain orderbook data and trade volume summaries on supported routes.', icon: 'bar_chart', color: '#10b981' },
+];
+
 type DexStats = {
   totalSwaps: number;
   totalVolumeUSDC: string;
@@ -50,6 +61,99 @@ function useLiveDexStats() {
   }, [fetch_]);
 
   return { stats, poolStats, loading };
+}
+
+function FeatureCarousel() {
+  const [active, setActive] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const reset = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setActive((p) => (p + 1) % FEATURES.length), 15_000);
+  }, []);
+
+  useEffect(() => { reset(); return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, [reset]);
+
+  function go(dir: -1 | 1) {
+    setActive((p) => (p + dir + FEATURES.length) % FEATURES.length);
+    reset();
+  }
+
+  return (
+    <div className="relative">
+      {/* Arrows */}
+      <button
+        type="button"
+        onClick={() => go(-1)}
+        className="absolute -left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-[#141e30] p-2 text-slate-400 transition-all hover:border-white/20 hover:text-white md:-left-5"
+        aria-label="Previous"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <button
+        type="button"
+        onClick={() => go(1)}
+        className="absolute -right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-[#141e30] p-2 text-slate-400 transition-all hover:border-white/20 hover:text-white md:-right-5"
+        aria-label="Next"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+
+      {/* Stacked cards */}
+      <div className="relative mx-auto h-[200px] max-w-[600px]" style={{ perspective: '1200px' }}>
+        {FEATURES.map((f, i) => {
+          const offset = ((i - active) + FEATURES.length) % FEATURES.length;
+          // Show at most 4 cards in the stack
+          const visible = offset < 4;
+          const z = 40 - offset * 10;
+          const scale = 1 - offset * 0.05;
+          const y = offset * 8;
+          const opacity = offset === 0 ? 1 : offset < 4 ? 0.6 - offset * 0.15 : 0;
+
+          return (
+            <div
+              key={f.t}
+              className="absolute inset-0 rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7"
+              style={{
+                transform: `translateY(${y}px) scale(${scale})`,
+                zIndex: z,
+                opacity: visible ? opacity : 0,
+                transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)',
+                pointerEvents: offset === 0 ? 'auto' : 'none',
+              }}
+            >
+              <div className="mb-1 flex items-center gap-3">
+                <div
+                  className="flex size-10 items-center justify-center rounded-xl"
+                  style={{ background: `${f.color}15` }}
+                >
+                  <span className="material-symbols-outlined text-[22px]" style={{ color: f.color }}>{f.icon}</span>
+                </div>
+                <div className="text-[17px] font-extrabold tracking-tight text-[#f1f5f9]">{f.t}</div>
+              </div>
+              <div className="mt-3 max-w-[440px] text-[14px] leading-[1.7] text-[#94a3b8]">{f.d}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Dots */}
+      <div className="mt-6 flex justify-center gap-1.5">
+        {FEATURES.map((f, i) => (
+          <button
+            key={f.t}
+            type="button"
+            onClick={() => { setActive(i); reset(); }}
+            className="h-1.5 rounded-full transition-all duration-300"
+            style={{
+              width: i === active ? 24 : 6,
+              background: i === active ? '#25c0f4' : 'rgba(255,255,255,0.15)',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function LogoMark({ size = 34 }: { size?: number }) {
@@ -178,43 +282,7 @@ export default function Home() {
             Swap, pool, bridge, send, deploy, and track your portfolio. All from a single sidebar driven interface.
           </div>
 
-          <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-            {[
-              { t: 'Token Swaps', d: 'Instant onchain execution against stable hub pools. No offchain order books and no hidden routing fees.' },
-              { t: 'Cross Chain Bridge', d: 'Circle CCTP V2 moves USDC across Arc, Base, Ethereum, and Solana. Live fee estimates and retry support.' },
-              { t: 'Liquidity Pools', d: 'Provide liquidity, manage positions, and earn trading fees on every swap through your pool.' },
-            ].map(({ t, d }) => (
-              <div key={t} className="rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7">
-                <div className="mb-3 text-[17px] font-extrabold tracking-tight text-[#f1f5f9]">{t}</div>
-                <div className="text-[13px] leading-[1.65] text-[#94a3b8]">{d}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            {[
-              { t: 'Send Tokens', d: 'Transfer any ERC20 on Arc Testnet to any address. Paste a custom contract address to load unlisted tokens.' },
-              { t: 'Deploy Hub', d: 'Launch ERC20 tokens with seed liquidity, NFT collections with public mint pages, or any contract from ABI and bytecode.' },
-              { t: 'Portfolio', d: 'Token balances, LP positions, and fee earnings. All in one dashboard.' },
-            ].map(({ t, d }) => (
-              <div key={t} className="rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7">
-                <div className="mb-3 text-[17px] font-extrabold tracking-tight text-[#f1f5f9]">{t}</div>
-                <div className="text-[13px] leading-[1.65] text-[#94a3b8]">{d}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-            {[
-              { t: 'Activity Feed', d: 'Complete history of swaps, liquidity events, bridge transfers, and deployments for your wallet.' },
-              { t: 'Analytics', d: 'Onchain orderbook data and trade volume summaries on supported routes.' },
-            ].map(({ t, d }) => (
-              <div key={t} className="rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7">
-                <div className="mb-3 text-[17px] font-extrabold tracking-tight text-[#f1f5f9]">{t}</div>
-                <div className="text-[13px] leading-[1.65] text-[#94a3b8]">{d}</div>
-              </div>
-            ))}
-          </div>
+          <FeatureCarousel />
         </div>
       </section>
 

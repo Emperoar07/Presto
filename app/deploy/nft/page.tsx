@@ -22,6 +22,7 @@ const ARC_CHAIN_ID = 5042002;
 
 const NFT_OWNER_ABI = parseAbi([
   'function ownerMint(address to) external',
+  'function ownerMintWithURI(address to, string uri) external',
   'function setBaseURI(string baseURI_) external',
   'function withdraw() external',
   'function totalMinted() external view returns (uint256)',
@@ -45,6 +46,9 @@ export default function DeployNFTPage() {
   // Post-deploy actions
   const [ownerMintTo, setOwnerMintTo] = useState('');
   const [ownerMinting, setOwnerMinting] = useState(false);
+  const [mintNftName, setMintNftName] = useState('');
+  const [mintNftDescription, setMintNftDescription] = useState('');
+  const [mintNftImage, setMintNftImage] = useState('');
   const [newBaseURI, setNewBaseURI] = useState('');
   const [updatingURI, setUpdatingURI] = useState(false);
 
@@ -111,17 +115,41 @@ export default function DeployNFTPage() {
     setOwnerMinting(true);
     try {
       const to = (ownerMintTo || address) as `0x${string}`;
-      const hash = await writeContractWithRetry(walletClient, publicClient, {
-        address: deployResult.address,
-        abi: NFT_OWNER_ABI,
-        functionName: 'ownerMint',
-        args: [to],
-        account: address as `0x${string}`,
-        chain: null,
-      });
+      const hasMetadata = mintNftName.trim() || mintNftDescription.trim() || mintNftImage.trim();
+
+      let hash: `0x${string}`;
+      if (hasMetadata) {
+        // Build a data URI with the metadata JSON so it's stored on-chain per token
+        const metadata: Record<string, string> = {};
+        if (mintNftName.trim()) metadata.name = mintNftName.trim();
+        if (mintNftDescription.trim()) metadata.description = mintNftDescription.trim();
+        if (mintNftImage.trim()) metadata.image = mintNftImage.trim();
+        const tokenURI = `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
+
+        hash = await writeContractWithRetry(walletClient, publicClient, {
+          address: deployResult.address,
+          abi: NFT_OWNER_ABI,
+          functionName: 'ownerMintWithURI',
+          args: [to, tokenURI],
+          account: address as `0x${string}`,
+          chain: null,
+        });
+      } else {
+        hash = await writeContractWithRetry(walletClient, publicClient, {
+          address: deployResult.address,
+          abi: NFT_OWNER_ABI,
+          functionName: 'ownerMint',
+          args: [to],
+          account: address as `0x${string}`,
+          chain: null,
+        });
+      }
       await publicClient.waitForTransactionReceipt({ hash });
       toast.custom(() => <TxToast hash={hash} title="NFT minted (owner)" />, { duration: 6000 });
       setOwnerMintTo('');
+      setMintNftName('');
+      setMintNftDescription('');
+      setMintNftImage('');
     } catch (err) {
       if (!isUserCancellation(err)) toast.error(parseContractError(err).message);
     } finally {
@@ -284,15 +312,54 @@ export default function DeployNFTPage() {
               <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
                 <div className="px-5 py-[14px]" style={{ borderBottom: BDR }}>
                   <p className="text-[14px] font-bold text-slate-100">Owner Mint (Free)</p>
+                  <p className="mt-0.5 text-[11.5px] text-slate-500">Metadata fields are optional — leave blank to use the collection Base URI</p>
                 </div>
                 <div className="space-y-3 p-5">
-                  <input
-                    type="text"
-                    value={ownerMintTo}
-                    onChange={(e) => setOwnerMintTo(e.target.value)}
-                    placeholder={address ?? '0x... recipient (blank = you)'}
-                    className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
-                  />
+                  <div>
+                    <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Recipient (blank = you)</label>
+                    <input
+                      type="text"
+                      value={ownerMintTo}
+                      onChange={(e) => setOwnerMintTo(e.target.value)}
+                      placeholder={address ?? '0x...'}
+                      className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
+                    />
+                  </div>
+
+                  <div className="rounded-[10px] border border-white/[0.05] bg-[#1a2740] p-3 space-y-2.5">
+                    <p className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">Per-Token Metadata (optional)</p>
+                    <div>
+                      <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Name</label>
+                      <input
+                        type="text"
+                        value={mintNftName}
+                        onChange={(e) => setMintNftName(e.target.value)}
+                        placeholder="e.g. Cool Cat #1"
+                        className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Description</label>
+                      <textarea
+                        value={mintNftDescription}
+                        onChange={(e) => setMintNftDescription(e.target.value)}
+                        placeholder="A short description for this NFT"
+                        rows={2}
+                        className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Image URL</label>
+                      <input
+                        type="text"
+                        value={mintNftImage}
+                        onChange={(e) => setMintNftImage(e.target.value)}
+                        placeholder="ipfs://... or https://..."
+                        className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40"
+                      />
+                    </div>
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleOwnerMint}
@@ -331,7 +398,7 @@ export default function DeployNFTPage() {
               {/* Deploy Another */}
               <button
                 type="button"
-                onClick={() => { setDeployResult(null); setName(''); setSymbol(''); setMaxSupply(''); setMintPrice(''); setBaseURI(''); }}
+                onClick={() => { setDeployResult(null); setName(''); setSymbol(''); setMaxSupply(''); setMintPrice(''); setBaseURI(''); setMintNftName(''); setMintNftDescription(''); setMintNftImage(''); }}
                 className="w-full rounded-[10px] py-[10px] text-[13px] font-semibold text-slate-400 transition-colors hover:text-slate-200"
               >
                 Deploy Another Collection

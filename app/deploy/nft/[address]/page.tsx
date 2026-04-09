@@ -21,6 +21,7 @@ const NFT_ABI = parseAbi([
   'function maxSupply() external view returns (uint256)',
   'function mintPrice() external view returns (uint256)',
   'function ownerMint(address to) external',
+  'function ownerMintWithURI(address to, string uri) external',
   'function setBaseURI(string baseURI_) external',
   'function withdraw() external',
 ]);
@@ -37,9 +38,13 @@ export default function ManageNFTPage() {
 
   const [ownerMintTo, setOwnerMintTo] = useState('');
   const [ownerMinting, setOwnerMinting] = useState(false);
+  const [mintNftName, setMintNftName] = useState('');
+  const [mintNftDescription, setMintNftDescription] = useState('');
+  const [mintNftImage, setMintNftImage] = useState('');
   const [newBaseURI, setNewBaseURI] = useState('');
   const [updatingURI, setUpdatingURI] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [contractBalance, setContractBalance] = useState<string | null>(null);
 
   const explorerBase = getExplorerBaseUrl(ARC_CHAIN_ID);
   const mintPageUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/mint/${contractAddress}`;
@@ -62,6 +67,9 @@ export default function ManageNFTPage() {
           maxSupply: maxSupply.toString(),
           mintPrice: formatEther(mintPrice),
         });
+        // Fetch contract native balance
+        const bal = await publicClient.getBalance({ address: contractAddress });
+        setContractBalance(formatEther(bal));
       } catch {
         setInfo(null);
       }
@@ -75,13 +83,32 @@ export default function ManageNFTPage() {
     setOwnerMinting(true);
     try {
       const to = (ownerMintTo || address) as `0x${string}`;
-      const hash = await writeContractWithRetry(walletClient, publicClient, {
-        address: contractAddress, abi: NFT_ABI, functionName: 'ownerMint', args: [to],
-        account: address as `0x${string}`, chain: null,
-      });
+      const hasMetadata = mintNftName.trim() || mintNftDescription.trim() || mintNftImage.trim();
+
+      let hash: `0x${string}`;
+      if (hasMetadata) {
+        const metadata: Record<string, string> = {};
+        if (mintNftName.trim()) metadata.name = mintNftName.trim();
+        if (mintNftDescription.trim()) metadata.description = mintNftDescription.trim();
+        if (mintNftImage.trim()) metadata.image = mintNftImage.trim();
+        const tokenURI = `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
+
+        hash = await writeContractWithRetry(walletClient, publicClient, {
+          address: contractAddress, abi: NFT_ABI, functionName: 'ownerMintWithURI', args: [to, tokenURI],
+          account: address as `0x${string}`, chain: null,
+        });
+      } else {
+        hash = await writeContractWithRetry(walletClient, publicClient, {
+          address: contractAddress, abi: NFT_ABI, functionName: 'ownerMint', args: [to],
+          account: address as `0x${string}`, chain: null,
+        });
+      }
       await publicClient.waitForTransactionReceipt({ hash });
       toast.custom(() => <TxToast hash={hash} title="NFT minted" />, { duration: 6000 });
       setOwnerMintTo('');
+      setMintNftName('');
+      setMintNftDescription('');
+      setMintNftImage('');
     } catch (err) {
       if (!isUserCancellation(err)) toast.error(parseContractError(err).message);
     } finally {
@@ -117,6 +144,9 @@ export default function ManageNFTPage() {
       });
       await publicClient.waitForTransactionReceipt({ hash });
       toast.success('Funds withdrawn');
+      // Refresh balance
+      const bal = await publicClient.getBalance({ address: contractAddress });
+      setContractBalance(formatEther(bal));
     } catch (err) {
       if (!isUserCancellation(err)) toast.error(parseContractError(err).message);
     } finally {
@@ -186,10 +216,35 @@ export default function ManageNFTPage() {
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
             <div className="px-5 py-[14px]" style={{ borderBottom: BDR }}>
               <p className="text-[14px] font-bold text-slate-100">Owner Mint (Free)</p>
+              <p className="mt-0.5 text-[11.5px] text-slate-500">Metadata fields are optional — leave blank to use the collection Base URI</p>
             </div>
             <div className="space-y-3 p-5">
-              <input type="text" value={ownerMintTo} onChange={(e) => setOwnerMintTo(e.target.value)}
-                placeholder={address ?? '0x... recipient'} className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40" />
+              <div>
+                <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Recipient (blank = you)</label>
+                <input type="text" value={ownerMintTo} onChange={(e) => setOwnerMintTo(e.target.value)}
+                  placeholder={address ?? '0x...'} className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40" />
+              </div>
+
+              <div className="rounded-[10px] border border-white/[0.05] bg-[#1a2740] p-3 space-y-2.5">
+                <p className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">Per-Token Metadata (optional)</p>
+                <div>
+                  <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Name</label>
+                  <input type="text" value={mintNftName} onChange={(e) => setMintNftName(e.target.value)}
+                    placeholder="e.g. Cool Cat #1" className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Description</label>
+                  <textarea value={mintNftDescription} onChange={(e) => setMintNftDescription(e.target.value)}
+                    placeholder="A short description for this NFT" rows={2}
+                    className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Image URL</label>
+                  <input type="text" value={mintNftImage} onChange={(e) => setMintNftImage(e.target.value)}
+                    placeholder="ipfs://... or https://..." className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40" />
+                </div>
+              </div>
+
               <button type="button" onClick={handleOwnerMint} disabled={ownerMinting}
                 className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] py-[11px] text-[13px] font-bold text-slate-100 transition-colors hover:bg-[#2d3f56] disabled:cursor-not-allowed disabled:opacity-40">
                 {ownerMinting ? 'Minting...' : 'Mint NFT'}
@@ -217,8 +272,14 @@ export default function ManageNFTPage() {
             <div className="px-5 py-[14px]" style={{ borderBottom: BDR }}>
               <p className="text-[14px] font-bold text-slate-100">Withdraw Mint Revenue</p>
             </div>
-            <div className="p-5">
-              <button type="button" onClick={handleWithdraw} disabled={withdrawing}
+            <div className="space-y-3 p-5">
+              <div className="flex items-center justify-between rounded-[10px] bg-[#263347] px-4 py-3">
+                <span className="text-[12px] text-slate-400">Available Balance</span>
+                <span className="text-[14px] font-bold text-slate-100">
+                  {contractBalance !== null ? `${contractBalance} ETH` : '—'}
+                </span>
+              </div>
+              <button type="button" onClick={handleWithdraw} disabled={withdrawing || contractBalance === '0'}
                 className="w-full rounded-[10px] bg-emerald-600 py-[11px] text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
                 {withdrawing ? 'Withdrawing...' : 'Withdraw Funds'}
               </button>
