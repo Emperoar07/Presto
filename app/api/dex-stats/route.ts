@@ -156,6 +156,12 @@ function aggregateStats(
       shares: bigint;
     } }).args;
     if (!args) continue;
+    const { provider, token, tokenAmount, pathAmount } = args;
+    if (provider) traders.add(provider.toLowerCase());
+
+    const tokenDecimals = tokenDecimalsByAddress.get(token?.toLowerCase() ?? '') ?? hubDecimals;
+    volumeRaw += normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals);
+    volumeRaw += normalizeToUsdcRaw(pathAmount ?? 0n, hubDecimals);
   }
 
   totalSwaps += swapLogs.length;

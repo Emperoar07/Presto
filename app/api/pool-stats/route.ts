@@ -317,7 +317,22 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
           shares: bigint;
         } }).args;
         if (!args) continue;
-        // Liquidity events are tracked for reserve data but don't count as trade volume
+        const { token, tokenAmount, pathAmount } = args;
+        const tokenDecimals = TOKEN_DECIMALS_BY_ADDRESS.get(token?.toLowerCase() ?? '') ?? USDC_DECIMALS;
+        const liquidityDelta =
+          normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals) +
+          normalizeToUsdcRaw(pathAmount ?? 0n, USDC_DECIMALS);
+
+        const poolKey = token?.toLowerCase() ?? null;
+        if (!poolKey) continue;
+        const pool = poolMap.get(poolKey);
+        if (!pool) continue;
+
+        pool.snapshot = {
+          volRaw: (BigInt(pool.snapshot.volRaw) + liquidityDelta).toString(),
+          swapCount: pool.snapshot.swapCount,
+        };
+        totalVolumeRaw += liquidityDelta;
       }
 
       return await enrichWithReserves(

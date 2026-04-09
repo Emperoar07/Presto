@@ -100,7 +100,7 @@ export default function Home() {
             <span className="text-[15px] font-extrabold tracking-tight text-[#f1f5f9]">Presto</span>
           </Link>
           <div className="mr-5 hidden gap-0.5 md:flex">
-            {[['Swap', '/swap'], ['Pools', '/liquidity'], ['Bridge', '/bridge'], ['Send', '/send'], ['Deploy', '/deploy']].map(([label, href]) => (
+            {[['Swap', '/swap'], ['Pools', '/liquidity'], ['Bridge', '/bridge']].map(([label, href]) => (
               <Link
                 key={href}
                 href={href}
