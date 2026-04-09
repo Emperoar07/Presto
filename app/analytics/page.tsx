@@ -66,18 +66,31 @@ export default function AnalyticsPage() {
           </div>
           <div className="flex flex-1 flex-col justify-end px-5 pb-4">
             {(() => {
-              const poolVolumes = pools.map((p: { pair: string; vol24h: string; label: string; liquidityRaw: string; liquidity: string }) => {
+              type PoolVolumeEntry = {
+                pair: string;
+                label: string;
+                raw: number;
+                liquidityRaw: number;
+                liquidity: string;
+              };
+              const poolVolumes: PoolVolumeEntry[] = pools.map((p: {
+                pair: string;
+                vol24h: string;
+                label: string;
+                liquidityRaw: string;
+                liquidity: string;
+              }) => {
                 const raw = Number.parseFloat((p.vol24h ?? '').replace(/[^0-9.]/g, '')) || 0;
                 const liquidityRaw = Number.parseFloat((p.liquidityRaw ?? '').replace(/[^0-9.]/g, '')) || 0;
                 return { pair: p.pair, label: p.label, raw, liquidityRaw, liquidity: p.liquidity };
               });
-              const allZero = poolVolumes.every((p) => p.raw <= 0);
-              const values = poolVolumes.map((p) => (allZero ? p.liquidityRaw : p.raw));
+              const allZero = poolVolumes.every((p: PoolVolumeEntry) => p.raw <= 0);
+              const values = poolVolumes.map((p: PoolVolumeEntry) => (allZero ? p.liquidityRaw : p.raw));
               const maxVol = Math.max(...values, 1);
               return (
                 <>
                   <div className="flex items-end gap-2" style={{ height: 140 }}>
-                    {poolVolumes.map((p, i) => {
+                    {poolVolumes.map((p: PoolVolumeEntry, i: number) => {
                       const value = allZero ? p.liquidityRaw : p.raw;
                       const height = Math.max((value / maxVol) * 100, 12);
                       return (
