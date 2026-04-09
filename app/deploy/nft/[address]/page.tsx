@@ -13,6 +13,7 @@ import { getExplorerBaseUrl } from '@/lib/explorer';
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
 const ARC_CHAIN_ID = 5042002;
+const ARC_NATIVE_SYMBOL = 'USDC';
 
 const NFT_ABI = parseAbi([
   'function name() external view returns (string)',
@@ -194,7 +195,7 @@ export default function ManageNFTPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[12px] text-slate-500">Mint Price</span>
-                    <span className="text-[12px] text-slate-300">{info.mintPrice === '0' ? 'Free' : `${info.mintPrice} native`}</span>
+                    <span className="text-[12px] text-slate-300">{info.mintPrice === '0' ? 'Free' : `${info.mintPrice} ${ARC_NATIVE_SYMBOL}`}</span>
                   </div>
                 </>
               )}
@@ -276,7 +277,7 @@ export default function ManageNFTPage() {
               <div className="flex items-center justify-between rounded-[10px] bg-[#263347] px-4 py-3">
                 <span className="text-[12px] text-slate-400">Available Balance</span>
                 <span className="text-[14px] font-bold text-slate-100">
-                  {contractBalance !== null ? `${Number(contractBalance).toFixed(6)} ETH` : '—'}
+                  {contractBalance !== null ? `${Number(contractBalance).toFixed(6)} ${ARC_NATIVE_SYMBOL}` : '—'}
                 </span>
               </div>
               <button type="button" onClick={handleWithdraw} disabled={withdrawing || contractBalance === '0'}

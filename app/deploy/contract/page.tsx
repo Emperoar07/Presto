@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
@@ -23,6 +24,7 @@ type Template = {
   loader: () => Promise<{ abi: Abi; bytecode: `0x${string}` }>;
   description: string;
   buildArgs: () => unknown[];
+  kind: 'token' | 'nft';
 };
 
 const PRESTO_NAMES = ['Presto', 'Arc', 'Cyan', 'Nova', 'Orbit', 'Luma', 'Signal', 'Echo'];
@@ -60,27 +62,31 @@ const TEMPLATES: Template[] = [
     description: 'Loads a ready-to-deploy token example.',
     loader: loadTokenArtifact,
     buildArgs: () => ['Presto Token', 'PRST', 18, '1000000000000000000000000'],
+    kind: 'token',
   },
   {
     label: 'NFT Collection (DeployableNFT)',
     description: 'Loads a ready-to-deploy NFT collection example.',
     loader: loadNFTArtifact,
     buildArgs: () => ['Presto Collection', 'PRSTNFT', 1000, '0', 'https://example.com/metadata/'],
+    kind: 'nft',
   },
 ];
 
-const SURPRISE_TEMPLATES: Template[] = [
+const RANDOM_TEMPLATES: Template[] = [
   {
     label: 'Random Token Sample',
     description: 'Creates a fresh token template with generated name and supply.',
     loader: loadTokenArtifact,
     buildArgs: randomTokenArgs,
+    kind: 'token',
   },
   {
     label: 'Random NFT Sample',
     description: 'Creates a fresh NFT collection template with generated metadata.',
     loader: loadNFTArtifact,
     buildArgs: randomNFTArgs,
+    kind: 'nft',
   },
 ];
 
@@ -95,6 +101,7 @@ export default function DeployContractPage() {
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [selectedTemplateKind, setSelectedTemplateKind] = useState<'token' | 'nft'>('token');
 
   const explorerBase = getExplorerBaseUrl(ARC_CHAIN_ID);
 
@@ -115,6 +122,7 @@ export default function DeployContractPage() {
       setAbiText(JSON.stringify(abi, null, 2));
       setBytecodeText(bytecode);
       setArgsText(JSON.stringify(template.buildArgs(), null, 2));
+      setSelectedTemplateKind(template.kind);
       toast.success(`${template.label} loaded`);
     } catch {
       toast.error('Failed to load template');
@@ -123,7 +131,7 @@ export default function DeployContractPage() {
   }
 
   async function loadRandomTemplate() {
-    const pool = [...TEMPLATES, ...SURPRISE_TEMPLATES];
+    const pool = RANDOM_TEMPLATES.filter((template) => template.kind === selectedTemplateKind);
     const template = pool[Math.floor(Math.random() * pool.length)];
     await loadTemplate(template);
   }
@@ -205,6 +213,16 @@ export default function DeployContractPage() {
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
       <div className="flex min-h-[calc(100vh-180px)] items-start justify-center pt-2 md:pt-6">
         <div className="w-full max-w-[600px] space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/deploy"
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.07] bg-[#1e293b] px-3 py-2 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              Back to deploy
+            </Link>
+          </div>
+
           {/* Header */}
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
             <div className="px-5 py-[14px]" style={{ borderBottom: BDR }}>
@@ -219,7 +237,7 @@ export default function DeployContractPage() {
                   <div>
                     <label className="block text-[11.5px] font-semibold text-slate-400">Load Template</label>
                     <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                      Pick a ready-made example, or let us generate a fresh one.
+                      Pick a deploy path, then load a matching preset or a random sample for that path.
                     </p>
                   </div>
                   <button
@@ -227,10 +245,18 @@ export default function DeployContractPage() {
                     onClick={loadRandomTemplate}
                     disabled={loadingTemplate || !!deployResult}
                     className="shrink-0 rounded-[9px] border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-400/15 disabled:opacity-40"
-                    title="Load a random token or NFT example"
+                    title={`Load a random ${selectedTemplateKind === 'token' ? 'token' : 'NFT'} example`}
                   >
-                    Surprise me
+                    Random
                   </button>
+                </div>
+
+                <div className="mt-3 flex items-center gap-2 rounded-[10px] border border-white/[0.06] bg-[#1e293b] px-3 py-2">
+                  <span className="material-symbols-outlined text-[15px] text-[#25c0f4]">alt_route</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Current path</span>
+                  <span className="rounded-full border border-[#25c0f4]/20 bg-[#25c0f4]/10 px-2.5 py-1 text-[11px] font-semibold text-[#7dd3fc]">
+                    {selectedTemplateKind === 'token' ? 'ERC20 Token' : 'NFT Collection'}
+                  </span>
                 </div>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -240,7 +266,11 @@ export default function DeployContractPage() {
                       type="button"
                       onClick={() => loadTemplate(t)}
                       disabled={loadingTemplate || !!deployResult}
-                      className="flex min-h-[44px] items-center justify-center rounded-[9px] border border-white/[0.07] bg-[#263347] px-3 py-2 text-[12px] font-medium text-slate-300 transition-colors hover:bg-[#2d3f56] disabled:opacity-40"
+                      className={`flex min-h-[44px] items-center justify-center rounded-[9px] border px-3 py-2 text-[12px] font-medium transition-colors disabled:opacity-40 ${
+                        selectedTemplateKind === t.kind
+                          ? 'border-[#25c0f4]/30 bg-[#25c0f4]/10 text-[#7dd3fc]'
+                          : 'border-white/[0.07] bg-[#263347] text-slate-300 hover:bg-[#2d3f56]'
+                      }`}
                       title={t.description}
                     >
                       {t.label}

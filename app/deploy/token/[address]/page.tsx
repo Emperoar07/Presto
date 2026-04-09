@@ -46,7 +46,7 @@ export default function ManageTokenPage() {
       if (!publicClient || !isAddress(tokenAddress)) { setLoading(false); return; }
       try {
         const [name, symbol, decimals, totalSupply] = await Promise.all([
-          publicClient.readContract({ address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' }).catch(() => ''),
+          publicClient.readContract({ address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'name' }).catch(() => ''),
           publicClient.readContract({ address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' }).catch(() => ''),
           publicClient.readContract({ address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals' }).catch(() => 18),
           publicClient.readContract({ address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'balanceOf', args: [tokenAddress as `0x${string}`] }).catch(() => 0n),
