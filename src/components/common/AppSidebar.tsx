@@ -78,7 +78,7 @@ export const AppSidebar = memo(function AppSidebar() {
     { key: 'solana-devnet', label: 'Solana Devnet', iconSrc: null, chainId: null },
   ] as const;
   const activeBridgeEntry = bridgeNetworkEntries.find((e) => e.key === bridgeSource) ?? bridgeNetworkEntries[0];
-  const standardSupportedChains = [arcTestnet, baseSepolia];
+  const standardSupportedChains = [arcTestnet];
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
