@@ -1,4 +1,5 @@
 import type { WalletClient, PublicClient, Abi, TransactionReceipt } from 'viem';
+import { encodeDeployData } from 'viem';
 
 const DEPLOYMENTS_STORAGE_KEY = 'presto-deployments';
 
@@ -37,10 +38,17 @@ export async function deployContract(
   publicClient: PublicClient,
   params: { abi: Abi; bytecode: `0x${string}`; args?: unknown[] },
 ): Promise<DeployResult> {
-  const hash = await walletClient.deployContract({
+  // Manually encode bytecode + constructor args into a single data payload.
+  // walletClient.deployContract from wagmi/RainbowKit connectors can silently
+  // drop constructor args, so we encode them ourselves and send via sendTransaction.
+  const data = encodeDeployData({
     abi: params.abi,
     bytecode: params.bytecode,
     args: params.args ?? [],
+  });
+
+  const hash = await walletClient.sendTransaction({
+    data,
     chain: walletClient.chain,
     account: walletClient.account!,
   });
