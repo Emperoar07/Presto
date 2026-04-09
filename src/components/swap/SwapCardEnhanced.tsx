@@ -597,7 +597,7 @@ export function SwapCardEnhanced() {
   return (
     <>
       <div className="relative flex items-stretch justify-center gap-4">
-        <div className="relative w-full max-w-[381px] self-stretch">
+        <div className="relative w-full max-w-[381px] shrink-0 self-stretch">
         <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1e293b] shadow-[0_18px_48px_rgba(2,6,23,0.34)]">
           <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
             <div>
@@ -817,66 +817,64 @@ export function SwapCardEnhanced() {
       </div>
 
       <div
-        className={`relative transition-all duration-300 ease-in-out overflow-hidden self-stretch ${
+        className={`relative shrink-0 overflow-hidden self-stretch transition-[width,opacity,transform] duration-300 ease-in-out ${
           historyOpen
-            ? 'w-full max-w-[320px] opacity-100 xl:w-[320px]'
-            : 'w-0 max-w-0 opacity-0 xl:w-0'
+            ? 'w-[320px] opacity-100 translate-x-0'
+            : 'w-0 opacity-0 translate-x-3 pointer-events-none'
         }`}
         onMouseEnter={() => { if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current); }}
         onMouseLeave={() => startHistoryAutoClose()}
         onScroll={() => resetHistoryAutoClose()}
       >
-        <div className="absolute inset-0 flex w-[320px]">
-          <div
-            className="flex h-full w-full flex-col overflow-hidden rounded-[14px]"
-            style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-              <p className="text-[13px] font-bold text-slate-50">Swap History</p>
-              <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                {swapHistory.length} entries
-              </span>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {swapHistory.length === 0 ? (
-                <div className="px-4 py-6 text-center text-[12px] text-slate-500">
-                  No swaps yet.
-                </div>
-              ) : (
-                swapHistory.map((item) => {
-                  const isSuccess = item.status === 'success';
-                  const isError = item.status === 'error';
-                  const stateLabel = isSuccess ? 'Completed' : isError ? 'Failed' : 'Pending';
-                  const iconColor = isSuccess ? '#a78bfa' : isError ? '#f43f5e' : '#fbbf24';
-                  const iconBg = isSuccess ? 'rgba(167,139,250,0.12)' : isError ? 'rgba(244,63,94,0.10)' : 'rgba(245,158,11,0.12)';
+        <div
+          className="flex h-full w-[320px] flex-col overflow-hidden rounded-[14px]"
+          style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+            <p className="text-[13px] font-bold text-slate-50">Swap History</p>
+            <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+              {swapHistory.length} entries
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {swapHistory.length === 0 ? (
+              <div className="px-4 py-6 text-center text-[12px] text-slate-500">
+                No swaps yet.
+              </div>
+            ) : (
+              swapHistory.map((item) => {
+                const isSuccess = item.status === 'success';
+                const isError = item.status === 'error';
+                const stateLabel = isSuccess ? 'Completed' : isError ? 'Failed' : 'Pending';
+                const iconColor = isSuccess ? '#a78bfa' : isError ? '#f43f5e' : '#fbbf24';
+                const iconBg = isSuccess ? 'rgba(167,139,250,0.12)' : isError ? 'rgba(244,63,94,0.10)' : 'rgba(245,158,11,0.12)';
 
-                  return (
-                    <div key={item.id} className="border-t border-white/[0.05] px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
-                          style={{ background: iconBg }}
-                        >
-                          <span className="material-symbols-outlined text-[16px]" style={{ color: iconColor }}>
-                            {isError ? 'error' : 'swap_horiz'}
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[12.5px] font-semibold text-slate-100">{item.title}</p>
-                          <p className="text-[11px] text-slate-500">{item.subtitle}</p>
-                        </div>
-                        <div className="flex-shrink-0 text-right">
-                          <p className={`text-[12px] font-bold ${isSuccess ? 'text-emerald-400' : isError ? 'text-rose-400' : 'text-amber-400'}`}>
-                            {stateLabel}
-                          </p>
-                          <p className="text-[10px] text-slate-500">{formatRelativeTime(item.createdAt)}</p>
-                        </div>
+                return (
+                  <div key={item.id} className="border-t border-white/[0.05] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
+                        style={{ background: iconBg }}
+                      >
+                        <span className="material-symbols-outlined text-[16px]" style={{ color: iconColor }}>
+                          {isError ? 'error' : 'swap_horiz'}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12.5px] font-semibold text-slate-100">{item.title}</p>
+                        <p className="text-[11px] text-slate-500">{item.subtitle}</p>
+                      </div>
+                      <div className="flex-shrink-0 text-right">
+                        <p className={`text-[12px] font-bold ${isSuccess ? 'text-emerald-400' : isError ? 'text-rose-400' : 'text-amber-400'}`}>
+                          {stateLabel}
+                        </p>
+                        <p className="text-[10px] text-slate-500">{formatRelativeTime(item.createdAt)}</p>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
