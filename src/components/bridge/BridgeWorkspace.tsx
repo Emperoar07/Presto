@@ -246,6 +246,29 @@ export function BridgeWorkspace() {
   const [activeWalletChainId, setActiveWalletChainId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const historyAutoCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startHistoryAutoClose = useCallback(() => {
+    if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current);
+    historyAutoCloseRef.current = setTimeout(() => setHistoryOpen(false), 20_000);
+  }, []);
+
+  const resetHistoryAutoClose = useCallback(() => {
+    if (!historyOpen) return;
+    if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current);
+    historyAutoCloseRef.current = setTimeout(() => setHistoryOpen(false), 20_000);
+  }, [historyOpen]);
+
+  // Start auto-close when panel opens, clear when it closes
+  useEffect(() => {
+    if (historyOpen) {
+      startHistoryAutoClose();
+    } else if (historyAutoCloseRef.current) {
+      clearTimeout(historyAutoCloseRef.current);
+    }
+    return () => { if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current); };
+  }, [historyOpen, startHistoryAutoClose]);
+
   const [solanaProviderKey, setSolanaProviderKey] = useState<string | null>(null);
   const [solanaWalletPickerOpen, setSolanaWalletPickerOpen] = useState(false);
   const [bridgeStatusCard, setBridgeStatusCard] = useState<{
@@ -1118,7 +1141,9 @@ export function BridgeWorkspace() {
 
         return (
           <section className="flex w-full justify-center">
-            <div className="relative mx-auto w-full max-w-[381px]">
+            <div className="relative flex items-start justify-center gap-4">
+            {/* Bridge card */}
+            <div className="w-full max-w-[381px] flex-shrink-0">
             <div className="overflow-hidden rounded-[16px]" style={{ background: '#141e30', border: '1px solid rgba(255,255,255,0.07)' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1341,16 +1366,26 @@ export function BridgeWorkspace() {
               </div>
             ) : null}
             </div>
+            </div>
 
-            {/* Slide-out history drawer */}
+            {/* Side slide-out history panel — beside on xl+, below on mobile */}
             <div
-              className={`mt-3 overflow-hidden transition-all duration-300 ease-in-out ${historyOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                historyOpen
+                  ? 'w-full max-w-[340px] opacity-100 xl:w-[340px]'
+                  : 'w-0 max-w-0 opacity-0 xl:w-0'
+              }`}
+              onMouseEnter={() => { if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current); }}
+              onMouseLeave={() => startHistoryAutoClose()}
+              onScroll={() => resetHistoryAutoClose()}
             >
-              <BridgeHistoryPanel
-                bridgeHistory={bridgeHistory}
-                claimingItemId={claimingItemId}
-                onManualClaim={(item) => void handleManualClaim(item)}
-              />
+              <div className="w-[340px]">
+                <BridgeHistoryPanel
+                  bridgeHistory={bridgeHistory}
+                  claimingItemId={claimingItemId}
+                  onManualClaim={(item) => void handleManualClaim(item)}
+                />
+              </div>
             </div>
             </div>
 

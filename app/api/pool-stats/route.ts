@@ -50,6 +50,10 @@ const ARC_TOKENS = _allArcTokens
     label: TOKEN_META[t.symbol]?.label ?? t.symbol.slice(0, 2).toUpperCase(),
   }));
 
+const TOKEN_DECIMALS_BY_ADDRESS = new Map(
+  ARC_TOKENS.map((token) => [token.address.toLowerCase(), token.decimals] as const)
+);
+
 const USDC_ADDRESS = (_hubToken?.address ?? '0x3600000000000000000000000000000000000000') as `0x${string}`;
 const USDC_DECIMALS = _hubToken?.decimals ?? 6;
 
@@ -103,6 +107,12 @@ function formatUsdc(raw: bigint, decimals = USDC_DECIMALS): string {
   if (whole >= 1_000_000n) return `$${(Number(whole) / 1_000_000).toFixed(1)}M`;
   if (whole >= 1_000n) return `$${(Number(whole) / 1_000).toFixed(1)}K`;
   return `$${whole}`;
+}
+
+function normalizeToUsdcRaw(amount: bigint, decimals: number): bigint {
+  if (decimals === USDC_DECIMALS) return amount;
+  if (decimals > USDC_DECIMALS) return amount / 10n ** BigInt(decimals - USDC_DECIMALS);
+  return amount * 10n ** BigInt(USDC_DECIMALS - decimals);
 }
 
 function toPublicResponse(snapshot: PoolStatsSnapshot): PoolStatsResponse {
@@ -258,7 +268,7 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
       let totalSwaps = cached?.totalSwaps ?? 0;
 
       const fromBlock = cached ? BigInt(cached.latestBlock) + 1n : FULL_SCAN_START_BLOCK;
-      const { swapLogs } = await getLogsInChunks(client, hubAmm, fromBlock, latestBlock);
+      const { swapLogs, addLogs } = await getLogsInChunks(client, hubAmm, fromBlock, latestBlock);
 
       for (const log of swapLogs) {
       const args = (log as { args?: {
@@ -291,6 +301,33 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
         };
         totalVolumeRaw += volumeDelta;
         totalSwaps += 1;
+      }
+
+      for (const log of addLogs) {
+        const args = (log as { args?: {
+          provider: `0x${string}`;
+          token: `0x${string}`;
+          tokenAmount: bigint;
+          pathAmount: bigint;
+          shares: bigint;
+        } }).args;
+        if (!args) continue;
+        const { token, tokenAmount, pathAmount } = args;
+        const poolKey = token?.toLowerCase() ?? null;
+        if (!poolKey) continue;
+        const pool = poolMap.get(poolKey);
+        if (!pool) continue;
+
+        const tokenDecimals = TOKEN_DECIMALS_BY_ADDRESS.get(poolKey) ?? USDC_DECIMALS;
+        const addVolumeDelta =
+          normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals) +
+          normalizeToUsdcRaw(pathAmount ?? 0n, USDC_DECIMALS);
+
+        pool.snapshot = {
+          volRaw: (BigInt(pool.snapshot.volRaw) + addVolumeDelta).toString(),
+          swapCount: pool.snapshot.swapCount,
+        };
+        totalVolumeRaw += addVolumeDelta;
       }
 
       return await enrichWithReserves(

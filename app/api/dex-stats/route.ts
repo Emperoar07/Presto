@@ -3,7 +3,7 @@ import { createPublicClient, defineChain, http, parseAbiItem } from 'viem';
 import { getArcTestnetRpcUrls } from '@/lib/rpc';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
 import { getContractAddresses, ZERO_ADDRESS } from '@/config/contracts';
-import { getHubToken } from '@/config/tokens';
+import { getHubToken, getTokens } from '@/config/tokens';
 
 const ARC_CHAIN_ID = 5042002;
 const CACHE_TTL_MS = 60_000;
@@ -56,6 +56,12 @@ function formatUsdc(raw: bigint): string {
   return `$${whole}.${frac.toString().padStart(6, '0').slice(0, 2)}`;
 }
 
+function normalizeToUsdcRaw(amount: bigint, decimals: number): bigint {
+  if (decimals === 6) return amount;
+  if (decimals > 6) return amount / 10n ** BigInt(decimals - 6);
+  return amount * 10n ** BigInt(6 - decimals);
+}
+
 function toPublicStats(snapshot: DexStatsSnapshot): DexStats {
   return {
     totalSwaps: snapshot.totalSwaps,
@@ -106,6 +112,8 @@ function aggregateStats(
   snapshot: DexStatsSnapshot,
   swapLogs: Awaited<ReturnType<typeof getLogsInChunks>>,
   addLogs: Awaited<ReturnType<typeof getLogsInChunks>>,
+  tokenDecimalsByAddress: Map<string, number>,
+  hubDecimals: number,
   usdcAddress: string,
   latestBlock: bigint
 ): DexStatsSnapshot {
@@ -141,10 +149,11 @@ function aggregateStats(
       shares: bigint;
     } }).args;
     if (!args) continue;
-    const { provider, pathAmount } = args;
+    const { provider, token, tokenAmount, pathAmount } = args;
     if (provider) traders.add(provider.toLowerCase());
-    // Count the USDC (hub) side of every liquidity add as protocol volume
-    if (pathAmount) volumeRaw += pathAmount;
+    const tokenDecimals = tokenDecimalsByAddress.get(token?.toLowerCase() ?? '') ?? hubDecimals;
+    volumeRaw += normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals);
+    volumeRaw += normalizeToUsdcRaw(pathAmount ?? 0n, hubDecimals);
   }
 
   totalSwaps += swapLogs.length;
@@ -182,7 +191,11 @@ async function fetchStats(): Promise<DexStatsSnapshot> {
   }
 
   let lastError: unknown;
-  const usdcAddress = (getHubToken(ARC_CHAIN_ID)?.address ?? '0x3600000000000000000000000000000000000000').toLowerCase();
+  const tokens = getTokens(ARC_CHAIN_ID);
+  const tokenDecimalsByAddress = new Map(tokens.map((token) => [token.address.toLowerCase(), token.decimals] as const));
+  const hubToken = getHubToken(ARC_CHAIN_ID);
+  const hubDecimals = hubToken?.decimals ?? 6;
+  const usdcAddress = (hubToken?.address ?? '0x3600000000000000000000000000000000000000').toLowerCase();
 
   for (const url of urls) {
     try {
@@ -205,7 +218,15 @@ async function fetchStats(): Promise<DexStatsSnapshot> {
           getLogsInChunks(client, dexAddress, ARC_LIQUIDITY_ADDED_EVENT, deltaFromBlock, latestBlock),
         ]);
 
-        return aggregateStats(cached, swapLogs, addLogs, usdcAddress, latestBlock);
+        return aggregateStats(
+          cached,
+          swapLogs,
+          addLogs,
+          tokenDecimalsByAddress,
+          hubDecimals,
+          usdcAddress,
+          latestBlock
+        );
       }
 
       const [swapLogs, addLogs] = await Promise.all([
@@ -227,6 +248,8 @@ async function fetchStats(): Promise<DexStatsSnapshot> {
         },
         swapLogs,
         addLogs,
+        tokenDecimalsByAddress,
+        hubDecimals,
         usdcAddress,
         latestBlock
       );
