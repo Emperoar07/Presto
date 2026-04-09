@@ -36,9 +36,23 @@ interface ManageFeeLiquidityProps {
   removeAmount?: string;
   onRemoveAmountChange?: (value: string) => void;
   pairManagementPanel?: ReactNode;
-  addActionRef?: RefObject<HTMLDivElement | null>;
-  removeActionRef?: RefObject<HTMLDivElement | null>;
+  addActionRef?: RefObject<HTMLDivElement>;
+  removeActionRef?: RefObject<HTMLDivElement>;
 }
+
+type BurnLiquidityArgs = {
+  userTokenAddress: `0x${string}`;
+  validatorTokenAddress: `0x${string}`;
+  liquidityAmount: bigint;
+  to: `0x${string}`;
+  feeToken: `0x${string}`;
+};
+
+type BurnLiquidityAction = {
+  mutate: (args: BurnLiquidityArgs) => void;
+  mutateAsync?: (args: BurnLiquidityArgs) => Promise<`0x${string}`>;
+  isPending: boolean;
+};
 
 export function ManageFeeLiquidity({
   userToken,
@@ -157,7 +171,7 @@ export function ManageFeeLiquidity({
         validatorToken: validatorToken as `0x${string}`,
       })
     : { data: null }) as { data: bigint | null };
-  const burnLiquidity = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
+  const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
 
   const estimatedTotalShares = isTempoChain
     ? (pool?.reserveValidatorToken ? pool.reserveValidatorToken * 2n : null)
@@ -248,7 +262,7 @@ export function ManageFeeLiquidity({
       hash = await addFeeLiquidity(
         walletClient,
         publicClient as unknown as PublicClient,
-        address,
+        address as `0x${string}`,
         userToken as `0x${string}`,
         validatorToken as `0x${string}`,
         parseUnits(amount, isTempoChain ? validatorTokenDecimals : userTokenDecimals),
@@ -270,7 +284,7 @@ export function ManageFeeLiquidity({
       });
       activityId = pendingActivity.id;
       upsertLocalActivityHistoryItem(pendingActivity);
-      toast.custom(() => <TxToast hash={hash} title="Liquidity added" />);
+      toast.custom(() => <TxToast hash={hash!} title="Liquidity added" />);
       await publicClient.waitForTransactionReceipt({ hash });
       if (activityId) {
         patchLocalActivityItem(activityId, {
@@ -319,7 +333,7 @@ export function ManageFeeLiquidity({
       userTokenAddress: userToken as `0x${string}`,
       validatorTokenAddress: validatorToken as `0x${string}`,
       liquidityAmount: parseUnits(removeAmount, 18),
-      to: address,
+      to: address as `0x${string}`,
       feeToken: validatorToken as `0x${string}`,
     };
 
@@ -341,7 +355,7 @@ export function ManageFeeLiquidity({
       upsertLocalActivityHistoryItem(pendingActivity);
 
       if (hash) {
-        toast.custom(() => <TxToast hash={hash} title="Liquidity removal submitted" />);
+        toast.custom(() => <TxToast hash={hash!} title="Liquidity removal submitted" />);
         await publicClient?.waitForTransactionReceipt({ hash });
         patchLocalActivityItem(activityId, {
           status: 'success',

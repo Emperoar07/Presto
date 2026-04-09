@@ -29,7 +29,10 @@ const updateRpcStats = (url: string, durationMs: number, success: boolean) => {
   rpcStats.set(url, stats);
 };
 
-const sortClientsByPerformance = (clients: { url: string; client: PublicClient }[]) => {
+type RpcClient = Pick<PublicClient, 'readContract'>;
+type LabeledRpcClient = { url: string; client: RpcClient };
+
+const sortClientsByPerformance = (clients: LabeledRpcClient[]) => {
   const now = Date.now();
   return [...clients].sort((a, b) => {
     const aStats = rpcStats.get(a.url);
@@ -51,7 +54,7 @@ export const getTempoRpcUrls = () => {
   const explicit = process.env.TEMPO_RPC_URLS || process.env.TEMPO_RPC_URL || process.env.NEXT_PUBLIC_TEMPO_RPC_URL;
   if (conduit) return splitUrls(conduit);
   if (explicit) return splitUrls(explicit);
-  return tempoModerato.rpcUrls.default.http;
+  return Array.from(tempoModerato.rpcUrls.default.http ?? []);
 };
 
 export const getBaseSepoliaRpcUrls = () => {
@@ -73,7 +76,7 @@ export const getArcTestnetRpcUrls = () => {
   return ARC_TESTNET_RPC_DEFAULTS;
 };
 
-let tempoClients: { url: string; client: PublicClient }[] | null = null;
+let tempoClients: LabeledRpcClient[] | null = null;
 
 export const getTempoPublicClients = () => {
   if (tempoClients) return tempoClients;
@@ -83,7 +86,7 @@ export const getTempoPublicClients = () => {
     client: createPublicClient({
       chain: tempoModerato,
       transport: http(url, { timeout: 8000 }),
-    }),
+    }) as unknown as RpcClient,
   }));
   return tempoClients;
 };
@@ -120,7 +123,7 @@ export const getCachedQuote = (params: Parameters<PublicClient['readContract']>[
  * Race multiple RPCs in parallel and return the fastest successful result
  */
 const raceRpcCalls = async <T>(
-  clients: { url: string; client: PublicClient }[],
+  clients: LabeledRpcClient[],
   params: Parameters<PublicClient['readContract']>[0]
 ): Promise<T> => {
   const sortedClients = sortClientsByPerformance(clients);
@@ -174,11 +177,11 @@ export const readContractWithFallback = async <T>(
   }
 
   const tempoClients = getTempoPublicClients();
-  const allClients = primary
-    ? [{ url: 'primary', client: primary }, ...tempoClients]
-    : tempoClients;
+  const allClients: LabeledRpcClient[] = primary
+    ? [{ url: 'primary', client: primary as unknown as RpcClient }, ...tempoClients]
+    : [...tempoClients];
 
-  let result: T;
+  let result: T | undefined;
 
   if (raceMode && allClients.length > 1) {
     // Race mode: parallel requests, fastest wins
@@ -208,7 +211,11 @@ export const readContractWithFallback = async <T>(
     quoteCache.set(key, { result: result as bigint, timestamp: Date.now() });
   }
 
-  return result!;
+  if (result === undefined) {
+    throw new Error('RPC read failed');
+  }
+
+  return result;
 };
 
 /**

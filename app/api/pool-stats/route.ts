@@ -85,7 +85,7 @@ export type PoolStatsResponse = {
   updatedAt: number;
 };
 
-type PoolStatsSnapshot = PoolStatsResponse & {
+type PoolStatsSnapshot = Omit<PoolStatsResponse, 'pools'> & {
   totalVolumeRaw: string;
   latestBlock: string;
   pools: PoolStatSnapshot[];
@@ -107,7 +107,7 @@ function formatUsdc(raw: bigint, decimals = USDC_DECIMALS): string {
 
 function toPublicResponse(snapshot: PoolStatsSnapshot): PoolStatsResponse {
   return {
-    pools: snapshot.pools.map(({ snapshot: _snapshot, ...pool }) => pool),
+    pools: (snapshot.pools as PoolStatSnapshot[]).map(({ snapshot: _snapshot, ...pool }) => pool),
     totalLiquidityUsdc: snapshot.totalLiquidityUsdc,
     totalSwaps: snapshot.totalSwaps,
     totalVolumeUsdc: snapshot.totalVolumeUsdc,
@@ -156,7 +156,7 @@ async function getLogsInChunks(
   return { swapLogs: swapLogs.flat(), addLogs: addLogs.flat() };
 }
 
-function buildPoolBaseStats() {
+function buildPoolBaseStats(): PoolStatSnapshot[] {
   return ARC_TOKENS.map((token) => ({
     pair: `${token.symbol} / USDC`,
     token: token.symbol,
@@ -250,8 +250,9 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
       const latestBlock = await client.getBlockNumber();
       const cached = g.__poolStatsCache?.data;
 
+      const basePools = cached?.pools ?? buildPoolBaseStats();
       const poolMap = new Map<string, PoolStatSnapshot>(
-        (cached?.pools ?? buildPoolBaseStats()).map((pool) => [pool.tokenAddress.toLowerCase(), { ...pool }])
+        basePools.map((pool) => [pool.tokenAddress.toLowerCase(), { ...pool }])
       );
       let totalVolumeRaw = BigInt(cached?.totalVolumeRaw ?? '0');
       let totalSwaps = cached?.totalSwaps ?? 0;
@@ -260,12 +261,14 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
       const { swapLogs } = await getLogsInChunks(client, hubAmm, fromBlock, latestBlock);
 
       for (const log of swapLogs) {
-        const { tokenIn, tokenOut, amountIn, amountOut } = log.args as {
-          tokenIn: `0x${string}`;
-          tokenOut: `0x${string}`;
-          amountIn: bigint;
-          amountOut: bigint;
-        };
+      const args = (log as { args?: {
+        tokenIn: `0x${string}`;
+        tokenOut: `0x${string}`;
+        amountIn: bigint;
+        amountOut: bigint;
+      } }).args;
+      if (!args) continue;
+      const { tokenIn, tokenOut, amountIn, amountOut } = args;
 
         let poolKey: string | null = null;
         let volumeDelta = 0n;

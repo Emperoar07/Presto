@@ -126,7 +126,7 @@ const formatTrades = (logs: any[], tokenA: { address: string; decimals: number }
   const token1 = sorted ? tokenB : tokenA;
 
   return logs.map((log) => {
-    const { amount0In, amount1In, amount0Out, amount1Out } = log.args;
+    const { amount0In, amount1In, amount0Out, amount1Out } = (log as any).args;
     let type: 'Buy' | 'Sell' = 'Buy';
     let amountInVal = 0n;
     let amountOutVal = 0n;
@@ -184,6 +184,10 @@ export async function GET(request: Request) {
     return new Response('Invalid params', { status: 400 });
   }
 
+  const pairAddress = pair as `0x${string}`;
+  const tokenAAddress = tokenA as `0x${string}`;
+  const tokenBAddress = tokenB as `0x${string}`;
+
   const encoder = new TextEncoder();
   let interval: ReturnType<typeof setInterval> | undefined;
   let closed = false;
@@ -208,25 +212,25 @@ export async function GET(request: Request) {
           try {
             const start = Date.now();
             const latestBlock = await client.getBlockNumber();
-            const cachedBlock = getCachedBlock(pair!);
+            const cachedBlock = getCachedBlock(pairAddress);
             const lastBlock = cachedBlock ?? (latestBlock > 10000n ? latestBlock - 10000n : 0n);
             const fromBlock = lastBlock + 1n;
             if (fromBlock > latestBlock) return;
 
             const logs = await client.getLogs({
-              address: pair as `0x${string}`,
+              address: pairAddress,
               event: parseAbiItem('event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to)'),
               fromBlock,
               toBlock: latestBlock,
             });
 
-            setCachedBlock(pair!, latestBlock);
+            setCachedBlock(pairAddress, latestBlock);
             if (logs.length === 0) return;
 
             const trades = formatTrades(
               logs,
-              { address: tokenA, decimals: Number.isFinite(decimalsA) ? decimalsA : 6 },
-              { address: tokenB, decimals: Number.isFinite(decimalsB) ? decimalsB : 6 }
+              { address: tokenAAddress, decimals: Number.isFinite(decimalsA) ? decimalsA : 6 },
+              { address: tokenBAddress, decimals: Number.isFinite(decimalsB) ? decimalsB : 6 }
             );
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(trades)}\n\n`));

@@ -6,9 +6,9 @@ Presto is a testnet DEX for Arc and Tempo with a live normalized hub AMM, USDC b
 
 - Instant token swaps via a USDC hub-and-spoke AMM on Arc Testnet
 - Bidirectional liquidity management with auto-calculated pair amounts
-- Real-time analytics tracking all-time volume (swaps + liquidity + bridge), trades, and unique traders
-- USDC bridge workspace powered by Circle CCTP (Ethereum Sepolia to Arc)
-- Manual bridge destination address support
+- Real-time analytics tracking all time volume, trades, and unique traders from on-chain events
+- USDC bridge workspace powered by Circle CCTP for Arc, Ethereum Sepolia, Base Sepolia, and Solana Devnet routes
+- Manual bridge destination address support where the route allows it
 - Portfolio dashboard with LP position tracking
 - Mobile responsive sidebar shell with chain-aware navigation
 
@@ -26,7 +26,7 @@ Hub AMM (ArcHubAMMNormalized): `0x5794a8284A29493871Fbfa3c4f343D42001424D6`
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React 18, Tailwind CSS
+- **Frontend**: Next.js 16.1.1, React 18, Tailwind CSS
 - **Blockchain**: Arc Testnet (5042002), Tempo Testnet (42431), Base Sepolia, Hardhat
 - **Smart Contracts**: Solidity 0.8.20, Hardhat, OpenZeppelin
 - **Wallet**: RainbowKit, wagmi, viem
@@ -98,10 +98,9 @@ data/                 Local deployment snapshots
 
 The analytics page tracks protocol-wide stats by scanning on-chain events from block 0:
 
-- **All-time Volume**: Sum of USDC flowing through swaps and liquidity deposits
+- **All-time Volume**: Total protocol volume since launch
 - **All-time Trades**: Count of all Swap events across every pool
 - **Unique Traders**: Distinct wallets from swaps and liquidity adds
-- **Volume by Pool**: Per-pool volume bar chart
 - **Pool Activity**: Live table with liquidity, volume, and status per pool
 
 Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk scanning (6 concurrent), and stale-while-revalidate headers.

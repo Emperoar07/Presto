@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const token = searchParams.get('token');
   const depthParam = Number(searchParams.get('depth') ?? '10');
   const chainIdParam = searchParams.get('chainId');
-  const chainId = chainIdParam ? parseInt(chainIdParam, 10) : undefined;
+  const chainId = chainIdParam !== null ? parseInt(chainIdParam, 10) : undefined;
 
   if (!isValidAddress(token)) {
     return NextResponse.json({ error: 'Invalid token address' }, { status: 400 });
@@ -25,8 +25,9 @@ export async function GET(request: Request) {
   const depth = Number.isFinite(depthParam) ? Math.min(Math.max(depthParam, 1), 50) : 10;
   try {
     const timeoutMs = 8000;
+    const tokenAddress = token ?? '';
     const data = await Promise.race([
-      getOrderbookData(token, depth, 3000, chainId),
+      getOrderbookData(tokenAddress, depth, 3000, chainId),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Orderbook timeout')), timeoutMs)),
     ]);
     // Serialize bigints as strings — JSON.stringify cannot handle bigint natively,

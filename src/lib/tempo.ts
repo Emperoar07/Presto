@@ -195,7 +195,7 @@ export const Hooks = {
         useQuoteSwapExactAmountIn: ({ tokenIn, tokenOut, amountIn }: { tokenIn: `0x${string}`; tokenOut: `0x${string}`; amountIn: bigint }) => {
             const chainId = useChainId();
             return useReadContract({
-                address: getDexAddressForChain(chainId),
+                address: getDexAddressForChain(chainId) as `0x${string}`,
                 abi: DEX_ABI,
                 functionName: 'quoteSwapExactAmountIn',
                 args: [tokenIn, tokenOut, amountIn],
@@ -207,7 +207,7 @@ export const Hooks = {
         useQuoteSwapExactAmountOut: ({ tokenIn, tokenOut, amountOut }: { tokenIn: `0x${string}`; tokenOut: `0x${string}`; amountOut: bigint }) => {
             const chainId = useChainId();
             return useReadContract({
-                address: getDexAddressForChain(chainId),
+                address: getDexAddressForChain(chainId) as `0x${string}`,
                 abi: DEX_ABI,
                 functionName: 'quoteSwapExactAmountOut',
                 args: [tokenIn, tokenOut, amountOut],
@@ -219,7 +219,7 @@ export const Hooks = {
         useDexBalance: ({ user, token }: { user: `0x${string}`; token: `0x${string}` }) => {
             const chainId = useChainId();
             return useReadContract({
-                address: getDexAddressForChain(chainId),
+                address: getDexAddressForChain(chainId) as `0x${string}`,
                 abi: DEX_ABI,
                 functionName: 'balanceOf',
                 args: [user, token],
@@ -411,7 +411,7 @@ export const Hooks = {
                     reserveValidatorToken: (tempoPool.data as readonly [bigint, bigint])[1],
                 } : undefined;
 
-                return { data: formattedData, ...tempoPool };
+                return { ...tempoPool, data: formattedData };
             }
 
             const arcData = arcPool.data ? {
@@ -431,12 +431,12 @@ export const Hooks = {
              const isTempoChain = isTempoNativeChain(chainId);
              const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
 
-             return useReadContract({
-                address: isTempoChain ? getFeeManagerAddressForChain(chainId) : arcHubAddress,
+            return useReadContract({
+                address: (isTempoChain ? getFeeManagerAddressForChain(chainId) : arcHubAddress) as `0x${string}`,
                 abi: isTempoChain ? FEE_AMM_ABI : HUB_AMM_ABI,
                 functionName: 'liquidityOf',
                 args: address
-                    ? (isTempoChain ? [userToken, validatorToken, address] : [userToken, address])
+                    ? (isTempoChain ? [userToken, validatorToken, address as `0x${string}`] : [userToken, address as `0x${string}`])
                     : undefined,
                 query: {
                     enabled: !!address && !!userToken && !!validatorToken && (isTempoChain || arcHubAddress !== ZERO_ADDRESS),
@@ -450,7 +450,7 @@ export const Hooks = {
             const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
 
             const arcTotalShares = useReadContract({
-                address: arcHubAddress,
+                address: arcHubAddress as `0x${string}`,
                 abi: HUB_AMM_ABI,
                 functionName: 'totalShares',
                 args: [userToken],
@@ -475,17 +475,17 @@ export const Hooks = {
              const { writeContract, writeContractAsync, isPending } = useWriteContract();
              const chainId = useChainId();
              const buildConfig = (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; validatorTokenAmount: bigint; to: `0x${string}` }) => ({
-                address: getFeeManagerAddressForChain(chainId),
+                address: getFeeManagerAddressForChain(chainId) as `0x${string}`,
                 abi: FEE_AMM_ABI,
                 functionName: 'mint' as const,
                 args: [args.userTokenAddress, args.validatorTokenAddress, args.validatorTokenAmount, args.to] as const,
              });
              return {
-                 mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; validatorTokenAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
-                     writeContract(buildConfig(args));
-                 },
+                mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; validatorTokenAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
+                    writeContract(buildConfig(args) as any);
+                },
                  mutateAsync: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; validatorTokenAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) =>
-                    writeContractAsync(buildConfig(args)),
+                    writeContractAsync(buildConfig(args) as any),
                  isPending
              };
         },
@@ -495,9 +495,9 @@ export const Hooks = {
              const isTempoChain = isTempoNativeChain(chainId);
              const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
              const buildConfig = (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
-                 if (isTempoChain) {
+                if (isTempoChain) {
                     return {
-                       address: getFeeManagerAddressForChain(chainId),
+                       address: getFeeManagerAddressForChain(chainId) as `0x${string}`,
                        abi: FEE_AMM_ABI,
                        functionName: 'burn' as const,
                        args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, args.to] as const,
@@ -506,7 +506,7 @@ export const Hooks = {
 
                  const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60));
                  return {
-                    address: arcHubAddress,
+                    address: arcHubAddress as `0x${string}`,
                     abi: HUB_AMM_ABI,
                     functionName: 'removeLiquidity' as const,
                     args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, 0n, 0n, deadlineTimestamp] as const,
@@ -514,17 +514,17 @@ export const Hooks = {
              };
              return {
                  mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
-                     writeContract(buildConfig(args));
+                     writeContract(buildConfig(args) as any);
                  },
                  mutateAsync: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) =>
-                    writeContractAsync(buildConfig(args)),
+                    writeContractAsync(buildConfig(args) as any),
                  isPending
              };
         },
         useWatchFeeSwap: ({ userToken, validatorToken, onLogs }: { userToken: `0x${string}`; validatorToken: `0x${string}`; onLogs: (logs: unknown[]) => void }) => {
             const chainId = useChainId();
             useWatchContractEvent({
-                address: getFeeManagerAddressForChain(chainId),
+                address: getFeeManagerAddressForChain(chainId) as `0x${string}`,
                 abi: FEE_AMM_ABI,
                 eventName: 'FeeSwap',
                 args: { userToken, validatorToken },
@@ -537,7 +537,7 @@ export const Hooks = {
             return {
                 mutate: (args: { userToken: `0x${string}`; validatorToken: `0x${string}`; amountOut: bigint; to: `0x${string}` }) => {
                     writeContract({
-                        address: getFeeManagerAddressForChain(chainId),
+                        address: getFeeManagerAddressForChain(chainId) as `0x${string}`,
                         abi: FEE_AMM_ABI,
                         functionName: 'rebalanceSwap',
                         args: [args.userToken, args.validatorToken, args.amountOut, args.to]

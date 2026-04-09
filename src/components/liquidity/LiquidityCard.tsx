@@ -30,6 +30,20 @@ const ERC20_ALLOWANCE_ABI = parseAbi([
   'function balanceOf(address owner) external view returns (uint256)',
 ]);
 
+type BurnLiquidityArgs = {
+  userTokenAddress: `0x${string}`;
+  validatorTokenAddress: `0x${string}`;
+  liquidityAmount: bigint;
+  to: `0x${string}`;
+  feeToken: `0x${string}`;
+};
+
+type BurnLiquidityAction = {
+  mutate: (args: BurnLiquidityArgs) => void;
+  mutateAsync?: (args: BurnLiquidityArgs) => Promise<`0x${string}`>;
+  isPending: boolean;
+};
+
 function ProvidedLiquidityRow({
   token,
   hubToken,
@@ -169,7 +183,7 @@ export function LiquidityCard({
   const addActionRef = useRef<HTMLDivElement | null>(null);
   const removeActionRef = useRef<HTMLDivElement | null>(null);
 
-  const burnLiquidity = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
+  const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
   const { data: lpBalance } = (Hooks.amm.useLiquidityBalance
     ? Hooks.amm.useLiquidityBalance({
         address,
@@ -262,7 +276,7 @@ export function LiquidityCard({
       userTokenAddress: selectedToken.address,
       validatorTokenAddress: pathToken.address,
       liquidityAmount: parseUnits(removeAmount, 18),
-      to: address,
+      to: address as `0x${string}`,
       feeToken: feeToken?.address || pathToken.address,
     };
 
@@ -284,8 +298,9 @@ export function LiquidityCard({
       upsertLocalActivityHistoryItem(pendingActivity);
 
       if (hash) {
-        toast.custom(() => <TxToast hash={hash} title="Liquidity removal submitted" />);
-        await publicClient?.waitForTransactionReceipt({ hash });
+        const h = hash;
+        toast.custom(() => <TxToast hash={h} title="Liquidity removal submitted" />);
+        await publicClient?.waitForTransactionReceipt({ hash: h });
         patchLocalActivityItem(activityId, {
           status: 'success',
           hash,
@@ -426,7 +441,7 @@ export function LiquidityCard({
       hash = await placeOrder(
         walletClient,
         publicClient as unknown as PublicClient,
-        address,
+        address as `0x${string}`,
         selectedToken.address,
         amount,
         isBid,
@@ -445,9 +460,9 @@ export function LiquidityCard({
       });
       activityId = pendingActivity.id;
       upsertLocalActivityHistoryItem(pendingActivity);
-      toast.custom(() => <TxToast hash={hash} title="Order submitted" />);
+      toast.custom(() => <TxToast hash={hash!} title="Order submitted" />);
       setOrderAmount('');
-      await publicClient.waitForTransactionReceipt({ hash });
+      await publicClient.waitForTransactionReceipt({ hash: hash! });
       if (activityId) {
         patchLocalActivityItem(activityId, {
           status: 'success',

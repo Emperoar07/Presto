@@ -50,7 +50,7 @@ export function RebalancePool({
     parsedAmountOut <= pool.reserveUserToken;
 
   const handleRebalance = () => {
-      if (!pool) return;
+      if (!pool || !address) return;
       if (parsedAmountOut === 0n) {
         toast.error('Enter a valid rebalance amount');
         return;
@@ -63,7 +63,7 @@ export function RebalancePool({
         userToken: userToken as `0x${string}`,
         validatorToken: validatorToken as `0x${string}`,
         amountOut: parsedAmountOut, 
-        to: address,
+        to: address as `0x${string}`,
       });
   };
 

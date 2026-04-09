@@ -65,7 +65,7 @@ export default function PortfolioPage() {
       }
 
       try {
-        const snapshots = await Promise.all(
+        const snapshots: Array<LpPositionSnapshot | null> = await Promise.all(
           tokens
             .filter((token) => !isHubToken(token, chainId))
             .map(async (token) => {
@@ -96,7 +96,7 @@ export default function PortfolioPage() {
                 const estimatedValue = sharePercent > 0 ? (reserveUser + reserveHub) * (sharePercent / 100) : 0;
 
                 return {
-                  tokenAddress: token.address,
+                  tokenAddress: token.address as string,
                   pairLabel: `${token.symbol} / ${hubToken.symbol}`,
                   lpBalance,
                   sharePercent,
@@ -141,7 +141,7 @@ export default function PortfolioPage() {
               const estimatedValue = sharePercent > 0 ? (reserveUser + reserveHub) * (sharePercent / 100) : 0;
 
               return {
-                tokenAddress: token.address,
+                tokenAddress: token.address as string,
                 pairLabel: `${token.symbol} / ${hubToken.symbol}`,
                 lpBalance,
                 sharePercent,

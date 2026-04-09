@@ -13,7 +13,9 @@ export const isUnderpricedError = (error: unknown) => {
   return UNDERPRICED_PATTERNS.some((pattern) => lower.includes(pattern));
 };
 
-type WriteRequest = Parameters<WalletClient['writeContract']>[0];
+type WriteRequest = Parameters<WalletClient['writeContract']>[0] & {
+  value?: bigint;
+};
 
 type RetryOptions = {
   maxRetries?: number;
@@ -37,7 +39,7 @@ export async function writeContractWithRetry(
       const payload = gasPriceOverride
         ? { ...request, gasPrice: gasPriceOverride }
         : request;
-      return await walletClient.writeContract(payload);
+      return await walletClient.writeContract(payload as WriteRequest);
     } catch (error) {
       if (!isUnderpricedError(error) || !publicClient || attempt >= maxRetries) {
         throw error;

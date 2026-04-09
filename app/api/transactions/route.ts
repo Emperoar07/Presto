@@ -33,7 +33,7 @@ type ResponsePayload = {
 
 type ChainContext = {
   chain: Chain;
-  rpcUrls: string[];
+  rpcUrls: readonly string[];
   dexAddress: `0x${string}`;
   abi: ReturnType<typeof parseAbi>;
   networkLabel: string;
@@ -275,14 +275,25 @@ async function buildResponse(
         blockNumbers.map((blockNumber) => client.getBlock({ blockNumber, includeTransactions: true }))
       );
 
-      const successfulBlocks = blockResults
-        .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getBlock>>> => result.status === 'fulfilled')
-        .map((result) => result.value);
+      const successfulBlocks = blockResults.reduce<Awaited<ReturnType<typeof client.getBlock>>[]>((acc, result) => {
+        if (result.status === 'fulfilled') {
+          acc.push(result.value);
+        }
+        return acc;
+      }, []);
 
       for (const block of successfulBlocks) {
         if (items.length >= limit) break;
 
-        for (const tx of block.transactions) {
+        const transactions = block.transactions as Array<{
+          to: `0x${string}` | null;
+          from?: `0x${string}` | null;
+          input: `0x${string}`;
+          hash: `0x${string}`;
+          blockNumber?: bigint | null;
+        }>;
+
+        for (const tx of transactions) {
           if (items.length >= limit) break;
           if (!tx.to) continue;
           if (tx.to.toLowerCase() !== dexAddress) continue;
@@ -291,7 +302,7 @@ async function buildResponse(
           const decoded = decodeTransaction(context, tx.input);
           items.push({
             hash: tx.hash,
-            block: tx.blockNumber ?? block.number,
+            block: tx.blockNumber ?? block.number ?? 0n,
             type: decoded.type,
             status: 'Pending',
             amount: decoded.amount,
@@ -390,7 +401,7 @@ async function buildArcResponse(
       block: log.blockNumber,
       type: 'Swap',
       status: 'Confirmed',
-      amount: (log.args.amountIn ?? 0n).toString(),
+      amount: ((log as any).args?.amountIn ?? 0n).toString(),
       functionName: 'swap',
     })),
     ...addLogs.map((log) => ({
@@ -398,7 +409,7 @@ async function buildArcResponse(
       block: log.blockNumber,
       type: 'Add Liquidity',
       status: 'Confirmed',
-      amount: (log.args.tokenAmount ?? 0n).toString(),
+      amount: ((log as any).args?.tokenAmount ?? 0n).toString(),
       functionName: 'addLiquidity',
     })),
     ...removeLogs.map((log) => ({
@@ -406,7 +417,7 @@ async function buildArcResponse(
       block: log.blockNumber,
       type: 'Remove Liquidity',
       status: 'Confirmed',
-      amount: (log.args.tokenAmount ?? 0n).toString(),
+      amount: ((log as any).args?.tokenAmount ?? 0n).toString(),
       functionName: 'removeLiquidity',
     })),
   ]
@@ -459,7 +470,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get('address');
   const chainIdParam = searchParams.get('chainId');
-  const chainId = chainIdParam ? parseInt(chainIdParam, 10) : DEFAULT_CHAIN_ID;
+  const chainId = chainIdParam !== null ? parseInt(chainIdParam, 10) : DEFAULT_CHAIN_ID;
   const limitParam = Number(searchParams.get('limit') ?? DEFAULT_LIMIT);
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), MAX_LIMIT) : DEFAULT_LIMIT;
   const toBlockParam = searchParams.get('toBlock');
@@ -475,7 +486,7 @@ export async function GET(request: Request) {
       {
         ...buildEmptyPayload({
           chain: tempoModerato,
-          rpcUrls: [],
+          rpcUrls: [] as string[],
           dexAddress: ZERO_ADDRESS,
           abi: TEMPO_DEX_ABI,
           networkLabel: 'Unsupported Network',

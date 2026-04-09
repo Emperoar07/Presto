@@ -23,7 +23,7 @@ type TxItem = {
   timestamp?: number;
 };
 
-type ActivityCategory = 'swaps' | 'liquidity' | 'bridge';
+type ActivityCategory = 'swaps' | 'liquidity' | 'bridge' | 'send';
 
 type ActivityItem = {
   id: string;

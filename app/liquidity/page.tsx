@@ -41,6 +41,20 @@ type PoolStatsResponse = {
   updatedAt: number;
 };
 
+type BurnLiquidityArgs = {
+  userTokenAddress: `0x${string}`;
+  validatorTokenAddress: `0x${string}`;
+  liquidityAmount: bigint;
+  to: `0x${string}`;
+  feeToken: `0x${string}`;
+};
+
+type BurnLiquidityAction = {
+  mutate: (args: BurnLiquidityArgs) => void;
+  mutateAsync?: (args: BurnLiquidityArgs) => Promise<`0x${string}`>;
+  isPending: boolean;
+};
+
 function formatEditableAmount(value: number, decimals: number) {
   if (!Number.isFinite(value) || value <= 0) return '0';
   return value
@@ -354,7 +368,7 @@ function PositionManagerInline({
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const isTempoChain = isTempoNativeChain(chainId);
-  const burnLiquidity = Hooks.amm.useBurnSync
+  const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync
     ? Hooks.amm.useBurnSync()
     : { mutate: () => {}, isPending: false };
 
@@ -373,7 +387,7 @@ function PositionManagerInline({
   const numericUserBalance = Number.parseFloat(userTokenBalance || '0');
   const numericHubBalance = Number.parseFloat(hubTokenBalance || '0');
   const maxAddAmount = (() => {
-    if (isTempoChain) return validatorTokenBalance;
+    if (isTempoChain) return hubTokenBalance;
     if (!Number.isFinite(numericUserBalance) || numericUserBalance <= 0) return '0';
     if (!Number.isFinite(numericHubBalance) || numericHubBalance <= 0) return '0';
     if (!Number.isFinite(userReserveValue) || !Number.isFinite(hubReserveValue) || userReserveValue <= 0 || hubReserveValue <= 0) {
@@ -491,7 +505,7 @@ function PositionManagerInline({
       hash = await addFeeLiquidity(
         walletClient,
         publicClient as PublicClient,
-        address,
+        address as `0x${string}`,
         token.address,
         hubToken.address,
         parseUnits(addAmount, isTempoChain ? hubToken.decimals : token.decimals),
@@ -511,8 +525,8 @@ function PositionManagerInline({
       activityId = pendingActivity.id;
       upsertLocalActivityHistoryItem(pendingActivity);
 
-      toast.custom(() => <TxToast hash={hash} title="Liquidity added" />);
-      await publicClient.waitForTransactionReceipt({ hash });
+      toast.custom(() => <TxToast hash={hash!} title="Liquidity added" />);
+      await publicClient.waitForTransactionReceipt({ hash: hash! });
       if (activityId) {
         patchLocalActivityItem(activityId, {
           status: 'success',
@@ -556,7 +570,7 @@ function PositionManagerInline({
       userTokenAddress: token.address as `0x${string}`,
       validatorTokenAddress: hubToken.address as `0x${string}`,
       liquidityAmount: parseUnits(removeAmount, 18),
-      to: address,
+      to: address as `0x${string}`,
       feeToken: hubToken.address as `0x${string}`,
     };
 
@@ -578,8 +592,9 @@ function PositionManagerInline({
       upsertLocalActivityHistoryItem(pendingActivity);
 
       if (hash) {
-        toast.custom(() => <TxToast hash={hash} title="Liquidity removal submitted" />);
-        await publicClient?.waitForTransactionReceipt({ hash });
+        const h = hash;
+        toast.custom(() => <TxToast hash={h} title="Liquidity removal submitted" />);
+        await publicClient?.waitForTransactionReceipt({ hash: h });
         patchLocalActivityItem(activityId, {
           status: 'success',
           hash,
@@ -798,7 +813,7 @@ function CompactPositionManagerInline({
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const isTempoChain = isTempoNativeChain(chainId);
-  const burnLiquidity = Hooks.amm.useBurnSync
+  const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync
     ? Hooks.amm.useBurnSync()
     : { mutate: () => {}, isPending: false };
 
@@ -974,7 +989,7 @@ function CompactPositionManagerInline({
       const hash = await addFeeLiquidity(
         walletClient,
         publicClient as PublicClient,
-        address,
+        address as `0x${string}`,
         token.address,
         hubToken.address,
         parseUnits(addAmount, isTempoChain ? hubToken.decimals : token.decimals),
@@ -982,8 +997,8 @@ function CompactPositionManagerInline({
         chainId
       );
 
-      toast.custom(() => <TxToast hash={hash} title="Liquidity added" />);
-      await publicClient.waitForTransactionReceipt({ hash });
+      toast.custom(() => <TxToast hash={hash!} title="Liquidity added" />);
+      await publicClient.waitForTransactionReceipt({ hash: hash! });
       setAddAmount('');
     } catch (error: unknown) {
       console.error(error);
@@ -1000,7 +1015,7 @@ function CompactPositionManagerInline({
       userTokenAddress: token.address as `0x${string}`,
       validatorTokenAddress: hubToken.address as `0x${string}`,
       liquidityAmount: parseUnits(removeAmount, 18),
-      to: address,
+      to: address as `0x${string}`,
       feeToken: hubToken.address as `0x${string}`,
     };
 
@@ -1008,8 +1023,9 @@ function CompactPositionManagerInline({
       if (typeof burnLiquidity.mutateAsync === 'function') {
         const hash = await burnLiquidity.mutateAsync(payload);
         if (hash) {
-          toast.custom(() => <TxToast hash={hash} title="Liquidity removal submitted" />);
-          await publicClient?.waitForTransactionReceipt({ hash });
+          const h = hash;
+          toast.custom(() => <TxToast hash={h} title="Liquidity removal submitted" />);
+          await publicClient?.waitForTransactionReceipt({ hash: h });
         }
       } else {
         burnLiquidity.mutate(payload);
@@ -1269,8 +1285,8 @@ export default function LiquidityPage() {
   const tokens = useMemo(() => getTokens(chainId), [chainId]);
   const hubToken = useMemo(() => getHubToken(chainId) || tokens[0], [chainId, tokens]);
 
-  const pools = data?.pools ?? [];
-  const activePools = pools.filter((pool) => pool.hasLiquidity);
+  const pools: PoolStat[] = data?.pools ?? [];
+  const activePools: PoolStat[] = pools.filter((pool: PoolStat) => pool.hasLiquidity);
   const availablePositionTokens = tokens.filter((token) => !isHubToken(token, chainId));
 
   return (
@@ -1314,7 +1330,7 @@ export default function LiquidityPage() {
             <div className="px-5 py-8 text-center text-[13px] text-slate-500">No pool data available</div>
           ) : (
             <div>
-              {pools.map((pool) => {
+              {pools.map((pool: PoolStat) => {
                 const token = availablePositionTokens.find(
                   (item) => item.address.toLowerCase() === pool.tokenAddress.toLowerCase()
                 );
@@ -1354,7 +1370,7 @@ export default function LiquidityPage() {
                   key={token.address}
                   token={token}
                   hubToken={hubToken}
-                  poolStat={pools.find((pool) => pool.tokenAddress.toLowerCase() === token.address.toLowerCase())}
+                  poolStat={pools.find((pool: PoolStat) => pool.tokenAddress.toLowerCase() === token.address.toLowerCase())}
                   walletAddress={address}
                   isActive={selectedPoolToken?.toLowerCase() === token.address.toLowerCase()}
                   onManage={(tokenAddress) =>

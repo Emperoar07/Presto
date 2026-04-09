@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
-import { formatUnits, parseAbi } from 'viem';
+import { formatUnits, parseAbi, parseUnits } from 'viem';
 import Link from 'next/link';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
 import { getExplorerTxUrl } from '@/lib/explorer';
@@ -189,7 +189,7 @@ function LpPositionInlineActions({
       const hash = await addFeeLiquidity(
         walletClient,
         publicClient,
-        address,
+        address as `0x${string}`,
         snapshot.tokenAddress,
         snapshot.hubTokenAddress,
         parseUnits(amount, isTempoNativeChain(chainId) ? snapshot.hubTokenDecimals : snapshot.tokenDecimals),
@@ -218,7 +218,7 @@ function LpPositionInlineActions({
       userTokenAddress: snapshot.tokenAddress as `0x${string}`,
       validatorTokenAddress: snapshot.hubTokenAddress as `0x${string}`,
       liquidityAmount: removeAmount,
-      to: address,
+      to: address as `0x${string}`,
       feeToken: snapshot.hubTokenAddress as `0x${string}`,
     });
   };
@@ -432,7 +432,7 @@ export function PortfolioDashboard() {
       }
 
       try {
-        const nextSnapshots = await Promise.all(
+        const nextSnapshots: Array<LpPositionSnapshot | null> = await Promise.all(
           tokens
             .filter((token) => !isHubToken(token, chainId))
             .map(async (token) => {
@@ -464,6 +464,11 @@ export function PortfolioDashboard() {
 
                 return {
                   tokenAddress: token.address,
+                  tokenSymbol: token.symbol,
+                  tokenDecimals: token.decimals,
+                  hubTokenAddress: hubToken.address,
+                  hubTokenSymbol: hubToken.symbol,
+                  hubTokenDecimals: hubToken.decimals,
                   pairLabel: `${token.symbol} / ${hubToken.symbol}`,
                   lpBalance,
                   estimatedValue,
@@ -508,6 +513,11 @@ export function PortfolioDashboard() {
 
               return {
                 tokenAddress: token.address,
+                tokenSymbol: token.symbol,
+                tokenDecimals: token.decimals,
+                hubTokenAddress: hubToken.address,
+                hubTokenSymbol: hubToken.symbol,
+                hubTokenDecimals: hubToken.decimals,
                 pairLabel: `${token.symbol} / ${hubToken.symbol}`,
                 lpBalance,
                 estimatedValue,
@@ -519,7 +529,7 @@ export function PortfolioDashboard() {
         );
 
         if (!cancelled) {
-          setLiquiditySnapshots(nextSnapshots.filter((item): item is LpPositionSnapshot => !!item));
+          setLiquiditySnapshots(nextSnapshots.filter((item): item is LpPositionSnapshot => Boolean(item)));
         }
       } catch (error) {
         console.error('Failed to fetch liquidity snapshots', error);

@@ -150,7 +150,12 @@ const fetchOrderbookData = async (client: PublicClient, token: string, depth: nu
   });
 
   for (const log of placedLogs) {
-    const { orderId, tick, isBid, amount } = log.args;
+    const { orderId, tick, isBid, amount } = (log as { args?: {
+      orderId?: bigint;
+      tick?: number;
+      isBid?: boolean;
+      amount?: bigint;
+    } }).args ?? {};
     if (orderId === undefined || tick === undefined || isBid === undefined || amount === undefined) continue;
     const orderKey = orderId.toString();
     const tickValue = Number(tick);
@@ -158,7 +163,7 @@ const fetchOrderbookData = async (client: PublicClient, token: string, depth: nu
     state.placedDetails.set(orderKey, { tick: tickValue, isBid });
   }
 
-  const orderIds = Array.from(state.orders.keys()).map((id) => BigInt(id));
+  const orderIds: bigint[] = Array.from(state.orders.keys(), (id) => BigInt(String(id)));
   if (orderIds.length === 0) {
     state.lastBlock = toBlock;
     state.lastAccess = now;
@@ -183,7 +188,10 @@ const fetchOrderbookData = async (client: PublicClient, token: string, depth: nu
   });
 
   for (const log of filledLogs) {
-    const { orderId, amountFilled } = log.args;
+    const { orderId, amountFilled } = (log as { args?: {
+      orderId?: bigint;
+      amountFilled?: bigint;
+    } }).args ?? {};
     if (!orderId || amountFilled === undefined) continue;
     const orderKey = orderId.toString();
     const details = state.placedDetails.get(orderKey);
@@ -207,11 +215,11 @@ const fetchOrderbookData = async (client: PublicClient, token: string, depth: nu
     }
   }
 
-  state.recentTrades.sort((a, b) => Number(b.block) - Number(a.block));
+  state.recentTrades.sort((a: RecentTrade, b: RecentTrade) => Number(b.block - a.block));
   state.recentTrades = state.recentTrades.slice(0, 20);
 
   for (const log of cancelledLogs) {
-    const { orderId } = log.args;
+    const { orderId } = (log as { args?: { orderId?: bigint } }).args ?? {};
     if (!orderId) continue;
     const orderKey = orderId.toString();
     const order = state.orders.get(orderKey);
@@ -229,13 +237,13 @@ const fetchOrderbookData = async (client: PublicClient, token: string, depth: nu
       });
     }
   }
-  state.cancelledOrders.sort((a, b) => Number(b.block) - Number(a.block));
+  state.cancelledOrders.sort((a: CancelledOrder, b: CancelledOrder) => Number(b.block - a.block));
   state.cancelledOrders = state.cancelledOrders.slice(0, 20);
 
   const bidsMap = new Map<number, bigint>();
   const asksMap = new Map<number, bigint>();
 
-  state.orders.forEach((order) => {
+  state.orders.forEach((order: { tick: number; amount: bigint; isBid: boolean }) => {
     if (order.amount <= 0n) return;
     if (order.isBid) {
       bidsMap.set(order.tick, (bidsMap.get(order.tick) || 0n) + order.amount);
@@ -245,13 +253,13 @@ const fetchOrderbookData = async (client: PublicClient, token: string, depth: nu
   });
 
   const bids = Array.from(bidsMap.entries())
-    .map(([tick, amount]) => ({ tick, amount }))
-    .sort((a, b) => b.tick - a.tick)
+    .map(([tick, amount]: [number, bigint]) => ({ tick, amount }))
+    .sort((a: OrderbookEntry, b: OrderbookEntry) => b.tick - a.tick)
     .slice(0, depth);
 
   const asks = Array.from(asksMap.entries())
-    .map(([tick, amount]) => ({ tick, amount }))
-    .sort((a, b) => a.tick - b.tick)
+    .map(([tick, amount]: [number, bigint]) => ({ tick, amount }))
+    .sort((a: OrderbookEntry, b: OrderbookEntry) => a.tick - b.tick)
     .slice(0, depth);
 
   state.lastBlock = toBlock;

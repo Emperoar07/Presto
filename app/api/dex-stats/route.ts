@@ -115,13 +115,15 @@ function aggregateStats(
   let totalLiquidityEvents = snapshot.totalLiquidityEvents;
 
   for (const log of swapLogs) {
-    const { user, tokenIn, tokenOut, amountIn, amountOut } = log.args as {
+    const args = (log as { args?: {
       user: `0x${string}`;
       tokenIn: `0x${string}`;
       tokenOut: `0x${string}`;
       amountIn: bigint;
       amountOut: bigint;
-    };
+    } }).args;
+    if (!args) continue;
+    const { user, tokenIn, tokenOut, amountIn, amountOut } = args;
     if (user) traders.add(user.toLowerCase());
     if (tokenIn?.toLowerCase() === usdcAddress) {
       volumeRaw += amountIn ?? 0n;
@@ -131,13 +133,15 @@ function aggregateStats(
   }
 
   for (const log of addLogs) {
-    const { provider, pathAmount } = log.args as {
+    const args = (log as { args?: {
       provider: `0x${string}`;
       token: `0x${string}`;
       tokenAmount: bigint;
       pathAmount: bigint;
       shares: bigint;
-    };
+    } }).args;
+    if (!args) continue;
+    const { provider, pathAmount } = args;
     if (provider) traders.add(provider.toLowerCase());
     // Count the USDC (hub) side of every liquidity add as protocol volume
     if (pathAmount) volumeRaw += pathAmount;

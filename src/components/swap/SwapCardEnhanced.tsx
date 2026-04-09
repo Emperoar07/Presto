@@ -410,7 +410,7 @@ export function SwapCardEnhanced() {
               toUint128(amount),
               toUint128(minOut),
             ],
-            account: address,
+            account: address as `0x${string}`,
             chain: null,
           },
           {
@@ -447,7 +447,7 @@ export function SwapCardEnhanced() {
               minOut,
               deadlineTimestamp,
             ],
-            account: address,
+            account: address as `0x${string}`,
             chain: null,
           },
           {
@@ -468,7 +468,7 @@ export function SwapCardEnhanced() {
       activityId = pendingActivity.id;
       upsertLocalActivityHistoryItem(pendingActivity);
 
-      toast.custom(() => <TxToast hash={hash} title="Swap submitted" />);
+      toast.custom(() => <TxToast hash={hash!} title="Swap submitted" />);
 
       // Wait for transaction confirmation
       await publicClient.waitForTransactionReceipt({ hash });
