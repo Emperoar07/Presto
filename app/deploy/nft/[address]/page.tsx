@@ -167,7 +167,7 @@ export default function ManageNFTPage() {
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
-      <div className="flex min-h-[calc(100vh-180px)] items-start justify-center pt-2 md:pt-6">
+      <div className="flex min-h-[calc(100vh-180px)] items-start justify-center pt-6 md:pt-10">
         <div className="w-full max-w-[520px] space-y-4">
           {/* Collection Info */}
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
