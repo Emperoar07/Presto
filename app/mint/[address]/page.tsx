@@ -24,9 +24,9 @@ const NFT_READ_ABI = parseAbi([
   'function owner() external view returns (address)',
 ]);
 
-const NFT_MINT_ABI = [
+const NFT_MINT_ABI = parseAbi([
   'function mint(address to) external payable',
-] as const;
+]);
 
 type CollectionInfo = {
   name: string;

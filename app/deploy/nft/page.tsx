@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
+import { parseAbi } from 'viem';
 import { parseEther, formatEther, isAddress } from 'viem';
 import { TxToast } from '@/components/common/TxToast';
 import { loadNFTArtifact, deployContract, saveDeployment, type DeployResult } from '@/lib/deployUtils';
@@ -19,14 +20,14 @@ const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
 const ARC_CHAIN_ID = 5042002;
 
-const NFT_OWNER_ABI = [
+const NFT_OWNER_ABI = parseAbi([
   'function ownerMint(address to) external',
   'function setBaseURI(string baseURI_) external',
   'function withdraw() external',
   'function totalMinted() external view returns (uint256)',
   'function maxSupply() external view returns (uint256)',
   'function mintPrice() external view returns (uint256)',
-] as const;
+]);
 
 export default function DeployNFTPage() {
   const { address } = useAccount();
