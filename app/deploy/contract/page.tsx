@@ -214,45 +214,39 @@ export default function DeployContractPage() {
 
             <div className="space-y-4 p-5">
               {/* Templates */}
-              <div>
-                <label className="mb-1.5 block text-[11.5px] font-semibold text-slate-400">Load Template</label>
-                <div className="flex flex-wrap gap-2">
+              <div className="rounded-[12px] border border-white/[0.07] bg-[#263347]/40 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-slate-400">Load Template</label>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                      Pick a ready-made example, or let us generate a fresh one.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadRandomTemplate}
+                    disabled={loadingTemplate || !!deployResult}
+                    className="shrink-0 rounded-[9px] border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-400/15 disabled:opacity-40"
+                    title="Load a random token or NFT example"
+                  >
+                    Surprise me
+                  </button>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {TEMPLATES.map((t) => (
                     <button
                       key={t.label}
                       type="button"
                       onClick={() => loadTemplate(t)}
                       disabled={loadingTemplate || !!deployResult}
-                      className="rounded-[8px] border border-white/[0.07] bg-[#263347] px-3 py-1.5 text-[12px] font-medium text-slate-300 transition-colors hover:bg-[#2d3f56] disabled:opacity-40"
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                  {SURPRISE_TEMPLATES.map((t) => (
-                    <button
-                      key={t.label}
-                      type="button"
-                      onClick={() => loadTemplate(t)}
-                      disabled={loadingTemplate || !!deployResult}
-                      className="rounded-[8px] border border-primary/30 bg-primary/10 px-3 py-1.5 text-[12px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-40"
+                      className="flex min-h-[44px] items-center justify-center rounded-[9px] border border-white/[0.07] bg-[#263347] px-3 py-2 text-[12px] font-medium text-slate-300 transition-colors hover:bg-[#2d3f56] disabled:opacity-40"
                       title={t.description}
                     >
                       {t.label}
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    onClick={loadRandomTemplate}
-                    disabled={loadingTemplate || !!deployResult}
-                    className="rounded-[8px] border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-400/15 disabled:opacity-40"
-                    title="Load a random token or NFT example"
-                  >
-                    Surprise me
-                  </button>
                 </div>
-                <p className="mt-1.5 text-[11px] text-slate-500">
-                  Each preset seeds valid constructor arguments, and Surprise me picks a fresh example each time.
-                </p>
               </div>
 
               {/* ABI */}
