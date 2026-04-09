@@ -21,19 +21,66 @@ const ARC_CHAIN_ID = 5042002;
 type Template = {
   label: string;
   loader: () => Promise<{ abi: Abi; bytecode: `0x${string}` }>;
-  args?: unknown[];
+  description: string;
+  buildArgs: () => unknown[];
 };
+
+const PRESTO_NAMES = ['Presto', 'Arc', 'Cyan', 'Nova', 'Orbit', 'Luma', 'Signal', 'Echo'];
+const TOKEN_SUFFIXES = ['Token', 'Coin', 'Credit', 'Pulse', 'Flow', 'Mint'];
+const NFT_SUFFIXES = ['Pass', 'Badge', 'Series', 'Collectible', 'Edition', 'Gallery'];
+const SYMBOLS = ['PRST', 'ARC', 'CYN', 'NOVA', 'ORBT', 'LUMA', 'SIG', 'ECHO'];
+const TOKEN_SUPPLIES = ['1000000', '2500000', '5000000', '10000000', '25000000'];
+const NFT_SUPPLIES = [100, 250, 500, 1000, 2500];
+const NFT_PRICES = ['0', '1000000000000000', '2500000000000000', '5000000000000000'];
+const TOKEN_BASE_URI = 'https://example.com/metadata/';
+
+function pick<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function randomTokenArgs(): unknown[] {
+  const name = `${pick(PRESTO_NAMES)} ${pick(TOKEN_SUFFIXES)}`;
+  const symbol = pick(SYMBOLS);
+  const supply = pick(TOKEN_SUPPLIES);
+  return [name, symbol, 18, supply];
+}
+
+function randomNFTArgs(): unknown[] {
+  const name = `${pick(PRESTO_NAMES)} ${pick(NFT_SUFFIXES)}`;
+  const symbol = `${pick(SYMBOLS)}NFT`;
+  const maxSupply = pick(NFT_SUPPLIES);
+  const mintPrice = pick(NFT_PRICES);
+  const baseURI = `${TOKEN_BASE_URI}${name.toLowerCase().replace(/\s+/g, '-')}/`;
+  return [name, symbol, maxSupply, mintPrice, baseURI];
+}
 
 const TEMPLATES: Template[] = [
   {
     label: 'ERC20 Token (DeployableToken)',
+    description: 'Loads a ready-to-deploy token example.',
     loader: loadTokenArtifact,
-    args: ['Presto Token', 'PRST', 18, '1000000000000000000000000'],
+    buildArgs: () => ['Presto Token', 'PRST', 18, '1000000000000000000000000'],
   },
   {
     label: 'NFT Collection (DeployableNFT)',
+    description: 'Loads a ready-to-deploy NFT collection example.',
     loader: loadNFTArtifact,
-    args: ['Presto Collection', 'PRSTNFT', 1000, '0', 'https://example.com/metadata/'],
+    buildArgs: () => ['Presto Collection', 'PRSTNFT', 1000, '0', 'https://example.com/metadata/'],
+  },
+];
+
+const SURPRISE_TEMPLATES: Template[] = [
+  {
+    label: 'Random Token Sample',
+    description: 'Creates a fresh token template with generated name and supply.',
+    loader: loadTokenArtifact,
+    buildArgs: randomTokenArgs,
+  },
+  {
+    label: 'Random NFT Sample',
+    description: 'Creates a fresh NFT collection template with generated metadata.',
+    loader: loadNFTArtifact,
+    buildArgs: randomNFTArgs,
   },
 ];
 
@@ -67,12 +114,18 @@ export default function DeployContractPage() {
       const { abi, bytecode } = await template.loader();
       setAbiText(JSON.stringify(abi, null, 2));
       setBytecodeText(bytecode);
-      setArgsText(template.args ? JSON.stringify(template.args, null, 2) : '');
+      setArgsText(JSON.stringify(template.buildArgs(), null, 2));
       toast.success(`${template.label} loaded`);
     } catch {
       toast.error('Failed to load template');
     }
     setLoadingTemplate(false);
+  }
+
+  async function loadRandomTemplate() {
+    const pool = [...TEMPLATES, ...SURPRISE_TEMPLATES];
+    const template = pool[Math.floor(Math.random() * pool.length)];
+    await loadTemplate(template);
   }
 
   async function handleDeploy() {
@@ -175,7 +228,31 @@ export default function DeployContractPage() {
                       {t.label}
                     </button>
                   ))}
+                  {SURPRISE_TEMPLATES.map((t) => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => loadTemplate(t)}
+                      disabled={loadingTemplate || !!deployResult}
+                      className="rounded-[8px] border border-primary/30 bg-primary/10 px-3 py-1.5 text-[12px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-40"
+                      title={t.description}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={loadRandomTemplate}
+                    disabled={loadingTemplate || !!deployResult}
+                    className="rounded-[8px] border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-400/15 disabled:opacity-40"
+                    title="Load a random token or NFT example"
+                  >
+                    Surprise me
+                  </button>
                 </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Each preset seeds valid constructor arguments, and Surprise me picks a fresh example each time.
+                </p>
               </div>
 
               {/* ABI */}
