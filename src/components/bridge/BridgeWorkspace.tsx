@@ -1341,7 +1341,6 @@ export function BridgeWorkspace() {
               </div>
             ) : null}
             </div>
-            </div>
 
             {/* Slide-out history drawer */}
             <div
