@@ -263,7 +263,7 @@ export default function SendPage() {
         <div className="relative w-full max-w-[520px]">
           <div
             className="mx-auto w-full max-w-[381px] overflow-visible rounded-[14px] shadow-[0_18px_48px_rgba(2,6,23,0.34)]"
-            style={{ background: SURF, border: BDR, minHeight: 832 }}
+            style={{ background: SURF, border: BDR, minHeight: 624 }}
           >
             <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: BDR }}>
             <div>
