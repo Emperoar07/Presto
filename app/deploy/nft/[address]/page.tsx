@@ -171,7 +171,7 @@ export default function ManageNFTPage() {
           {/* Collection Info */}
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
             <div className="px-5 py-[14px]" style={{ borderBottom: BDR }}>
-              <p className="text-[14px] font-bold text-slate-100">Manage {info?.name ?? 'NFT'}</p>
+              <p className="truncate text-[14px] font-bold text-slate-100">Manage {info?.name ?? 'NFT'}</p>
             </div>
             <div className="space-y-2 p-5">
               <div className="flex items-center justify-between">
@@ -276,7 +276,7 @@ export default function ManageNFTPage() {
               <div className="flex items-center justify-between rounded-[10px] bg-[#263347] px-4 py-3">
                 <span className="text-[12px] text-slate-400">Available Balance</span>
                 <span className="text-[14px] font-bold text-slate-100">
-                  {contractBalance !== null ? `${contractBalance} ETH` : '—'}
+                  {contractBalance !== null ? `${Number(contractBalance).toFixed(6)} ETH` : '—'}
                 </span>
               </div>
               <button type="button" onClick={handleWithdraw} disabled={withdrawing || contractBalance === '0'}

@@ -678,6 +678,13 @@ export function SwapCardEnhanced() {
                     {outputAmount ? Number(Number(outputAmount) * (1 - slippageTolerance / 100)).toFixed(4) : '0'} {outputToken.symbol}
                   </span>
                 </div>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Approval</span>
+                  <span className="flex items-center gap-1 font-medium text-emerald-400">
+                    <span className="material-symbols-outlined text-[12px]">verified</span>
+                    Exact amount only
+                  </span>
+                </div>
               </div>
             )}
 
@@ -734,7 +741,7 @@ export function SwapCardEnhanced() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    {swapStage === 'approving' ? 'Approving...' : 'Swapping...'}
+                    {swapStage === 'approving' ? 'Approving exact amount...' : 'Swapping...'}
                   </span>
                 ) : needsConfirmation ? 'Swap Anyway' : 'Swap Tokens'}
               </button>

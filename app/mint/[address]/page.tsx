@@ -144,7 +144,7 @@ export default function MintPage() {
             <p className="mt-2 text-[13px] text-rose-400">{error}</p>
           ) : info ? (
             <>
-              <h1 className="text-[20px] font-bold text-slate-100">{info.name}</h1>
+              <h1 className="break-words text-[20px] font-bold text-slate-100">{info.name}</h1>
               <p className="text-[13px] text-slate-500">{info.symbol}</p>
             </>
           ) : null}

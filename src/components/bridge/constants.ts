@@ -315,7 +315,7 @@ export function getBridgeActionLabel(
     '';
 
   if (latestEvent.includes('approve')) {
-    return sourceEcosystem === 'solana' ? 'PREPARING TRANSFER' : 'APPROVING USDC';
+    return sourceEcosystem === 'solana' ? 'PREPARING TRANSFER' : 'APPROVING USDC (CCTP)';
   }
   if (latestEvent.includes('burn')) return 'BURNING USDC';
   if (latestEvent.includes('fetchattestation')) return 'FETCHING ATTESTATION';

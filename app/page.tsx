@@ -85,7 +85,7 @@ function FeatureCarousel() {
       <button
         type="button"
         onClick={() => go(-1)}
-        className="absolute -left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-[#141e30] p-2 text-slate-400 transition-all hover:border-white/20 hover:text-white md:-left-5"
+        className="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-[#141e30] p-1.5 text-slate-400 transition-all hover:border-white/20 hover:text-white sm:-left-2 sm:p-2 md:-left-5"
         aria-label="Previous"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -93,14 +93,14 @@ function FeatureCarousel() {
       <button
         type="button"
         onClick={() => go(1)}
-        className="absolute -right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-[#141e30] p-2 text-slate-400 transition-all hover:border-white/20 hover:text-white md:-right-5"
+        className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/10 bg-[#141e30] p-1.5 text-slate-400 transition-all hover:border-white/20 hover:text-white sm:-right-2 sm:p-2 md:-right-5"
         aria-label="Next"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
       </button>
 
       {/* Stacked cards */}
-      <div className="relative mx-auto h-[200px] max-w-[600px]" style={{ perspective: '1200px' }}>
+      <div className="relative mx-auto h-[220px] max-w-[600px] sm:h-[200px]" style={{ perspective: '1200px' }}>
         {FEATURES.map((f, i) => {
           const offset = ((i - active) + FEATURES.length) % FEATURES.length;
           // Show at most 4 cards in the stack
@@ -113,7 +113,7 @@ function FeatureCarousel() {
           return (
             <div
               key={f.t}
-              className="absolute inset-0 rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7"
+              className="absolute inset-0 rounded-[16px] border border-white/[0.06] bg-[#141e30] p-4 sm:p-7"
               style={{
                 transform: `translateY(${y}px) scale(${scale})`,
                 zIndex: z,
@@ -265,7 +265,12 @@ export default function Home() {
               { v: loading ? '—' : (stats?.totalSwaps ? Number(stats.totalSwaps).toLocaleString() : '0'), l: 'All-time Trades' },
               { v: loading ? '—' : (stats?.uniqueTraders ? Number(stats.uniqueTraders).toLocaleString() : '0'), l: 'Unique Traders' },
             ].map(({ v, l }, i) => (
-              <div key={i} className="border-b border-white/[0.06] px-4 py-4 text-center last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+              <div key={i} className={[
+                'px-4 py-4 text-center',
+                i % 2 === 0 ? 'border-r border-white/[0.06]' : '',
+                i < 2 ? 'border-b border-white/[0.06]' : '',
+                'sm:border-b-0 sm:border-r sm:border-white/[0.06] sm:last:border-r-0',
+              ].join(' ')}>
                 <div className="text-[17px] font-extrabold tracking-tight text-[#25c0f4] md:text-[20px]">{v}</div>
                 <div className="mt-1 text-[10px] font-medium text-[#4b6280] md:text-[11px]">{l}</div>
               </div>
