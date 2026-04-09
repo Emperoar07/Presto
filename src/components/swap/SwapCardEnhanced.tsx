@@ -596,8 +596,8 @@ export function SwapCardEnhanced() {
   };
   return (
     <>
-      <div className="relative flex items-start justify-center gap-4">
-        <div className="relative w-full max-w-[381px]">
+      <div className="relative flex items-stretch justify-center gap-4">
+        <div className="relative w-full max-w-[381px] self-stretch">
         <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1e293b] shadow-[0_18px_48px_rgba(2,6,23,0.34)]">
           <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
             <div>
@@ -817,7 +817,7 @@ export function SwapCardEnhanced() {
       </div>
 
       <div
-        className={`transition-all duration-300 ease-in-out overflow-hidden ${
+        className={`transition-all duration-300 ease-in-out overflow-hidden self-stretch ${
           historyOpen
             ? 'w-full max-w-[320px] opacity-100 xl:w-[320px]'
             : 'w-0 max-w-0 opacity-0 xl:w-0'
@@ -826,9 +826,9 @@ export function SwapCardEnhanced() {
         onMouseLeave={() => startHistoryAutoClose()}
         onScroll={() => resetHistoryAutoClose()}
       >
-        <div className="w-[320px]">
+        <div className="flex h-full w-[320px]">
           <div
-            className="overflow-hidden rounded-[14px]"
+            className="flex h-full w-full flex-col overflow-hidden rounded-[14px]"
             style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
           >
             <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
@@ -837,7 +837,7 @@ export function SwapCardEnhanced() {
                 {swapHistory.length} entries
               </span>
             </div>
-            <div className="h-[260px] overflow-y-auto">
+            <div className="flex-1 overflow-y-auto">
               {swapHistory.length === 0 ? (
                 <div className="px-4 py-6 text-center text-[12px] text-slate-500">
                   No swaps yet.

@@ -69,7 +69,7 @@ function FeatureCarousel() {
 
   const reset = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setActive((p) => (p + 1) % FEATURES.length), 15_000);
+    timerRef.current = setInterval(() => setActive((p) => (p + 1) % FEATURES.length), 5_000);
   }, []);
 
   useEffect(() => { reset(); return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, [reset]);
