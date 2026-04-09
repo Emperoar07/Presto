@@ -34,6 +34,7 @@ type NavLink = {
   label: string;
   icon: string;
   section: 'trade' | 'account' | 'insights';
+  comingSoon?: boolean;
 };
 
 const NAV_LINKS: NavLink[] = [
@@ -41,6 +42,7 @@ const NAV_LINKS: NavLink[] = [
   { href: '/liquidity', label: 'Pools', icon: 'water', section: 'trade' },
   { href: '/bridge', label: 'Bridge', icon: 'swap_horizontal_circle', section: 'trade' },
   { href: '/send', label: 'Send', icon: 'send', section: 'trade' },
+  { href: '/deploy', label: 'Deploy', icon: 'rocket_launch', section: 'trade', comingSoon: true },
   { href: '/portfolio', label: 'Portfolio', icon: 'pie_chart', section: 'account' },
   { href: '/transactions', label: 'Activity', icon: 'history', section: 'account' },
   { href: '/analytics', label: 'Analytics', icon: 'bar_chart', section: 'insights' },
@@ -182,8 +184,36 @@ export const AppSidebar = memo(function AppSidebar() {
   );
 
   // Nav item — compact: icon only (label shrinks to w-0). Expanded: icon + label.
-  const NavItem = ({ href, label, icon, compact = false }: { href: string; label: string; icon: string; compact?: boolean }) => {
+  const NavItem = ({ href, label, icon, compact = false, comingSoon = false }: { href: string; label: string; icon: string; compact?: boolean; comingSoon?: boolean }) => {
     const isActive = pathname === href;
+
+    if (comingSoon) {
+      return (
+        <div
+          title={`${label} — Coming Soon`}
+          className="group relative mb-0.5 flex items-center gap-2.5 rounded-[10px] border border-transparent px-[10px] py-[9px] opacity-40 cursor-not-allowed"
+        >
+          <span className="material-symbols-outlined flex-shrink-0 text-[18px] text-slate-500">{icon}</span>
+          <span className={`overflow-hidden whitespace-nowrap text-[13.5px] font-medium text-slate-500 transition-all duration-200 ${compact ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+            {label}
+          </span>
+          {!compact && (
+            <span className="ml-auto flex-shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[8px] font-bold uppercase tracking-wider text-primary">
+              Soon
+            </span>
+          )}
+          {compact && (
+            <span
+              className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-[8px] px-2.5 py-1.5 text-[12px] font-semibold text-slate-400 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+              style={{ background: '#1e2d42', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              {label} — Coming Soon
+            </span>
+          )}
+        </div>
+      );
+    }
+
     return (
       <Link
         href={href}
@@ -246,7 +276,7 @@ export const AppSidebar = memo(function AppSidebar() {
             {tradeLinks.length > 0 && (
               <div>
                 <SectionLabel label="Trade" compact={compact} />
-                {tradeLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} />)}
+                {tradeLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} comingSoon={l.comingSoon} />)}
               </div>
             )}
             {accountLinks.length > 0 && (
