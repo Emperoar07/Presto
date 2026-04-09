@@ -245,6 +245,7 @@ export function BridgeWorkspace() {
   const [isAddingChain, setIsAddingChain] = useState(false);
   const [activeWalletChainId, setActiveWalletChainId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [solanaProviderKey, setSolanaProviderKey] = useState<string | null>(null);
   const [solanaWalletPickerOpen, setSolanaWalletPickerOpen] = useState(false);
   const [bridgeStatusCard, setBridgeStatusCard] = useState<{
@@ -1116,8 +1117,8 @@ export function BridgeWorkspace() {
         };
 
         return (
-          <section className="grid w-full items-start gap-6 xl:grid-cols-[381px_minmax(0,1fr)]">
-            <div className="mx-auto w-full max-w-[381px] xl:mx-0">
+          <section className="flex w-full justify-center">
+            <div className="relative mx-auto w-full max-w-[381px]">
             <div className="overflow-hidden rounded-[16px]" style={{ background: '#141e30', border: '1px solid rgba(255,255,255,0.07)' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1125,6 +1126,20 @@ export function BridgeWorkspace() {
                     <p className="text-[13px] font-bold text-slate-100">Bridge USDC</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">Powered by Circle CCTP V2</p>
                   </div>
+                  {/* History toggle icon */}
+                  <button
+                    type="button"
+                    onClick={() => setHistoryOpen((v) => !v)}
+                    className="relative flex h-8 w-8 items-center justify-center rounded-[8px] transition-colors hover:bg-white/[0.06]"
+                    title={historyOpen ? 'Hide transfer history' : 'Show transfer history'}
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-slate-400">history</span>
+                    {bridgeHistory.length > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-[#0f172a]">
+                        {bridgeHistory.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
 
                 <div className="space-y-2.5 p-4">
@@ -1328,12 +1343,16 @@ export function BridgeWorkspace() {
             </div>
             </div>
 
-            <div className="xl:w-full xl:max-w-[560px]">
+            {/* Slide-out history drawer */}
+            <div
+              className={`mt-3 overflow-hidden transition-all duration-300 ease-in-out ${historyOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}
+            >
               <BridgeHistoryPanel
                 bridgeHistory={bridgeHistory}
                 claimingItemId={claimingItemId}
                 onManualClaim={(item) => void handleManualClaim(item)}
               />
+            </div>
             </div>
 
             {/* ---- Confirmation modal ---- */}

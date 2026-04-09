@@ -95,6 +95,21 @@ export default function SendPage() {
   const isSearchAnAddress = search.length >= 10 && isAddress(search);
   const customToken = useCustomTokenInfo(publicClient, address, isSearchAnAddress ? search : '');
 
+  // Auto-select: if user pastes a valid address and a token is detected, auto-pick it
+  useEffect(() => {
+    if (!isSearchAnAddress || !pickerOpen) return;
+    // Check if it matches a listed token first
+    const listed = tokens.find((t) => t.address.toLowerCase() === search.toLowerCase());
+    if (listed) {
+      handleSelectToken(listed);
+      return;
+    }
+    // Auto-select custom token once detected
+    if (customToken.token && !customToken.loading) {
+      handleSelectToken(customToken.token);
+    }
+  }, [isSearchAnAddress, customToken.token, customToken.loading, pickerOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Close picker on outside click
   useEffect(() => {
     if (!pickerOpen) return;
@@ -243,9 +258,9 @@ export default function SendPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] w-full items-center justify-center px-4 py-5 md:px-7 md:py-7">
+    <div className="flex w-full justify-center px-4 pt-[12vh] pb-10 md:px-7 md:pt-[15vh]">
       <div className="relative w-full max-w-[420px]">
-        <div className="overflow-hidden rounded-[14px] shadow-[0_18px_48px_rgba(2,6,23,0.34)]" style={{ background: SURF, border: BDR }}>
+        <div className="overflow-visible rounded-[14px] shadow-[0_18px_48px_rgba(2,6,23,0.34)]" style={{ background: SURF, border: BDR }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: BDR }}>
             <div>
@@ -257,7 +272,7 @@ export default function SendPage() {
 
           <div className="space-y-3 p-4">
             {/* Token + Amount */}
-            <div className="rounded-[12px] border border-white/[0.07] bg-[#263347] px-4 py-3">
+            <div className="relative z-20 rounded-[12px] border border-white/[0.07] bg-[#263347] px-4 py-3">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-medium text-slate-500">Token</span>
                 <span className="text-[11px] text-slate-500">

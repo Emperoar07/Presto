@@ -125,7 +125,9 @@ function buildLocalActivity(item: LocalActivityRecord): ActivityItem {
   const visual =
     item.category === 'swaps'
       ? { icon: 'swap_horiz', bg: 'rgba(37,192,244,0.12)', color: '#25c0f4' }
-      : { icon: 'water', bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
+      : item.category === 'send'
+        ? { icon: 'send', bg: 'rgba(251,146,60,0.12)', color: '#fb923c' }
+        : { icon: 'water', bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
 
   return {
     id: `local-${item.id}`,
@@ -145,7 +147,7 @@ function buildLocalActivity(item: LocalActivityRecord): ActivityItem {
 }
 
 export default function TransactionsPage() {
-  const [filter, setFilter] = useState<'all' | 'swaps' | 'liquidity' | 'bridge'>('all');
+  const [filter, setFilter] = useState<'all' | 'swaps' | 'liquidity' | 'bridge' | 'send'>('all');
   const [bridgeHistory, setBridgeHistory] = useState<BridgeHistoryItem[]>([]);
   const [localActivity, setLocalActivity] = useState<LocalActivityRecord[]>([]);
   const { data: items = [], isLoading } = useTransactions();
@@ -212,18 +214,19 @@ export default function TransactionsPage() {
       <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
         <div className="flex flex-col gap-3 border-b px-4 py-3 md:flex-row md:items-center md:justify-between md:px-5 md:py-[14px]" style={{ borderBottom: BDR }}>
           <p className="text-[14px] font-bold text-slate-100">Transaction History</p>
-          <div className="flex gap-1 rounded-[10px] p-1" style={{ background: SURF_2 }}>
+          <div className="flex gap-1 overflow-x-auto rounded-[10px] p-1" style={{ background: SURF_2 }}>
             {[
               { key: 'all', label: 'All' },
               { key: 'swaps', label: 'Swaps' },
               { key: 'liquidity', label: 'Liquidity' },
               { key: 'bridge', label: 'Bridge' },
+              { key: 'send', label: 'Sent' },
             ].map((tab) => (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setFilter(tab.key as typeof filter)}
-                className={`rounded-[8px] px-[14px] py-[6px] text-[13px] font-semibold transition-all ${
+                className={`flex-shrink-0 rounded-[8px] px-[12px] py-[6px] text-[12px] font-semibold transition-all sm:px-[14px] sm:text-[13px] ${
                   filter === tab.key ? 'text-slate-100 shadow' : 'text-slate-500'
                 }`}
                 style={filter === tab.key ? { background: SURF } : {}}
