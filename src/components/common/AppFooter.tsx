@@ -9,20 +9,6 @@ export const AppFooter = memo(function AppFooter() {
       <div className="mx-auto max-w-7xl px-4 text-xs text-slate-400">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <p>&copy; 2026 Presto. All rights reserved.</p>
-          <div className="flex flex-wrap items-center gap-4">
-            <Link href="/docs" className="transition-colors hover:text-primary">
-              Docs
-            </Link>
-            <Link href="/docs#privacy-policy" className="transition-colors hover:text-primary">
-              Privacy Policy
-            </Link>
-            <Link href="/docs#terms-of-use" className="transition-colors hover:text-primary">
-              Terms of Use
-            </Link>
-            <Link href="/docs#cookie-policy" className="transition-colors hover:text-primary">
-              Cookie Policy
-            </Link>
-          </div>
           <p>
             <Link
               href="https://x.com/emperoar007"

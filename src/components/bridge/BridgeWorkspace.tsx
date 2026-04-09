@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -41,6 +42,7 @@ import { useBridgeBalance } from './useBridgeBalance';
 import { useBridgeHistory } from './useBridgeHistory';
 import { BridgeHistoryPanel } from './BridgeHistoryPanel';
 import { BridgeEstimatePanel } from './BridgeEstimatePanel';
+import { emitPrestoDataRefresh, refreshPrestoQueries } from '@/lib/appDataRefresh';
 
 // ---------------------------------------------------------------------------
 // Iris API CORS proxy — intercept fetch to Circle's sandbox API and route
@@ -199,6 +201,7 @@ function BridgeNetworkSelector({
 // ---------------------------------------------------------------------------
 
 export function BridgeWorkspace() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
@@ -923,6 +926,8 @@ export function BridgeWorkspace() {
         window.setTimeout(() => {
           refreshBalances();
         }, 4000);
+        await refreshPrestoQueries(queryClient, { address: evmAddress, chainId });
+        emitPrestoDataRefresh('bridge');
       }
       const firstTxHash = capturedSteps.find((s) => s.txHash)?.txHash ?? (result.steps ?? []).find((s) => s.txHash)?.txHash ?? null;
       upsertBridgeHistory({

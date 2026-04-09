@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatUnits, parseAbi } from 'viem';
 import { useAccount, useChainId, usePublicClient } from 'wagmi';
 import { getHubToken, getTokens, isHubToken } from '@/config/tokens';
@@ -12,6 +12,7 @@ import {
   isTempoNativeChain,
 } from '@/config/contracts';
 import { useTokenBalances } from '@/hooks/useApiQueries';
+import { subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
 
 const SURF = '#1e293b';
 const SURF_2 = '#263347';
@@ -55,21 +56,18 @@ export default function PortfolioPage() {
 
   const { data: balances = {}, isLoading } = useTokenBalances();
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchLiquiditySnapshots = useCallback(async () => {
+    if (!publicClient || !address || !hubToken) {
+      setLiquiditySnapshots([]);
+      return;
+    }
 
-    const fetchLiquiditySnapshots = async () => {
-      if (!publicClient || !address || !hubToken) {
-        if (!cancelled) setLiquiditySnapshots([]);
-        return;
-      }
-
-      try {
-        const snapshots: Array<LpPositionSnapshot | null> = await Promise.all(
-          tokens
-            .filter((token) => !isHubToken(token, chainId))
-            .map(async (token) => {
-              try {
+    try {
+      const snapshots: Array<LpPositionSnapshot | null> = await Promise.all(
+        tokens
+          .filter((token) => !isHubToken(token, chainId))
+          .map(async (token) => {
+            try {
               if (isTempoNativeChain(chainId)) {
                 const [liquidityRaw, poolData] = await Promise.all([
                   publicClient.readContract({
@@ -147,30 +145,43 @@ export default function PortfolioPage() {
                 sharePercent,
                 estimatedValue,
               } satisfies LpPositionSnapshot;
-              } catch {
-                // Token pool may not exist on-chain (e.g. USYC) — skip silently
-                return null;
-              }
-            }),
-        );
+            } catch {
+              return null;
+            }
+          }),
+      );
 
-        if (!cancelled) {
-          setLiquiditySnapshots(snapshots.filter((snapshot): snapshot is LpPositionSnapshot => Boolean(snapshot)));
-        }
-      } catch (error) {
-        console.error('Failed to fetch portfolio LP snapshots', error);
-        if (!cancelled) setLiquiditySnapshots([]);
-      }
+      setLiquiditySnapshots(snapshots.filter((snapshot): snapshot is LpPositionSnapshot => Boolean(snapshot)));
+    } catch (error) {
+      console.error('Failed to fetch portfolio LP snapshots', error);
+      setLiquiditySnapshots([]);
+    }
+  }, [address, chainId, hubToken, publicClient, tokens]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      await fetchLiquiditySnapshots();
     };
 
-    void fetchLiquiditySnapshots();
-    const intervalId = window.setInterval(fetchLiquiditySnapshots, 12_000);
+    void run();
+    const intervalId = window.setInterval(() => {
+      if (!cancelled) {
+        void fetchLiquiditySnapshots();
+      }
+    }, 12_000);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [address, chainId, hubToken, publicClient, tokens]);
+  }, [fetchLiquiditySnapshots]);
+
+  useEffect(() => {
+    return subscribePrestoDataRefresh(() => {
+      void fetchLiquiditySnapshots();
+    });
+  }, [fetchLiquiditySnapshots]);
 
   const assetRows = useMemo(() => {
     return tokens.map((token, index) => {

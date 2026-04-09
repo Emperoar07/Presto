@@ -11,6 +11,7 @@ import { addFeeLiquidity, getTokenBalance } from '@/lib/tempoClient';
 import { Hooks } from '@/lib/tempo';
 import toast from 'react-hot-toast';
 import { TxToast } from '@/components/common/TxToast';
+import { isUserCancellation } from '@/lib/errorHandling';
 
 const TOKEN_COLORS = [
   'bg-blue-500',
@@ -200,8 +201,10 @@ function LpPositionInlineActions({
       await publicClient.waitForTransactionReceipt({ hash });
       setAmount('');
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to add liquidity';
-      toast.error(msg);
+      if (!isUserCancellation(error)) {
+        const msg = error instanceof Error ? error.message : 'Failed to add liquidity';
+        toast.error(msg);
+      }
     } finally {
       setIsAdding(false);
       setIsApproving(false);

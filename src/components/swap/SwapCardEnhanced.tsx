@@ -1,4 +1,5 @@
 'use client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getTokens } from '@/config/tokens';
 import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContracts } from 'wagmi';
@@ -31,12 +32,14 @@ import {
   patchLocalActivityItem,
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
+import { emitPrestoDataRefresh, refreshPrestoQueries, subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
 
 export function SwapCardEnhanced() {
   const chainId = useChainId();
+  const queryClient = useQueryClient();
   // Memoize tokens to prevent unnecessary re-renders
   const tokens = useMemo(() => getTokens(chainId), [chainId]);
   const { address, isConnected } = useAccount();
@@ -133,6 +136,12 @@ export function SwapCardEnhanced() {
 
   useEffect(() => {
     fetchBalances();
+  }, [fetchBalances]);
+
+  useEffect(() => {
+    return subscribePrestoDataRefresh(() => {
+      void fetchBalances();
+    });
   }, [fetchBalances]);
 
   // Note: Tempo DEX uses getPool instead of tokenReserves
@@ -361,6 +370,11 @@ export function SwapCardEnhanced() {
       if (!confirmed) return;
     }
 
+    if (!outputAmount || Number(outputAmount) <= 0) {
+      toast.error('No valid quote available');
+      return;
+    }
+
     setIsSwapping(true);
     setSwapStage('approving');
 
@@ -369,10 +383,6 @@ export function SwapCardEnhanced() {
 
     try {
       const amount = parseUnits(inputAmount, inputToken.decimals);
-      if (!outputAmount || Number(outputAmount) <= 0) {
-        toast.error('No valid quote available');
-        return;
-      }
       const expectedOut = safeParseUnits(outputAmount, outputToken.decimals);
       if (expectedOut <= 0n) {
         toast.error('No valid quote available');
@@ -485,6 +495,8 @@ export function SwapCardEnhanced() {
       setOutputAmount('');
       invalidateQuoteCache(); // Clear quote cache after successful swap
       await fetchBalances();
+      await refreshPrestoQueries(queryClient, { address, chainId });
+      emitPrestoDataRefresh('swap');
 
       toast.success('Swap completed successfully!');
     } catch (e: unknown) {

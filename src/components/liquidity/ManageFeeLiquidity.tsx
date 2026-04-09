@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, type ReactNode, type RefObject } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useChainId, useWalletClient, usePublicClient } from 'wagmi';
 import toast from 'react-hot-toast';
@@ -10,6 +11,8 @@ import { RebalancePool } from './RebalancePool';
 import { PoolStats } from './PoolStats';
 import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
+import { isUserCancellation } from '@/lib/errorHandling';
+import { emitPrestoDataRefresh, refreshPrestoQueries } from '@/lib/appDataRefresh';
 import type { PublicClient } from 'viem';
 import { FACTORY_ABI, getContractAddresses, isArcChain, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
 import {
@@ -68,6 +71,7 @@ export function ManageFeeLiquidity({
   addActionRef,
   removeActionRef,
 }: ManageFeeLiquidityProps) {
+  const queryClient = useQueryClient();
   const { address } = useAccount();
   const chainId = useChainId();
   const isTempoChain = isTempoNativeChain(chainId);
@@ -292,6 +296,8 @@ export function ManageFeeLiquidity({
           hash,
         });
       }
+      await refreshPrestoQueries(queryClient, { address, chainId });
+      emitPrestoDataRefresh('liquidity');
       setAmount('');
     } catch (e: unknown) {
       console.error(e);
@@ -314,10 +320,12 @@ export function ManageFeeLiquidity({
           }),
         );
       }
-      if (msg.includes('TransferHelper: TRANSFER_FROM_FAILED')) {
-        toast.error('Failed to transfer tokens. Check your balance and approval.');
-      } else {
-        toast.error(msg.slice(0, 100) + '...');
+      if (!isUserCancellation(e)) {
+        if (msg.includes('TransferHelper: TRANSFER_FROM_FAILED')) {
+          toast.error('Failed to transfer tokens. Check your balance and approval.');
+        } else {
+          toast.error(msg.slice(0, 100) + '...');
+        }
       }
     } finally {
       setIsAdding(false);
@@ -361,6 +369,8 @@ export function ManageFeeLiquidity({
           status: 'success',
           hash,
         });
+        await refreshPrestoQueries(queryClient, { address, chainId });
+        emitPrestoDataRefresh('liquidity');
       }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Failed to remove liquidity';
@@ -382,7 +392,7 @@ export function ManageFeeLiquidity({
           }),
         );
       }
-      toast.error(msg);
+      if (!isUserCancellation(error)) toast.error(msg);
     }
   };
 
@@ -408,7 +418,7 @@ export function ManageFeeLiquidity({
       setFeeToInput('');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to update protocol fee';
-      toast.error(msg);
+      if (!isUserCancellation(e)) toast.error(msg);
     } finally {
       setIsSettingFeeTo(false);
     }

@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatUnits, parseUnits, type PublicClient } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
 import { Token, getHubToken, getTokens, isHubToken } from '@/config/tokens';
+import { isUserCancellation } from '@/lib/errorHandling';
 import { Hooks } from '@/lib/tempo';
 import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
@@ -15,6 +17,7 @@ import {
   patchLocalActivityItem,
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
+import { emitPrestoDataRefresh, refreshPrestoQueries } from '@/lib/appDataRefresh';
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
@@ -363,6 +366,7 @@ function PositionManagerInline({
   sharePercent: number;
   estimatedValue: number;
 }) {
+  const queryClient = useQueryClient();
   const { address } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
@@ -533,6 +537,8 @@ function PositionManagerInline({
           hash,
         });
       }
+      await refreshPrestoQueries(queryClient, { address, chainId });
+      emitPrestoDataRefresh('liquidity');
       setAddAmount('');
     } catch (error: unknown) {
       console.error(error);
@@ -555,7 +561,7 @@ function PositionManagerInline({
           }),
         );
       }
-      toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to add liquidity');
+      if (!isUserCancellation(error)) toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to add liquidity');
     } finally {
       setIsAdding(false);
       setIsApproving(false);
@@ -599,6 +605,8 @@ function PositionManagerInline({
           status: 'success',
           hash,
         });
+        await refreshPrestoQueries(queryClient, { address, chainId });
+        emitPrestoDataRefresh('liquidity');
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to remove liquidity';
@@ -620,7 +628,7 @@ function PositionManagerInline({
           }),
         );
       }
-      toast.error(errorMessage);
+      if (!isUserCancellation(error)) toast.error(errorMessage);
     }
   };
 
@@ -808,6 +816,7 @@ function CompactPositionManagerInline({
   sharePercent: number;
   estimatedValue: number;
 }) {
+  const queryClient = useQueryClient();
   const { address } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
@@ -999,10 +1008,12 @@ function CompactPositionManagerInline({
 
       toast.custom(() => <TxToast hash={hash!} title="Liquidity added" />);
       await publicClient.waitForTransactionReceipt({ hash: hash! });
+      await refreshPrestoQueries(queryClient, { address, chainId });
+      emitPrestoDataRefresh('liquidity');
       setAddAmount('');
     } catch (error: unknown) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to add liquidity');
+      if (!isUserCancellation(error)) toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to add liquidity');
     } finally {
       setIsAdding(false);
       setIsApproving(false);
@@ -1026,6 +1037,8 @@ function CompactPositionManagerInline({
           const h = hash;
           toast.custom(() => <TxToast hash={h} title="Liquidity removal submitted" />);
           await publicClient?.waitForTransactionReceipt({ hash: h });
+          await refreshPrestoQueries(queryClient, { address, chainId });
+          emitPrestoDataRefresh('liquidity');
         }
       } else {
         burnLiquidity.mutate(payload);
@@ -1033,7 +1046,7 @@ function CompactPositionManagerInline({
       setRemoveAmount('');
     } catch (error: unknown) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to remove liquidity');
+      if (!isUserCancellation(error)) toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to remove liquidity');
     }
   };
 

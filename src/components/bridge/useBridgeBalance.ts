@@ -9,6 +9,7 @@ import {
   SOLANA_DEVNET_RPC_URL,
   evmBridgeClients,
 } from './constants';
+import { subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
 
 async function fetchEvmBalance(
   networkKey: BridgeNetworkKey,
@@ -157,6 +158,14 @@ export function useBridgeBalance(deps: {
     }, 30_000);
 
     return () => window.clearInterval(intervalId);
+  }, [refreshBalances]);
+
+  useEffect(() => {
+    return subscribePrestoDataRefresh(() => {
+      if (!isBridgingRef.current) {
+        refreshBalances({ silent: true });
+      }
+    });
   }, [refreshBalances]);
 
   return { sourceBalance, destinationBalance, refreshBalances };

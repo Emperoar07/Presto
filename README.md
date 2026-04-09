@@ -35,7 +35,7 @@ Hub AMM (ArcHubAMMNormalized): `0x5794a8284A29493871Fbfa3c4f343D42001424D6`
 - **Blockchain**: Arc Testnet (5042002), Tempo Testnet (42431), Base Sepolia, Hardhat
 - **Smart Contracts**: Solidity 0.8.20, Hardhat, OpenZeppelin
 - **Wallet**: RainbowKit, wagmi, viem
-- **Bridge**: Circle CCTP via Wormhole SDK
+- **Bridge**: Circle CCTP via Circle Bridge Kit
 - **Data**: React Query with server-side caching and parallel log scanning
 
 ## Getting Started
@@ -136,7 +136,7 @@ The analytics page tracks protocol-wide stats by scanning on-chain events from b
 
 - **All-time Volume**: Total protocol volume since launch
 - **All-time Trades**: Count of all Swap events across every pool
-- **Unique Traders**: Distinct wallets from swaps and liquidity adds
+- **Unique Traders**: Distinct wallets from swap events
 - **Pool Activity**: Live table with liquidity, volume, and status per pool
 
 Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk scanning (6 concurrent), and stale-while-revalidate headers.
@@ -147,7 +147,9 @@ Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk sca
 |---------|----------|--------|
 | Arc Testnet | 5042002 | Live |
 | Tempo Testnet | 42431 | Supported |
+| Ethereum Sepolia | 11155111 | Bridge origin |
 | Base Sepolia | 84532 | Bridge origin |
+| Solana Devnet | — | Bridge origin |
 | Hardhat Local | 31337 | Development |
 
 ## Docs

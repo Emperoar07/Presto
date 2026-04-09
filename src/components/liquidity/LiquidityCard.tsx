@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { BaseError, ContractFunctionRevertedError, formatUnits, parseAbi, parseUnits } from 'viem';
 import { useSearchParams } from 'next/navigation';
@@ -22,6 +23,7 @@ import {
   patchLocalActivityItem,
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
+import { emitPrestoDataRefresh, refreshPrestoQueries, subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
 
 const DEX_PLACE_ABI = parseAbi(['function place(address token, uint128 amount, bool isBid, int16 tick) external returns (uint128 id)']);
 const DEX_PLACE_FLIP_ABI = parseAbi(['function placeFlip(address token, uint128 amount, bool isBid, int16 tick, int16 flipTick) external returns (uint128 id)']);
@@ -140,6 +142,7 @@ export function LiquidityCard({
 }: {
   initialTokenAddress?: string;
 } = {}) {
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const chainId = useChainId();
   const isTempoChain = isTempoNativeChain(chainId);
@@ -168,6 +171,7 @@ export function LiquidityCard({
   const [tokenBalance, setTokenBalance] = useState('0.00');
   const [pathBalance, setPathBalance] = useState('0.00');
   const balanceRequestId = useRef(0);
+  const [balanceRefreshTick, setBalanceRefreshTick] = useState(0);
   const [removeAmount, setRemoveAmount] = useState('');
   const [orderAmount, setOrderAmount] = useState('');
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
@@ -231,7 +235,13 @@ export function LiquidityCard({
     };
     const timer = setTimeout(fetchBalances, 200);
     return () => clearTimeout(timer);
-  }, [address, publicClient, quoteToken.address, quoteToken.decimals, selectedToken.address, selectedToken.decimals]);
+  }, [address, publicClient, quoteToken.address, quoteToken.decimals, selectedToken.address, selectedToken.decimals, balanceRefreshTick]);
+
+  useEffect(() => {
+    return subscribePrestoDataRefresh(() => {
+      setBalanceRefreshTick((v) => v + 1);
+    });
+  }, []);
 
   useEffect(() => {
     const fetchDexBalances = async () => {
@@ -305,6 +315,8 @@ export function LiquidityCard({
           status: 'success',
           hash,
         });
+        await refreshPrestoQueries(queryClient, { address, chainId });
+        emitPrestoDataRefresh('liquidity');
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to remove liquidity';
@@ -326,7 +338,7 @@ export function LiquidityCard({
           }),
         );
       }
-      toast.error(message);
+      if (!isUserCancellation(error)) toast.error(message);
     }
   };
 
@@ -411,6 +423,10 @@ export function LiquidityCard({
     const amount = parseUnits(orderAmount, selectedToken.decimals);
     if (amount <= 0n) return toast.error('Amount must be greater than zero');
 
+    const tickVal = Number.parseInt(tick, 10) || 0;
+    if (tickVal % 10 !== 0) return toast.error('Tick must be a multiple of 10');
+    if (tickVal < -2000 || tickVal > 2000) return toast.error('Tick must be between -2000 and 2000');
+
     setIsApproving(false);
     setIsOrdering(true);
     setOrderDebug(null);
@@ -418,9 +434,6 @@ export function LiquidityCard({
     let hash: `0x${string}` | undefined;
 
     try {
-      const tickVal = Number.parseInt(tick, 10) || 0;
-      if (tickVal % 10 !== 0) return toast.error('Tick must be a multiple of 10');
-      if (tickVal < -2000 || tickVal > 2000) return toast.error('Tick must be between -2000 and 2000');
       const isBid = orderType === 'buy';
       const spendToken = orderType === 'buy' ? quoteToken : selectedToken;
       const spendAmount = parseUnits(orderAmount, spendToken.decimals);
@@ -469,6 +482,8 @@ export function LiquidityCard({
           hash,
         });
       }
+      await refreshPrestoQueries(queryClient, { address, chainId });
+      emitPrestoDataRefresh('liquidity');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Order placement failed';
       if (activityId) {

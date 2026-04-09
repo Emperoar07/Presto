@@ -7,6 +7,7 @@ import { getDexBalancesBatch, withdrawDexBalance } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
+import { isUserCancellation } from '@/lib/errorHandling';
 
 export function DexAccount({ className }: { className?: string }) {
     const chainId = useChainId();
@@ -68,8 +69,12 @@ export function DexAccount({ className }: { className?: string }) {
             fetchBalances(); // Refresh
         } catch (e) {
             console.error(e);
-            const msg = e instanceof Error ? e.message : 'Unknown error';
-            toast.error("Failed: " + msg, { id: toastId });
+            if (!isUserCancellation(e)) {
+                const msg = e instanceof Error ? e.message : 'Unknown error';
+                toast.error("Failed: " + msg, { id: toastId });
+            } else {
+                toast.dismiss(toastId);
+            }
         } finally {
             setWithdrawing(null);
         }

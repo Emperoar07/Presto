@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { formatEther, parseAbi } from 'viem';
+import { formatEther, isAddress, parseAbi } from 'viem';
 import { TxToast } from '@/components/common/TxToast';
 import { writeContractWithRetry } from '@/lib/txRetry';
 import { parseContractError, isUserCancellation } from '@/lib/errorHandling';
@@ -29,7 +29,9 @@ const NFT_ABI = parseAbi([
 
 export default function ManageNFTPage() {
   const params = useParams();
-  const contractAddress = params.address as `0x${string}`;
+  const rawAddress = params.address as string;
+  const contractAddress = rawAddress as `0x${string}`;
+  const validAddress = isAddress(rawAddress);
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
@@ -52,7 +54,7 @@ export default function ManageNFTPage() {
 
   useEffect(() => {
     async function load() {
-      if (!publicClient) { setLoading(false); return; }
+      if (!publicClient || !validAddress) { setLoading(false); return; }
       try {
         const [name, symbol, totalMinted, maxSupply, mintPrice] = await Promise.all([
           publicClient.readContract({ address: contractAddress, abi: NFT_ABI, functionName: 'name' }),

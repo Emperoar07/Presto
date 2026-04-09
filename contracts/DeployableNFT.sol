@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract DeployableNFT is ERC721, ERC721URIStorage, Ownable {
+contract DeployableNFT is ERC721, ERC721URIStorage, Ownable, ReentrancyGuard {
     uint256 private _nextTokenId;
     uint256 public maxSupply;
     uint256 public mintPrice;
@@ -23,14 +24,14 @@ contract DeployableNFT is ERC721, ERC721URIStorage, Ownable {
         _baseURIValue = baseURI_;
     }
 
-    function mint(address to) external payable {
+    function mint(address to) external payable nonReentrant {
         require(msg.value >= mintPrice, "Insufficient payment");
         require(_nextTokenId < maxSupply, "Max supply reached");
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
     }
 
-    function mintWithURI(address to, string memory uri) external payable {
+    function mintWithURI(address to, string memory uri) external payable nonReentrant {
         require(msg.value >= mintPrice, "Insufficient payment");
         require(_nextTokenId < maxSupply, "Max supply reached");
         uint256 tokenId = _nextTokenId++;
