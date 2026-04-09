@@ -13,16 +13,28 @@ type DexStats = {
   updatedAt: number;
 };
 
+type PoolStats = {
+  totalLiquidityUsdc: string;
+};
+
 function useLiveDexStats() {
   const [stats, setStats] = useState<DexStats | null>(null);
+  const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch('/api/dex-stats');
-      if (res.ok) {
-        const data: DexStats = await res.json();
+      const [dexRes, poolRes] = await Promise.all([
+        fetch('/api/dex-stats'),
+        fetch('/api/pool-stats'),
+      ]);
+      if (dexRes.ok) {
+        const data: DexStats = await dexRes.json();
         setStats(data);
+      }
+      if (poolRes.ok) {
+        const data: PoolStats = await poolRes.json();
+        setPoolStats(data);
       }
     } catch {
       // silently ignore and keep showing the last known value
@@ -37,7 +49,7 @@ function useLiveDexStats() {
     return () => clearInterval(id);
   }, [fetch_]);
 
-  return { stats, loading };
+  return { stats, poolStats, loading };
 }
 
 function LogoMark({ size = 34 }: { size?: number }) {
@@ -52,7 +64,7 @@ function LogoMark({ size = 34 }: { size?: number }) {
 
 export default function Home() {
   const navRef = useRef<HTMLElement>(null);
-  const { stats, loading } = useLiveDexStats();
+  const { stats, poolStats, loading } = useLiveDexStats();
 
   useEffect(() => {
     const onScroll = () => {
@@ -142,9 +154,10 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="mx-auto grid max-w-[760px] grid-cols-1 overflow-hidden rounded-[14px] border border-white/10 bg-[#141e30] sm:grid-cols-3">
+          <div className="mx-auto grid max-w-[760px] grid-cols-2 overflow-hidden rounded-[14px] border border-white/10 bg-[#141e30] sm:grid-cols-4">
             {[
               { v: loading ? '—' : (stats?.totalVolumeUSDC ?? '$0'), l: 'All-time Volume' },
+              { v: loading ? '—' : (poolStats?.totalLiquidityUsdc ?? '$0'), l: 'Total Liquidity' },
               { v: loading ? '—' : (stats?.totalSwaps ? Number(stats.totalSwaps).toLocaleString() : '0'), l: 'All-time Trades' },
               { v: loading ? '—' : (stats?.uniqueTraders ? Number(stats.uniqueTraders).toLocaleString() : '0'), l: 'Unique Traders' },
             ].map(({ v, l }, i) => (
@@ -195,7 +208,6 @@ export default function Home() {
             {[
               { t: 'Activity Feed', d: 'Complete history of swaps, liquidity events, bridge transfers, and deployments for your wallet.' },
               { t: 'Analytics', d: 'Onchain orderbook data and trade volume summaries on supported routes.' },
-              { t: 'Docs', d: 'Product guides, developer references, privacy policy, and terms of use built right in.' },
             ].map(({ t, d }) => (
               <div key={t} className="rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7">
                 <div className="mb-3 text-[17px] font-extrabold tracking-tight text-[#f1f5f9]">{t}</div>
