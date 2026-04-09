@@ -18,11 +18,23 @@ const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
 const ARC_CHAIN_ID = 5042002;
 
-type Template = { label: string; loader: () => Promise<{ abi: Abi; bytecode: `0x${string}` }> };
+type Template = {
+  label: string;
+  loader: () => Promise<{ abi: Abi; bytecode: `0x${string}` }>;
+  args?: unknown[];
+};
 
 const TEMPLATES: Template[] = [
-  { label: 'ERC20 Token (DeployableToken)', loader: loadTokenArtifact },
-  { label: 'NFT Collection (DeployableNFT)', loader: loadNFTArtifact },
+  {
+    label: 'ERC20 Token (DeployableToken)',
+    loader: loadTokenArtifact,
+    args: ['Presto Token', 'PRST', 18, '1000000000000000000000000'],
+  },
+  {
+    label: 'NFT Collection (DeployableNFT)',
+    loader: loadNFTArtifact,
+    args: ['Presto Collection', 'PRSTNFT', 1000, '0', 'https://example.com/metadata/'],
+  },
 ];
 
 export default function DeployContractPage() {
@@ -55,6 +67,7 @@ export default function DeployContractPage() {
       const { abi, bytecode } = await template.loader();
       setAbiText(JSON.stringify(abi, null, 2));
       setBytecodeText(bytecode);
+      setArgsText(template.args ? JSON.stringify(template.args, null, 2) : '');
       toast.success(`${template.label} loaded`);
     } catch {
       toast.error('Failed to load template');
@@ -75,10 +88,27 @@ export default function DeployContractPage() {
     upsertLocalActivityHistoryItem(activity);
 
     try {
+      const constructorInputs = parsedAbi.find((item) => item.type === 'constructor')?.inputs ?? [];
       let args: unknown[] = [];
-      if (argsText.trim()) {
-        args = JSON.parse(argsText);
-        if (!Array.isArray(args)) args = [args];
+
+      if (constructorInputs.length > 0) {
+        if (!argsText.trim()) {
+          toast.error(`This contract needs ${constructorInputs.length} constructor argument${constructorInputs.length === 1 ? '' : 's'}`);
+          return;
+        }
+
+        const parsedArgs = JSON.parse(argsText);
+        args = Array.isArray(parsedArgs) ? parsedArgs : [parsedArgs];
+
+        if (args.length !== constructorInputs.length) {
+          toast.error(
+            `Expected ${constructorInputs.length} constructor argument${constructorInputs.length === 1 ? '' : 's'}, got ${args.length}`,
+          );
+          return;
+        }
+      } else if (argsText.trim()) {
+        const parsedArgs = JSON.parse(argsText);
+        args = Array.isArray(parsedArgs) ? parsedArgs : [parsedArgs];
       }
 
       const result = await deployContract(walletClient, publicClient, {
@@ -105,6 +135,9 @@ export default function DeployContractPage() {
       if (isUserCancellation(err)) {
         patchLocalActivityItem(activity.id, { status: 'error', errorMessage: 'Cancelled' });
         toast.error('Deploy cancelled');
+      } else if (err instanceof SyntaxError) {
+        patchLocalActivityItem(activity.id, { status: 'error', errorMessage: 'Constructor args must be valid JSON' });
+        toast.error('Constructor args must be valid JSON');
       } else {
         const parsed = parseContractError(err);
         patchLocalActivityItem(activity.id, { status: 'error', errorMessage: parsed.message });
