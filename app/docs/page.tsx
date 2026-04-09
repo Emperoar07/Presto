@@ -30,14 +30,6 @@ const liveArcAssets = [
   },
 ];
 
-const publicArcAssets = [
-  {
-    symbol: 'SYN',
-    address: '0xC5124C846c6e6307986988dFb7e743327aA05F19',
-    note: 'Visible in public Arc tokenlists, but still needs product review and sourced liquidity.',
-  },
-];
-
 const developerLinks = [
   {
     href: 'https://github.com/Emperoar07/Presto',
@@ -236,21 +228,6 @@ export default function DocsPage() {
                 ])}
               />
 
-              <div className="mt-6">
-                <DataTable
-                  headers={['Publicly listed but not live yet', 'Address', 'Status']}
-                  rows={publicArcAssets.map((asset) => [
-                    <span key={`${asset.symbol}-symbol`} className="font-semibold text-slate-100">
-                      {asset.symbol}
-                    </span>,
-                    <code key={`${asset.symbol}-address`} className="text-[11px] text-slate-400">
-                      {asset.address}
-                    </code>,
-                    asset.note,
-                  ])}
-                />
-              </div>
-
               <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">Current Arc deployment</p>
                 <p className="mt-3 text-[14px] leading-7 text-slate-300">
@@ -362,12 +339,12 @@ export default function DocsPage() {
             <Section id="analytics" title="Analytics and Activity">
               <p>
                 The Analytics page tracks all time protocol volume, trades, and unique traders. Stats are read directly from
-                on-chain Swap and LiquidityAdded events emitted by the Hub AMM contract, scanning from the deployment block
+                on-chain Swap events emitted by the Hub AMM contract, scanning from the deployment block
                 with parallel chunk fetching for fast cold starts.
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
-                <li><strong>All-time Volume</strong> shows total DEX volume since launch, including swaps and liquidity adds, normalized to USDC.</li>
+                <li><strong>All-time Volume</strong> shows total DEX swap volume since launch, normalized to USDC.</li>
                 <li><strong>All-time Trades</strong> counts every Swap event across all pools.</li>
                 <li><strong>Unique Traders</strong> tracks distinct wallet addresses that have executed swaps.</li>
               </ul>

@@ -154,7 +154,9 @@ export default function DeployContractPage() {
 
       if (constructorInputs.length > 0) {
         if (!argsText.trim()) {
-          toast.error(`This contract needs ${constructorInputs.length} constructor argument${constructorInputs.length === 1 ? '' : 's'}`);
+          const msg = `This contract needs ${constructorInputs.length} constructor argument${constructorInputs.length === 1 ? '' : 's'}`;
+          patchLocalActivityItem(activity.id, { status: 'error', errorMessage: msg });
+          toast.error(msg);
           return;
         }
 
@@ -162,9 +164,9 @@ export default function DeployContractPage() {
         args = Array.isArray(parsedArgs) ? parsedArgs : [parsedArgs];
 
         if (args.length !== constructorInputs.length) {
-          toast.error(
-            `Expected ${constructorInputs.length} constructor argument${constructorInputs.length === 1 ? '' : 's'}, got ${args.length}`,
-          );
+          const msg = `Expected ${constructorInputs.length} constructor argument${constructorInputs.length === 1 ? '' : 's'}, got ${args.length}`;
+          patchLocalActivityItem(activity.id, { status: 'error', errorMessage: msg });
+          toast.error(msg);
           return;
         }
       } else if (argsText.trim()) {
@@ -211,7 +213,7 @@ export default function DeployContractPage() {
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
-      <div className="flex min-h-[calc(100vh-180px)] items-start justify-center pt-6 md:pt-10">
+      <div className="flex min-h-[calc(100vh-180px)] items-start justify-center pt-10 md:pt-16">
         <div className="w-full max-w-[600px] space-y-4">
           <div className="flex items-center justify-between gap-3">
             <Link
