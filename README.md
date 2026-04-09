@@ -9,6 +9,11 @@ Presto is a testnet DEX for Arc and Tempo with a live normalized hub AMM, USDC b
 - Real-time analytics tracking all time volume, trades, and unique traders from on-chain events
 - USDC bridge workspace powered by Circle CCTP for Arc, Ethereum Sepolia, Base Sepolia, and Solana Devnet routes
 - Manual bridge destination address support where the route allows it
+- Send any ERC20 token on Arc Testnet, including custom tokens by pasting a contract address
+- Deploy tokens/memecoins, NFT collections, and smart contracts directly from the browser
+- Token deployment with seed liquidity on Hub AMM and owner mint capability
+- NFT deployment with metadata, configurable mint price, and shareable public mint pages (`/mint/{address}`)
+- Generic contract deployment from ABI + bytecode with built-in templates
 - Portfolio dashboard with LP position tracking
 - Mobile responsive sidebar shell with chain-aware navigation
 
@@ -85,14 +90,45 @@ npm test
 app/                  Next.js app router pages and API routes
 app/api/dex-stats/    All-time volume, trades, traders (on-chain log scanning)
 app/api/pool-stats/   Per-pool liquidity and volume stats
+app/deploy/           Deploy hub: token, NFT, and contract deployment pages
+app/deploy/token/     ERC20 token/memecoin deployment with seed liquidity
+app/deploy/nft/       ERC721 NFT deployment with mint page generation
+app/deploy/contract/  Generic smart contract deployment from ABI + bytecode
+app/mint/[address]/   Public NFT mint page (standalone, shareable link)
+app/send/             Send any ERC20 token, including custom tokens by address
 src/components/       Shared UI and feature components
 src/config/           Chain, token, and contract configuration
 src/hooks/            Chain-aware React hooks and API queries
-src/lib/              RPC, explorer, price impact, and contract helpers
-contracts/            Solidity contracts (HubAMM, TestUSYC, etc.)
+src/lib/              RPC, explorer, price impact, deploy utils, and contract helpers
+contracts/            Solidity contracts (HubAMM, DeployableToken, DeployableNFT, etc.)
 scripts/              Deployment, seeding, and utility scripts
 data/                 Local deployment snapshots
 ```
+
+## Deploy
+
+The deploy hub at `/deploy` lets users create and manage on-chain assets directly from the browser:
+
+### Tokens / Memecoins (`/deploy/token`)
+- Deploy an ERC20 token with custom name, symbol, decimals, and initial supply
+- Seed initial liquidity on the Hub AMM paired with USDC
+- Mint additional tokens to any address (owner only)
+- Manage existing deployments at `/deploy/token/{address}`
+
+### NFT Collections (`/deploy/nft`)
+- Deploy an ERC721 NFT with collection name, symbol, max supply, mint price, and base URI
+- Get a shareable public mint page at `/mint/{address}` with progress bar and wallet connect
+- Owner mint (free), update base URI, and withdraw mint revenue
+- Manage existing collections at `/deploy/nft/{address}`
+
+### Smart Contracts (`/deploy/contract`)
+- Deploy any smart contract from ABI (JSON) and bytecode (hex)
+- Load built-in templates (ERC20 Token, NFT Collection) for quick deployment
+- Constructor arguments passed as a JSON array
+
+All deployments are tracked in localStorage per wallet and shown on the deploy landing page under "My Deployments". Deploy activities appear in the Activity page under the "Deploy" tab.
+
+**Contracts**: `contracts/DeployableToken.sol` (ERC20 + Ownable + mint + burn) and `contracts/DeployableNFT.sol` (ERC721 + URIStorage + Ownable + public mint + owner mint).
 
 ## Analytics
 

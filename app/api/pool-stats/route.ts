@@ -289,6 +289,11 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
         } else if (tokenOut?.toLowerCase() === usdcLower) {
           poolKey = tokenIn?.toLowerCase() ?? null;
           volumeDelta = amountOut ?? 0n;
+        } else {
+          // Token-to-token swap through the hub — attribute to tokenIn pool
+          poolKey = tokenIn?.toLowerCase() ?? null;
+          const inDecimals = TOKEN_DECIMALS_BY_ADDRESS.get(poolKey ?? '') ?? USDC_DECIMALS;
+          volumeDelta = normalizeToUsdcRaw(amountIn ?? 0n, inDecimals);
         }
 
         if (!poolKey) continue;
@@ -312,22 +317,7 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
           shares: bigint;
         } }).args;
         if (!args) continue;
-        const { token, tokenAmount, pathAmount } = args;
-        const poolKey = token?.toLowerCase() ?? null;
-        if (!poolKey) continue;
-        const pool = poolMap.get(poolKey);
-        if (!pool) continue;
-
-        const tokenDecimals = TOKEN_DECIMALS_BY_ADDRESS.get(poolKey) ?? USDC_DECIMALS;
-        const addVolumeDelta =
-          normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals) +
-          normalizeToUsdcRaw(pathAmount ?? 0n, USDC_DECIMALS);
-
-        pool.snapshot = {
-          volRaw: (BigInt(pool.snapshot.volRaw) + addVolumeDelta).toString(),
-          swapCount: pool.snapshot.swapCount,
-        };
-        totalVolumeRaw += addVolumeDelta;
+        // Liquidity events are tracked for reserve data but don't count as trade volume
       }
 
       return await enrichWithReserves(

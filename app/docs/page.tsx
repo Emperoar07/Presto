@@ -61,6 +61,10 @@ const toc = [
   { id: 'networks', label: 'Arc Testnet' },
   { id: 'swap', label: 'Swap Flow' },
   { id: 'liquidity', label: 'Liquidity' },
+  { id: 'send', label: 'Send Tokens' },
+  { id: 'bridge', label: 'Bridge' },
+  { id: 'deploy', label: 'Deploy' },
+  { id: 'portfolio', label: 'Portfolio' },
   { id: 'analytics', label: 'Analytics and Activity' },
   { id: 'developers', label: 'Developers' },
   { id: 'privacy-policy', label: 'Privacy Policy' },
@@ -184,6 +188,18 @@ export default function DocsPage() {
                   Pools
                 </Link>{' '}
                 for liquidity management,{' '}
+                <Link href="/send" className="font-medium text-primary hover:underline">
+                  Send
+                </Link>{' '}
+                to transfer tokens,{' '}
+                <Link href="/bridge" className="font-medium text-primary hover:underline">
+                  Bridge
+                </Link>{' '}
+                for cross-chain transfers,{' '}
+                <Link href="/deploy" className="font-medium text-primary hover:underline">
+                  Deploy
+                </Link>{' '}
+                to launch tokens, NFTs, or contracts,{' '}
                 <Link href="/analytics" className="font-medium text-primary hover:underline">
                   Analytics
                 </Link>{' '}
@@ -191,7 +207,7 @@ export default function DocsPage() {
                 <Link href="/transactions" className="font-medium text-primary hover:underline">
                   Activity
                 </Link>{' '}
-                for recent wallet actions across swaps, liquidity, and bridge flows.
+                for recent wallet actions.
               </p>
 
               <ol className="list-decimal space-y-2 pl-5">
@@ -271,22 +287,94 @@ export default function DocsPage() {
               </p>
             </Section>
 
-            <Section id="analytics" title="Analytics and Activity">
+            <Section id="send" title="Send Tokens">
               <p>
-                The Analytics page tracks all time protocol volume, trades, and unique traders. Stats are read directly from
-                on-chain events emitted by the Hub AMM contract, scanning from block 0 with parallel chunk fetching for fast cold
-                starts.
+                The Send page lets you transfer any ERC20 token on Arc Testnet to another wallet address. You can send
+                tokens from the DEX token list or paste any contract address to auto-detect a custom token.
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
-                <li><strong>All-time Volume</strong> shows the total protocol volume since launch.</li>
+                <li>Select a token from the list or paste a contract address in the search field.</li>
+                <li>Custom tokens are auto-detected: the app reads the symbol, name, decimals, and your balance directly from the contract.</li>
+                <li>Enter the recipient address and amount, then confirm the transaction in your wallet.</li>
+                <li>Sent tokens appear in the Activity page under the Sent tab.</li>
+              </ul>
+            </Section>
+
+            <Section id="bridge" title="Bridge">
+              <p>
+                The Bridge workspace uses Circle CCTP (Cross-Chain Transfer Protocol) to move USDC between Arc Testnet,
+                Ethereum Sepolia, Base Sepolia, and Solana Devnet.
+              </p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li>Select a source and destination network, enter the amount of USDC to bridge.</li>
+                <li>Where supported, you can specify a different destination wallet address.</li>
+                <li>Transfer history is accessible via the clock icon in the bridge header, which slides open a history panel beside the bridge card.</li>
+                <li>The history panel auto-closes after 20 seconds of inactivity.</li>
+                <li>Bridge transfers are tracked in the Activity page under the Bridge tab.</li>
+              </ul>
+            </Section>
+
+            <Section id="deploy" title="Deploy">
+              <p>
+                The Deploy hub lets you launch tokens, NFT collections, and smart contracts directly from your browser
+                on Arc Testnet. Your connected wallet becomes the contract owner.
+              </p>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
+                  <p className="text-[13px] font-semibold text-slate-100">Token / Memecoin</p>
+                  <p className="mt-2 text-[13px] leading-6 text-slate-300">
+                    Deploy an ERC20 with custom name, symbol, decimals, and initial supply. Seed liquidity on the Hub AMM
+                    paired with USDC. Mint additional tokens as the owner.
+                  </p>
+                </div>
+                <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
+                  <p className="text-[13px] font-semibold text-slate-100">NFT Collection</p>
+                  <p className="mt-2 text-[13px] leading-6 text-slate-300">
+                    Deploy an ERC721 with a max supply, mint price, and metadata base URI. Get a unique public mint page
+                    at <code className="text-[11px] text-slate-400">/mint/{'<address>'}</code> to share with others.
+                  </p>
+                </div>
+                <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
+                  <p className="text-[13px] font-semibold text-slate-100">Smart Contract</p>
+                  <p className="mt-2 text-[13px] leading-6 text-slate-300">
+                    Deploy any contract from ABI and bytecode. Use built-in templates for ERC20 or NFT, or paste your own
+                    compiled artifacts.
+                  </p>
+                </div>
+              </div>
+
+              <p>
+                All deployments are saved locally per wallet and listed on the Deploy landing page under &ldquo;My Deployments&rdquo;.
+                Deploy actions appear in the Activity page under the Deploy tab.
+              </p>
+            </Section>
+
+            <Section id="portfolio" title="Portfolio">
+              <p>
+                The Portfolio page shows your token balances and LP positions on Arc Testnet. It reads balances directly
+                from on-chain data for all supported tokens and displays your share of each liquidity pool.
+              </p>
+            </Section>
+
+            <Section id="analytics" title="Analytics and Activity">
+              <p>
+                The Analytics page tracks all time protocol volume, trades, and unique traders. Stats are read directly from
+                on-chain Swap events emitted by the Hub AMM contract, scanning from the deployment block with parallel chunk
+                fetching for fast cold starts.
+              </p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li><strong>All-time Volume</strong> shows total swap volume since launch, normalized to USDC.</li>
                 <li><strong>All-time Trades</strong> counts every Swap event across all pools.</li>
-                <li><strong>Unique Traders</strong> tracks distinct wallet addresses from both swaps and liquidity adds.</li>
+                <li><strong>Unique Traders</strong> tracks distinct wallet addresses that have executed swaps.</li>
               </ul>
 
               <p>
-                Activity reads the same hub AMM events tied to the connected wallet, showing recent swaps, liquidity adds
-                and removals, and bridge actions in a single timeline.
+                The Activity page shows a unified timeline of all wallet actions: swaps, liquidity adds and removals,
+                bridge transfers, sent tokens, and contract deployments. Filter by category using the tab bar.
               </p>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -342,8 +430,8 @@ export default function DocsPage() {
               </p>
 
               <p>
-                If you connect a wallet, the app may store lightweight local preferences such as theme, slippage settings, or bridge
-                history in your browser so the experience remains consistent between sessions.
+                If you connect a wallet, the app may store lightweight local preferences such as theme, slippage settings,
+                bridge history, deployment records, and activity history in your browser so the experience remains consistent between sessions.
               </p>
 
               <p>

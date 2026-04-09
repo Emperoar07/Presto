@@ -133,10 +133,17 @@ function aggregateStats(
     if (!args) continue;
     const { user, tokenIn, tokenOut, amountIn, amountOut } = args;
     if (user) traders.add(user.toLowerCase());
+
+    // Hub AMM routes all swaps through USDC internally.
+    // tokenIn/tokenOut are user tokens — normalize amountIn to USDC value.
     if (tokenIn?.toLowerCase() === usdcAddress) {
       volumeRaw += amountIn ?? 0n;
     } else if (tokenOut?.toLowerCase() === usdcAddress) {
       volumeRaw += amountOut ?? 0n;
+    } else {
+      // Token-to-token swap through the hub — use amountIn normalized to USDC
+      const inDecimals = tokenDecimalsByAddress.get(tokenIn?.toLowerCase() ?? '') ?? hubDecimals;
+      volumeRaw += normalizeToUsdcRaw(amountIn ?? 0n, inDecimals);
     }
   }
 
@@ -149,11 +156,6 @@ function aggregateStats(
       shares: bigint;
     } }).args;
     if (!args) continue;
-    const { provider, token, tokenAmount, pathAmount } = args;
-    if (provider) traders.add(provider.toLowerCase());
-    const tokenDecimals = tokenDecimalsByAddress.get(token?.toLowerCase() ?? '') ?? hubDecimals;
-    volumeRaw += normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals);
-    volumeRaw += normalizeToUsdcRaw(pathAmount ?? 0n, hubDecimals);
   }
 
   totalSwaps += swapLogs.length;

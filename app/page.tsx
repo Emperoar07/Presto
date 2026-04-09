@@ -88,7 +88,7 @@ export default function Home() {
             <span className="text-[15px] font-extrabold tracking-tight text-[#f1f5f9]">Presto</span>
           </Link>
           <div className="mr-5 hidden gap-0.5 md:flex">
-            {[['Swap', '/swap'], ['Pools', '/liquidity'], ['Bridge', '/bridge']].map(([label, href]) => (
+            {[['Swap', '/swap'], ['Pools', '/liquidity'], ['Bridge', '/bridge'], ['Send', '/send'], ['Deploy', '/deploy']].map(([label, href]) => (
               <Link
                 key={href}
                 href={href}
@@ -120,11 +120,11 @@ export default function Home() {
             style={{ fontSize: 'clamp(44px,7vw,80px)', letterSpacing: '-0.045em' }}
           >
             Presto
-            <span className="line2">Swap. Bridge.</span>
+            <span className="line2">Swap. Bridge. Deploy.</span>
             <span className="line3">Earn.</span>
           </h1>
           <p className="mx-auto mb-10 max-w-[520px] text-[16px] leading-[1.7] text-[#94a3b8]">
-            A clean, fast DEX built on Arc testnet. Instant swaps, stable liquidity pools, and cross chain USDC transfers in about 20 seconds.
+            A clean, fast DEX built on Arc testnet. Instant swaps, liquidity pools, cross chain USDC bridge, token and NFT deployment, and direct wallet transfers.
           </p>
           <div className="mb-16 flex flex-wrap justify-center gap-3">
             <Link
@@ -162,7 +162,7 @@ export default function Home() {
           <div className="mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[#25c0f4]">What you get</div>
           <div className="mb-2 text-[clamp(24px,3.5vw,38px)] font-extrabold tracking-tight">Every surface you need.</div>
           <div className="mb-10 max-w-[480px] text-[14px] leading-[1.65] text-[#94a3b8]">
-            Swap, pool, bridge, and track your portfolio. All from a single sidebar driven interface.
+            Swap, pool, bridge, send, deploy, and track your portfolio. All from a single sidebar driven interface.
           </div>
 
           <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -180,9 +180,22 @@ export default function Home() {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {[
+              { t: 'Send Tokens', d: 'Transfer any ERC20 on Arc Testnet to any address. Paste a custom contract address to load unlisted tokens.' },
+              { t: 'Deploy Hub', d: 'Launch ERC20 tokens with seed liquidity, NFT collections with public mint pages, or any contract from ABI and bytecode.' },
               { t: 'Portfolio', d: 'Token balances, LP positions, and fee earnings. All in one dashboard.' },
-              { t: 'Activity Feed', d: 'Complete history of swaps, liquidity events, and bridge transfers for your wallet.' },
+            ].map(({ t, d }) => (
+              <div key={t} className="rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7">
+                <div className="mb-3 text-[17px] font-extrabold tracking-tight text-[#f1f5f9]">{t}</div>
+                <div className="text-[13px] leading-[1.65] text-[#94a3b8]">{d}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {[
+              { t: 'Activity Feed', d: 'Complete history of swaps, liquidity events, bridge transfers, and deployments for your wallet.' },
               { t: 'Analytics', d: 'Onchain orderbook data and trade volume summaries on supported routes.' },
+              { t: 'Docs', d: 'Product guides, developer references, privacy policy, and terms of use built right in.' },
             ].map(({ t, d }) => (
               <div key={t} className="rounded-[16px] border border-white/[0.06] bg-[#141e30] p-7">
                 <div className="mb-3 text-[17px] font-extrabold tracking-tight text-[#f1f5f9]">{t}</div>

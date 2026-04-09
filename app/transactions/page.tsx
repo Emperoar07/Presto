@@ -23,7 +23,7 @@ type TxItem = {
   timestamp?: number;
 };
 
-type ActivityCategory = 'swaps' | 'liquidity' | 'bridge' | 'send';
+type ActivityCategory = 'swaps' | 'liquidity' | 'bridge' | 'send' | 'deploy';
 
 type ActivityItem = {
   id: string;
@@ -127,7 +127,9 @@ function buildLocalActivity(item: LocalActivityRecord): ActivityItem {
       ? { icon: 'swap_horiz', bg: 'rgba(37,192,244,0.12)', color: '#25c0f4' }
       : item.category === 'send'
         ? { icon: 'send', bg: 'rgba(251,146,60,0.12)', color: '#fb923c' }
-        : { icon: 'water', bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
+        : item.category === 'deploy'
+          ? { icon: 'rocket_launch', bg: 'rgba(168,85,247,0.12)', color: '#a855f7' }
+          : { icon: 'water', bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
 
   return {
     id: `local-${item.id}`,
@@ -147,7 +149,7 @@ function buildLocalActivity(item: LocalActivityRecord): ActivityItem {
 }
 
 export default function TransactionsPage() {
-  const [filter, setFilter] = useState<'all' | 'swaps' | 'liquidity' | 'bridge' | 'send'>('all');
+  const [filter, setFilter] = useState<'all' | 'swaps' | 'liquidity' | 'bridge' | 'send' | 'deploy'>('all');
   const [bridgeHistory, setBridgeHistory] = useState<BridgeHistoryItem[]>([]);
   const [localActivity, setLocalActivity] = useState<LocalActivityRecord[]>([]);
   const { data: items = [], isLoading } = useTransactions();
@@ -221,6 +223,7 @@ export default function TransactionsPage() {
               { key: 'liquidity', label: 'Liquidity' },
               { key: 'bridge', label: 'Bridge' },
               { key: 'send', label: 'Sent' },
+              { key: 'deploy', label: 'Deploy' },
             ].map((tab) => (
               <button
                 key={tab.key}
