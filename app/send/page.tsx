@@ -262,14 +262,6 @@ export default function SendPage() {
       <div className="flex min-h-[calc(100vh-180px)] items-start justify-center pt-2 md:pt-6">
         <div className="relative w-full max-w-[520px]">
           <div className="mx-auto w-full max-w-[381px] overflow-visible rounded-[14px] shadow-[0_18px_48px_rgba(2,6,23,0.34)]" style={{ background: SURF, border: BDR }}>
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: BDR }}>
-            <div>
-              <p className="text-[13px] font-bold text-slate-100">Send Tokens</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">Transfer any ERC-20 token to any wallet</p>
-            </div>
-          </div>
-
           <div className="space-y-3 p-4">
             {/* Token + Amount */}
             <div className="relative z-20 rounded-[12px] border border-white/[0.07] bg-[#263347] px-4 py-3">

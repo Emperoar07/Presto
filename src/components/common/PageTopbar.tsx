@@ -24,9 +24,7 @@ export const PageTopbar = memo(function PageTopbar() {
   const chainId = useChainId();
   const { address } = useAccount();
 
-  const title = PAGE_TITLES[pathname]
-    ?? (pathname.startsWith('/deploy') ? 'Deploy' : '')
-    ?? '';
+  const title = PAGE_TITLES[pathname] || (pathname.startsWith('/deploy') ? 'Deploy' : '');
 
   if (!title) {
     return null;
