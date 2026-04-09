@@ -32,6 +32,7 @@ import {
   patchLocalActivityItem,
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
+import { readLocalActivityHistory, type LocalActivityRecord } from '@/lib/activityHistory';
 import { emitPrestoDataRefresh, refreshPrestoQueries, subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
@@ -50,6 +51,9 @@ export function SwapCardEnhanced() {
   const [exactField, setExactField] = useState<'input' | 'output'>('input');
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapStage, setSwapStage] = useState<'idle' | 'approving' | 'swapping'>('idle');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [swapHistory, setSwapHistory] = useState<LocalActivityRecord[]>([]);
+  const historyAutoCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Token State
   const [inputTokenAddress, setInputTokenAddress] = useState(tokens[0]?.address);
@@ -96,6 +100,24 @@ export function SwapCardEnhanced() {
   const [balanceOut, setBalanceOut] = useState('0.00');
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
 
+  const refreshSwapHistory = useCallback(() => {
+    const items = readLocalActivityHistory()
+      .filter((item) => item.category === 'swaps')
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 8);
+    setSwapHistory(items);
+  }, []);
+
+  const startHistoryAutoClose = useCallback(() => {
+    if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current);
+    historyAutoCloseRef.current = setTimeout(() => setHistoryOpen(false), 10_000);
+  }, []);
+
+  const resetHistoryAutoClose = useCallback(() => {
+    if (!historyOpen) return;
+    startHistoryAutoClose();
+  }, [historyOpen, startHistoryAutoClose]);
+
   // Get the correct DEX address and ABI based on chain
   const isTempoChain = isTempoNativeChain(chainId);
   const isArcTestnet = isArcChain(chainId);
@@ -137,6 +159,21 @@ export function SwapCardEnhanced() {
   useEffect(() => {
     fetchBalances();
   }, [fetchBalances]);
+
+  useEffect(() => {
+    refreshSwapHistory();
+  }, [refreshSwapHistory]);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    refreshSwapHistory();
+    startHistoryAutoClose();
+    const intervalId = window.setInterval(refreshSwapHistory, 5000);
+    return () => {
+      window.clearInterval(intervalId);
+      if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current);
+    };
+  }, [historyOpen, refreshSwapHistory, startHistoryAutoClose]);
 
   useEffect(() => {
     return subscribePrestoDataRefresh(() => {
@@ -477,6 +514,7 @@ export function SwapCardEnhanced() {
       });
       activityId = pendingActivity.id;
       upsertLocalActivityHistoryItem(pendingActivity);
+      refreshSwapHistory();
 
       toast.custom(() => <TxToast hash={hash!} title="Swap submitted" />);
 
@@ -489,6 +527,7 @@ export function SwapCardEnhanced() {
           hash,
         });
       }
+      refreshSwapHistory();
 
       // Clear inputs, invalidate cache, and refresh balances
       setInputAmount('');
@@ -521,6 +560,7 @@ export function SwapCardEnhanced() {
           }),
         );
       }
+      refreshSwapHistory();
 
       if (!isUserCancellation(e)) {
         const parsed = parseContractError(e);
@@ -542,9 +582,22 @@ export function SwapCardEnhanced() {
   }, [priceImpact]);
 
   const inputUsdEstimate = inputAmount && Number(inputAmount) > 0 ? `~ $${Number(inputAmount).toFixed(2)}` : '';
+  const formatRelativeTime = (timestamp: number) => {
+    const diffMs = Math.max(0, Date.now() - timestamp);
+    const diffSeconds = Math.floor(diffMs / 1000);
+    if (diffSeconds < 5) return 'Just now';
+    if (diffSeconds < 60) return `${diffSeconds}s ago`;
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes} min ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} hr ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  };
   return (
     <>
-      <div className="relative w-full max-w-[381px]">
+      <div className="relative flex items-start justify-center gap-4">
+        <div className="relative w-full max-w-[381px]">
         <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1e293b] shadow-[0_18px_48px_rgba(2,6,23,0.34)]">
           <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
             <div>
@@ -559,10 +612,11 @@ export function SwapCardEnhanced() {
                 <span className="material-symbols-outlined text-[16px]">tune</span>
               </button>
               <button
-                onClick={fetchBalances}
+                onClick={() => setHistoryOpen((v) => !v)}
                 className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-white/[0.07] bg-[#263347] text-slate-400 transition-colors hover:border-primary/30 hover:text-primary"
+                title={historyOpen ? 'Hide swap history' : 'Show swap history'}
               >
-                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                <span className="material-symbols-outlined text-[16px]">history</span>
               </button>
             </div>
           </div>
@@ -760,6 +814,72 @@ export function SwapCardEnhanced() {
             )}
           </div>
         </div>
+      </div>
+
+      <div
+        className={`transition-all duration-300 ease-in-out overflow-hidden ${
+          historyOpen
+            ? 'w-full max-w-[320px] opacity-100 xl:w-[320px]'
+            : 'w-0 max-w-0 opacity-0 xl:w-0'
+        }`}
+        onMouseEnter={() => { if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current); }}
+        onMouseLeave={() => startHistoryAutoClose()}
+        onScroll={() => resetHistoryAutoClose()}
+      >
+        <div className="w-[320px]">
+          <div
+            className="overflow-hidden rounded-[14px]"
+            style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
+          >
+            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+              <p className="text-[13px] font-bold text-slate-50">Swap History</p>
+              <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                {swapHistory.length} entries
+              </span>
+            </div>
+            <div className="h-[260px] overflow-y-auto">
+              {swapHistory.length === 0 ? (
+                <div className="px-4 py-6 text-center text-[12px] text-slate-500">
+                  No swaps yet.
+                </div>
+              ) : (
+                swapHistory.map((item) => {
+                  const isSuccess = item.status === 'success';
+                  const isError = item.status === 'error';
+                  const stateLabel = isSuccess ? 'Completed' : isError ? 'Failed' : 'Pending';
+                  const iconColor = isSuccess ? '#a78bfa' : isError ? '#f43f5e' : '#fbbf24';
+                  const iconBg = isSuccess ? 'rgba(167,139,250,0.12)' : isError ? 'rgba(244,63,94,0.10)' : 'rgba(245,158,11,0.12)';
+
+                  return (
+                    <div key={item.id} className="border-t border-white/[0.05] px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
+                          style={{ background: iconBg }}
+                        >
+                          <span className="material-symbols-outlined text-[16px]" style={{ color: iconColor }}>
+                            {isError ? 'error' : 'swap_horiz'}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12.5px] font-semibold text-slate-100">{item.title}</p>
+                          <p className="text-[11px] text-slate-500">{item.subtitle}</p>
+                        </div>
+                        <div className="flex-shrink-0 text-right">
+                          <p className={`text-[12px] font-bold ${isSuccess ? 'text-emerald-400' : isError ? 'text-rose-400' : 'text-amber-400'}`}>
+                            {stateLabel}
+                          </p>
+                          <p className="text-[10px] text-slate-500">{formatRelativeTime(item.createdAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
 
       {/* Settings Modal */}

@@ -66,28 +66,35 @@ export default function AnalyticsPage() {
           </div>
           <div className="flex flex-1 flex-col justify-end px-5 pb-4">
             {(() => {
-              const poolVolumes = pools.map((p: { pair: string; vol24h: string; label: string }) => {
+              const poolVolumes = pools.map((p: { pair: string; vol24h: string; label: string; liquidityRaw: string; liquidity: string }) => {
                 const raw = Number.parseFloat((p.vol24h ?? '').replace(/[^0-9.]/g, '')) || 0;
-                return { pair: p.pair, label: p.label, raw };
+                const liquidityRaw = Number.parseFloat((p.liquidityRaw ?? '').replace(/[^0-9.]/g, '')) || 0;
+                return { pair: p.pair, label: p.label, raw, liquidityRaw, liquidity: p.liquidity };
               });
-              const maxVol = Math.max(...poolVolumes.map((p: { raw: number }) => p.raw), 1);
+              const allZero = poolVolumes.every((p) => p.raw <= 0);
+              const values = poolVolumes.map((p) => (allZero ? p.liquidityRaw : p.raw));
+              const maxVol = Math.max(...values, 1);
               return (
                 <>
-                  <div className="flex items-end gap-2" style={{ height: 120 }}>
-                    {poolVolumes.map((p: { pair: string; raw: number }, i: number) => (
-                      <div key={i} className="group relative flex-1">
-                        <div
-                          className="w-full rounded-t-[4px] transition-colors hover:!bg-[rgba(37,192,244,0.35)]"
-                          style={{ height: `${Math.max((p.raw / maxVol) * 100, 4)}%`, background: 'rgba(37,192,244,0.22)' }}
-                        />
-                        <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-200 opacity-0 group-hover:opacity-100">
-                          ${p.raw.toFixed(2)}
+                  <div className="flex items-end gap-2" style={{ height: 140 }}>
+                    {poolVolumes.map((p, i) => {
+                      const value = allZero ? p.liquidityRaw : p.raw;
+                      const height = Math.max((value / maxVol) * 100, 12);
+                      return (
+                        <div key={i} className="group relative flex-1">
+                          <div
+                            className="w-full rounded-t-[6px] transition-colors hover:!bg-[rgba(37,192,244,0.45)]"
+                            style={{ height: `${height}%`, background: 'rgba(37,192,244,0.28)' }}
+                          />
+                          <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-200 opacity-0 group-hover:opacity-100">
+                            {allZero ? `Liquidity ${p.liquidity}` : `$${p.raw.toFixed(2)}`}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="mt-2 flex gap-2">
-                    {poolVolumes.map((p: { pair: string; label: string }, i: number) => (
+                    {poolVolumes.map((p, i) => (
                       <p key={i} className="flex-1 text-center text-[10px] font-medium text-slate-500">{p.label}</p>
                     ))}
                   </div>

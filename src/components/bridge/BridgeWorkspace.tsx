@@ -1161,14 +1161,8 @@ export function BridgeWorkspace() {
                     type="button"
                     onClick={() => setHistoryOpen((v) => !v)}
                     className="relative flex h-8 w-8 items-center justify-center rounded-[8px] transition-colors hover:bg-white/[0.06]"
-                    title={historyOpen ? 'Hide transfer history' : 'Show transfer history'}
                   >
                     <span className="material-symbols-outlined text-[18px] text-slate-400">history</span>
-                    {bridgeHistory.length > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-[#0f172a]">
-                        {bridgeHistory.length}
-                      </span>
-                    )}
                   </button>
                 </div>
 

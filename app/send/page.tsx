@@ -259,7 +259,7 @@ export default function SendPage() {
 
   return (
     <div className="flex w-full justify-center px-4 pt-[12vh] pb-10 md:px-7 md:pt-[15vh]">
-      <div className="relative w-full max-w-[420px]">
+      <div className="relative w-full max-w-[504px]">
         <div className="overflow-visible rounded-[14px] shadow-[0_18px_48px_rgba(2,6,23,0.34)]" style={{ background: SURF, border: BDR }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: BDR }}>
