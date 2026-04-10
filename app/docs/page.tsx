@@ -344,7 +344,7 @@ export default function DocsPage() {
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
-                <li><strong>All-time Volume</strong> shows total DEX volume since launch, normalized to USDC and including liquidity adds from the Hub AMM contract.</li>
+                <li><strong>All-time Volume</strong> shows total DEX volume since launch, normalized to USDC and including swaps plus the USDC leg of liquidity adds from the Hub AMM contract.</li>
                 <li><strong>All-time Trades</strong> counts every Swap event across all pools.</li>
                 <li><strong>Unique Traders</strong> tracks distinct wallet addresses that have executed swaps.</li>
               </ul>

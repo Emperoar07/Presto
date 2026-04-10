@@ -134,7 +134,7 @@ All deployments are tracked in localStorage per wallet and shown on the deploy l
 
 The analytics page tracks protocol-wide stats by scanning on-chain events from block 0:
 
-- **All-time Volume**: Total protocol volume since launch, including swap and liquidity add flow
+- **All-time Volume**: Total protocol volume since launch, including swaps and the USDC leg of liquidity adds
 - **All-time Trades**: Count of all Swap events across every pool
 - **Unique Traders**: Distinct wallets from swap events
 - **Pool Activity**: Live table with liquidity, volume, and status per pool

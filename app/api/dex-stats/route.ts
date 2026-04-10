@@ -164,12 +164,10 @@ function aggregateStats(
       shares: bigint;
     } }).args;
     if (!args) continue;
-    const { token, tokenAmount, pathAmount } = args;
+    const { pathAmount } = args;
 
-    // Liquidity adds are part of the DEX itself, so count both sides of the
-    // on-chain deposit in the protocol volume total.
-    const tokenDecimals = tokenDecimalsByAddress.get(token?.toLowerCase() ?? '') ?? hubDecimals;
-    volumeRaw = addToVolumeRaw(volumeRaw, tokenAmount ?? 0n, tokenDecimals);
+    // Liquidity adds are part of the DEX itself. Count the USDC leg only so
+    // the metric stays in USDC terms without double counting the paired asset.
     volumeRaw = addToVolumeRaw(volumeRaw, pathAmount ?? 0n, hubDecimals);
   }
 
