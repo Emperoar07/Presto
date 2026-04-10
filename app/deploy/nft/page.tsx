@@ -41,6 +41,7 @@ export default function DeployNFTPage() {
   const [maxSupply, setMaxSupply] = useState('');
   const [mintPrice, setMintPrice] = useState('');
   const [baseURI, setBaseURI] = useState('');
+  const [collectionImage, setCollectionImage] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
 
@@ -92,7 +93,12 @@ export default function DeployNFTPage() {
         owner: address,
         hash: result.hash,
         createdAt: Date.now(),
-        metadata: { maxSupply, mintPrice: mintPrice || '0', baseURI },
+        metadata: {
+          maxSupply,
+          mintPrice: mintPrice || '0',
+          baseURI,
+          ...(collectionImage.trim() ? { image: collectionImage.trim() } : {}),
+        },
       });
 
       patchLocalActivityItem(activity.id, { status: 'success', hash: result.hash });
@@ -257,6 +263,17 @@ export default function DeployNFTPage() {
                   value={baseURI}
                   onChange={(e) => setBaseURI(e.target.value)}
                   placeholder="ipfs://Qm.../ or https://api.example.com/metadata/"
+                  disabled={!!deployResult}
+                  className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Collection Image / Logo URL</label>
+                <input
+                  type="text"
+                  value={collectionImage}
+                  onChange={(e) => setCollectionImage(e.target.value)}
+                  placeholder="https://... or ipfs://..."
                   disabled={!!deployResult}
                   className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
                 />

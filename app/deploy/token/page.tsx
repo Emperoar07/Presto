@@ -32,6 +32,7 @@ export default function DeployTokenPage() {
   const [symbol, setSymbol] = useState('');
   const [decimals, setDecimals] = useState('18');
   const [initialSupply, setInitialSupply] = useState('');
+  const [tokenImage, setTokenImage] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
 
@@ -88,7 +89,11 @@ export default function DeployTokenPage() {
         owner: address,
         hash: result.hash,
         createdAt: Date.now(),
-        metadata: { decimals: dec.toString(), initialSupply },
+        metadata: {
+          decimals: dec.toString(),
+          initialSupply,
+          ...(tokenImage.trim() ? { image: tokenImage.trim() } : {}),
+        },
       });
 
       patchLocalActivityItem(activity.id, { status: 'success', hash: result.hash });
@@ -250,6 +255,17 @@ export default function DeployTokenPage() {
                   value={initialSupply}
                   onChange={(e) => setInitialSupply(e.target.value.replace(/[^0-9.]/g, ''))}
                   placeholder="e.g. 1000000"
+                  disabled={!!deployResult}
+                  className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Token Image / Logo URL</label>
+                <input
+                  type="text"
+                  value={tokenImage}
+                  onChange={(e) => setTokenImage(e.target.value)}
+                  placeholder="https://... or ipfs://..."
                   disabled={!!deployResult}
                   className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
                 />
