@@ -35,7 +35,7 @@ type LpPositionSnapshot = {
 
 const isStableLikeToken = (symbol: string) => {
   const upper = symbol.toUpperCase();
-  return ['USDC', 'USDT', 'EURC', 'WUSDC'].includes(upper) || upper.includes('USD');
+  return ['USDC', 'USDT', 'USYC', 'EURC', 'WUSDC'].includes(upper) || upper.includes('USD');
 };
 
 function formatUsd(value: number) {

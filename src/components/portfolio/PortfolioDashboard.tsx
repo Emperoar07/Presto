@@ -33,6 +33,7 @@ const isStableLikeToken = (symbol: string) => {
     upper.includes('USD') ||
     upper === 'USDC' ||
     upper === 'USDT' ||
+    upper === 'USYC' ||
     upper === 'EURC' ||
     upper === 'WUSDC'
   );
