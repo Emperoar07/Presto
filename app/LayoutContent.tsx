@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useChainId, useSwitchChain } from 'wagmi';
-import Image from 'next/image';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { AppSidebar } from '@/components/common/AppSidebar';
@@ -55,19 +54,11 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               </span>
               <div className="hidden sm:block">
                 <p className="text-[15px] font-extrabold leading-none text-white">Presto</p>
+                <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Arc Testnet</p>
               </div>
             </Link>
 
             <div className="flex items-center gap-2">
-              <span
-                className="hidden items-center gap-2 rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 sm:inline-flex"
-                aria-label="Arc Testnet"
-              >
-                <span className="flex size-4 items-center justify-center overflow-hidden rounded-[4px] bg-white/10">
-                  <Image src="/networks/arc.svg" alt="Arc Testnet" width={14} height={14} className="rounded-sm" />
-                </span>
-                Arc Testnet
-              </span>
               <Link
                 href="/"
                 className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
