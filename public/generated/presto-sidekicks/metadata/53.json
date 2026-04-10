@@ -1,0 +1,40 @@
+{
+  "name": "Presto Sidekick #053",
+  "description": "Presto Sidekicks is an original 111-piece Arc Testnet companion collection with weighted rarity, streetwear traits, and a compact anime-inspired silhouette built for Presto mint testing.",
+  "image": "/generated/presto-sidekicks/images/053.svg",
+  "external_url": "/generated/presto-sidekicks/gallery.html",
+  "attributes": [
+    {
+      "trait_type": "Rarity",
+      "value": "Common"
+    },
+    {
+      "trait_type": "Gender",
+      "value": "Female"
+    },
+    {
+      "trait_type": "Archetype",
+      "value": "Echo Dreamer"
+    },
+    {
+      "trait_type": "Background",
+      "value": "Arc Glow"
+    },
+    {
+      "trait_type": "Hair",
+      "value": "Beanie"
+    },
+    {
+      "trait_type": "Outfit",
+      "value": "Padded Bomber"
+    },
+    {
+      "trait_type": "Accessory",
+      "value": "Ear Cuff"
+    },
+    {
+      "trait_type": "Object",
+      "value": "Glow Flower"
+    }
+  ]
+}

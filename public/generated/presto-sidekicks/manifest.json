@@ -1,0 +1,905 @@
+{
+  "collection": {
+    "name": "Presto Sidekicks",
+    "symbol": "PSK",
+    "supply": 111,
+    "archetypes": 55,
+    "female": 33
+  },
+  "rarity": {
+    "Legendary": 6,
+    "Rare": 11,
+    "Special": 17,
+    "Common": 77
+  },
+  "items": [
+    {
+      "id": 0,
+      "name": "Presto Sidekick #000",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Scout",
+      "imagePath": "/generated/presto-sidekicks/images/000.svg"
+    },
+    {
+      "id": 1,
+      "name": "Presto Sidekick #001",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/001.svg"
+    },
+    {
+      "id": 2,
+      "name": "Presto Sidekick #002",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Rider",
+      "imagePath": "/generated/presto-sidekicks/images/002.svg"
+    },
+    {
+      "id": 3,
+      "name": "Presto Sidekick #003",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Nova Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/003.svg"
+    },
+    {
+      "id": 4,
+      "name": "Presto Sidekick #004",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Maker",
+      "imagePath": "/generated/presto-sidekicks/images/004.svg"
+    },
+    {
+      "id": 5,
+      "name": "Presto Sidekick #005",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Harbor Scout",
+      "imagePath": "/generated/presto-sidekicks/images/005.svg"
+    },
+    {
+      "id": 6,
+      "name": "Presto Sidekick #006",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Harbor Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/006.svg"
+    },
+    {
+      "id": 7,
+      "name": "Presto Sidekick #007",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Harbor Rider",
+      "imagePath": "/generated/presto-sidekicks/images/007.svg"
+    },
+    {
+      "id": 8,
+      "name": "Presto Sidekick #008",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Harbor Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/008.svg"
+    },
+    {
+      "id": 9,
+      "name": "Presto Sidekick #009",
+      "rarity": "Special",
+      "gender": "Female",
+      "archetype": "Harbor Maker",
+      "imagePath": "/generated/presto-sidekicks/images/009.svg"
+    },
+    {
+      "id": 10,
+      "name": "Presto Sidekick #010",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Pixel Scout",
+      "imagePath": "/generated/presto-sidekicks/images/010.svg"
+    },
+    {
+      "id": 11,
+      "name": "Presto Sidekick #011",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Pixel Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/011.svg"
+    },
+    {
+      "id": 12,
+      "name": "Presto Sidekick #012",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Pixel Rider",
+      "imagePath": "/generated/presto-sidekicks/images/012.svg"
+    },
+    {
+      "id": 13,
+      "name": "Presto Sidekick #013",
+      "rarity": "Special",
+      "gender": "Female",
+      "archetype": "Pixel Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/013.svg"
+    },
+    {
+      "id": 14,
+      "name": "Presto Sidekick #014",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Pixel Maker",
+      "imagePath": "/generated/presto-sidekicks/images/014.svg"
+    },
+    {
+      "id": 15,
+      "name": "Presto Sidekick #015",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Lunar Scout",
+      "imagePath": "/generated/presto-sidekicks/images/015.svg"
+    },
+    {
+      "id": 16,
+      "name": "Presto Sidekick #016",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Lunar Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/016.svg"
+    },
+    {
+      "id": 17,
+      "name": "Presto Sidekick #017",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Lunar Rider",
+      "imagePath": "/generated/presto-sidekicks/images/017.svg"
+    },
+    {
+      "id": 18,
+      "name": "Presto Sidekick #018",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Lunar Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/018.svg"
+    },
+    {
+      "id": 19,
+      "name": "Presto Sidekick #019",
+      "rarity": "Special",
+      "gender": "Female",
+      "archetype": "Lunar Maker",
+      "imagePath": "/generated/presto-sidekicks/images/019.svg"
+    },
+    {
+      "id": 20,
+      "name": "Presto Sidekick #020",
+      "rarity": "Legendary",
+      "gender": "Male",
+      "archetype": "Jade Scout",
+      "imagePath": "/generated/presto-sidekicks/images/020.svg"
+    },
+    {
+      "id": 21,
+      "name": "Presto Sidekick #021",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Jade Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/021.svg"
+    },
+    {
+      "id": 22,
+      "name": "Presto Sidekick #022",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Jade Rider",
+      "imagePath": "/generated/presto-sidekicks/images/022.svg"
+    },
+    {
+      "id": 23,
+      "name": "Presto Sidekick #023",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Jade Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/023.svg"
+    },
+    {
+      "id": 24,
+      "name": "Presto Sidekick #024",
+      "rarity": "Legendary",
+      "gender": "Female",
+      "archetype": "Jade Maker",
+      "imagePath": "/generated/presto-sidekicks/images/024.svg"
+    },
+    {
+      "id": 25,
+      "name": "Presto Sidekick #025",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Velvet Scout",
+      "imagePath": "/generated/presto-sidekicks/images/025.svg"
+    },
+    {
+      "id": 26,
+      "name": "Presto Sidekick #026",
+      "rarity": "Legendary",
+      "gender": "Male",
+      "archetype": "Velvet Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/026.svg"
+    },
+    {
+      "id": 27,
+      "name": "Presto Sidekick #027",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Velvet Rider",
+      "imagePath": "/generated/presto-sidekicks/images/027.svg"
+    },
+    {
+      "id": 28,
+      "name": "Presto Sidekick #028",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Velvet Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/028.svg"
+    },
+    {
+      "id": 29,
+      "name": "Presto Sidekick #029",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Velvet Maker",
+      "imagePath": "/generated/presto-sidekicks/images/029.svg"
+    },
+    {
+      "id": 30,
+      "name": "Presto Sidekick #030",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Orbit Scout",
+      "imagePath": "/generated/presto-sidekicks/images/030.svg"
+    },
+    {
+      "id": 31,
+      "name": "Presto Sidekick #031",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Orbit Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/031.svg"
+    },
+    {
+      "id": 32,
+      "name": "Presto Sidekick #032",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Orbit Rider",
+      "imagePath": "/generated/presto-sidekicks/images/032.svg"
+    },
+    {
+      "id": 33,
+      "name": "Presto Sidekick #033",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Orbit Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/033.svg"
+    },
+    {
+      "id": 34,
+      "name": "Presto Sidekick #034",
+      "rarity": "Legendary",
+      "gender": "Male",
+      "archetype": "Orbit Maker",
+      "imagePath": "/generated/presto-sidekicks/images/034.svg"
+    },
+    {
+      "id": 35,
+      "name": "Presto Sidekick #035",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Neon Scout",
+      "imagePath": "/generated/presto-sidekicks/images/035.svg"
+    },
+    {
+      "id": 36,
+      "name": "Presto Sidekick #036",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Neon Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/036.svg"
+    },
+    {
+      "id": 37,
+      "name": "Presto Sidekick #037",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Neon Rider",
+      "imagePath": "/generated/presto-sidekicks/images/037.svg"
+    },
+    {
+      "id": 38,
+      "name": "Presto Sidekick #038",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Neon Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/038.svg"
+    },
+    {
+      "id": 39,
+      "name": "Presto Sidekick #039",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Neon Maker",
+      "imagePath": "/generated/presto-sidekicks/images/039.svg"
+    },
+    {
+      "id": 40,
+      "name": "Presto Sidekick #040",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Solar Scout",
+      "imagePath": "/generated/presto-sidekicks/images/040.svg"
+    },
+    {
+      "id": 41,
+      "name": "Presto Sidekick #041",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Solar Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/041.svg"
+    },
+    {
+      "id": 42,
+      "name": "Presto Sidekick #042",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Solar Rider",
+      "imagePath": "/generated/presto-sidekicks/images/042.svg"
+    },
+    {
+      "id": 43,
+      "name": "Presto Sidekick #043",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Solar Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/043.svg"
+    },
+    {
+      "id": 44,
+      "name": "Presto Sidekick #044",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Solar Maker",
+      "imagePath": "/generated/presto-sidekicks/images/044.svg"
+    },
+    {
+      "id": 45,
+      "name": "Presto Sidekick #045",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Moss Scout",
+      "imagePath": "/generated/presto-sidekicks/images/045.svg"
+    },
+    {
+      "id": 46,
+      "name": "Presto Sidekick #046",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Moss Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/046.svg"
+    },
+    {
+      "id": 47,
+      "name": "Presto Sidekick #047",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Moss Rider",
+      "imagePath": "/generated/presto-sidekicks/images/047.svg"
+    },
+    {
+      "id": 48,
+      "name": "Presto Sidekick #048",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Moss Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/048.svg"
+    },
+    {
+      "id": 49,
+      "name": "Presto Sidekick #049",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Moss Maker",
+      "imagePath": "/generated/presto-sidekicks/images/049.svg"
+    },
+    {
+      "id": 50,
+      "name": "Presto Sidekick #050",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Echo Scout",
+      "imagePath": "/generated/presto-sidekicks/images/050.svg"
+    },
+    {
+      "id": 51,
+      "name": "Presto Sidekick #051",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Echo Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/051.svg"
+    },
+    {
+      "id": 52,
+      "name": "Presto Sidekick #052",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Echo Rider",
+      "imagePath": "/generated/presto-sidekicks/images/052.svg"
+    },
+    {
+      "id": 53,
+      "name": "Presto Sidekick #053",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Echo Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/053.svg"
+    },
+    {
+      "id": 54,
+      "name": "Presto Sidekick #054",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Echo Maker",
+      "imagePath": "/generated/presto-sidekicks/images/054.svg"
+    },
+    {
+      "id": 55,
+      "name": "Presto Sidekick #055",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Nova Scout",
+      "imagePath": "/generated/presto-sidekicks/images/055.svg"
+    },
+    {
+      "id": 56,
+      "name": "Presto Sidekick #056",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/056.svg"
+    },
+    {
+      "id": 57,
+      "name": "Presto Sidekick #057",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Nova Rider",
+      "imagePath": "/generated/presto-sidekicks/images/057.svg"
+    },
+    {
+      "id": 58,
+      "name": "Presto Sidekick #058",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/058.svg"
+    },
+    {
+      "id": 59,
+      "name": "Presto Sidekick #059",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Maker",
+      "imagePath": "/generated/presto-sidekicks/images/059.svg"
+    },
+    {
+      "id": 60,
+      "name": "Presto Sidekick #060",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Harbor Scout",
+      "imagePath": "/generated/presto-sidekicks/images/060.svg"
+    },
+    {
+      "id": 61,
+      "name": "Presto Sidekick #061",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Harbor Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/061.svg"
+    },
+    {
+      "id": 62,
+      "name": "Presto Sidekick #062",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Harbor Rider",
+      "imagePath": "/generated/presto-sidekicks/images/062.svg"
+    },
+    {
+      "id": 63,
+      "name": "Presto Sidekick #063",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Harbor Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/063.svg"
+    },
+    {
+      "id": 64,
+      "name": "Presto Sidekick #064",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Harbor Maker",
+      "imagePath": "/generated/presto-sidekicks/images/064.svg"
+    },
+    {
+      "id": 65,
+      "name": "Presto Sidekick #065",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Pixel Scout",
+      "imagePath": "/generated/presto-sidekicks/images/065.svg"
+    },
+    {
+      "id": 66,
+      "name": "Presto Sidekick #066",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Pixel Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/066.svg"
+    },
+    {
+      "id": 67,
+      "name": "Presto Sidekick #067",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Pixel Rider",
+      "imagePath": "/generated/presto-sidekicks/images/067.svg"
+    },
+    {
+      "id": 68,
+      "name": "Presto Sidekick #068",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Pixel Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/068.svg"
+    },
+    {
+      "id": 69,
+      "name": "Presto Sidekick #069",
+      "rarity": "Special",
+      "gender": "Female",
+      "archetype": "Pixel Maker",
+      "imagePath": "/generated/presto-sidekicks/images/069.svg"
+    },
+    {
+      "id": 70,
+      "name": "Presto Sidekick #070",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Lunar Scout",
+      "imagePath": "/generated/presto-sidekicks/images/070.svg"
+    },
+    {
+      "id": 71,
+      "name": "Presto Sidekick #071",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Lunar Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/071.svg"
+    },
+    {
+      "id": 72,
+      "name": "Presto Sidekick #072",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Lunar Rider",
+      "imagePath": "/generated/presto-sidekicks/images/072.svg"
+    },
+    {
+      "id": 73,
+      "name": "Presto Sidekick #073",
+      "rarity": "Legendary",
+      "gender": "Male",
+      "archetype": "Lunar Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/073.svg"
+    },
+    {
+      "id": 74,
+      "name": "Presto Sidekick #074",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Lunar Maker",
+      "imagePath": "/generated/presto-sidekicks/images/074.svg"
+    },
+    {
+      "id": 75,
+      "name": "Presto Sidekick #075",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Jade Scout",
+      "imagePath": "/generated/presto-sidekicks/images/075.svg"
+    },
+    {
+      "id": 76,
+      "name": "Presto Sidekick #076",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Jade Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/076.svg"
+    },
+    {
+      "id": 77,
+      "name": "Presto Sidekick #077",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Jade Rider",
+      "imagePath": "/generated/presto-sidekicks/images/077.svg"
+    },
+    {
+      "id": 78,
+      "name": "Presto Sidekick #078",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Jade Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/078.svg"
+    },
+    {
+      "id": 79,
+      "name": "Presto Sidekick #079",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Jade Maker",
+      "imagePath": "/generated/presto-sidekicks/images/079.svg"
+    },
+    {
+      "id": 80,
+      "name": "Presto Sidekick #080",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Velvet Scout",
+      "imagePath": "/generated/presto-sidekicks/images/080.svg"
+    },
+    {
+      "id": 81,
+      "name": "Presto Sidekick #081",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Velvet Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/081.svg"
+    },
+    {
+      "id": 82,
+      "name": "Presto Sidekick #082",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Velvet Rider",
+      "imagePath": "/generated/presto-sidekicks/images/082.svg"
+    },
+    {
+      "id": 83,
+      "name": "Presto Sidekick #083",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Velvet Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/083.svg"
+    },
+    {
+      "id": 84,
+      "name": "Presto Sidekick #084",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Velvet Maker",
+      "imagePath": "/generated/presto-sidekicks/images/084.svg"
+    },
+    {
+      "id": 85,
+      "name": "Presto Sidekick #085",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Orbit Scout",
+      "imagePath": "/generated/presto-sidekicks/images/085.svg"
+    },
+    {
+      "id": 86,
+      "name": "Presto Sidekick #086",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Orbit Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/086.svg"
+    },
+    {
+      "id": 87,
+      "name": "Presto Sidekick #087",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Orbit Rider",
+      "imagePath": "/generated/presto-sidekicks/images/087.svg"
+    },
+    {
+      "id": 88,
+      "name": "Presto Sidekick #088",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Orbit Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/088.svg"
+    },
+    {
+      "id": 89,
+      "name": "Presto Sidekick #089",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Orbit Maker",
+      "imagePath": "/generated/presto-sidekicks/images/089.svg"
+    },
+    {
+      "id": 90,
+      "name": "Presto Sidekick #090",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Neon Scout",
+      "imagePath": "/generated/presto-sidekicks/images/090.svg"
+    },
+    {
+      "id": 91,
+      "name": "Presto Sidekick #091",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Neon Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/091.svg"
+    },
+    {
+      "id": 92,
+      "name": "Presto Sidekick #092",
+      "rarity": "Legendary",
+      "gender": "Male",
+      "archetype": "Neon Rider",
+      "imagePath": "/generated/presto-sidekicks/images/092.svg"
+    },
+    {
+      "id": 93,
+      "name": "Presto Sidekick #093",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Neon Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/093.svg"
+    },
+    {
+      "id": 94,
+      "name": "Presto Sidekick #094",
+      "rarity": "Rare",
+      "gender": "Female",
+      "archetype": "Neon Maker",
+      "imagePath": "/generated/presto-sidekicks/images/094.svg"
+    },
+    {
+      "id": 95,
+      "name": "Presto Sidekick #095",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Solar Scout",
+      "imagePath": "/generated/presto-sidekicks/images/095.svg"
+    },
+    {
+      "id": 96,
+      "name": "Presto Sidekick #096",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Solar Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/096.svg"
+    },
+    {
+      "id": 97,
+      "name": "Presto Sidekick #097",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Solar Rider",
+      "imagePath": "/generated/presto-sidekicks/images/097.svg"
+    },
+    {
+      "id": 98,
+      "name": "Presto Sidekick #098",
+      "rarity": "Rare",
+      "gender": "Female",
+      "archetype": "Solar Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/098.svg"
+    },
+    {
+      "id": 99,
+      "name": "Presto Sidekick #099",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Solar Maker",
+      "imagePath": "/generated/presto-sidekicks/images/099.svg"
+    },
+    {
+      "id": 100,
+      "name": "Presto Sidekick #100",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Moss Scout",
+      "imagePath": "/generated/presto-sidekicks/images/100.svg"
+    },
+    {
+      "id": 101,
+      "name": "Presto Sidekick #101",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Moss Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/101.svg"
+    },
+    {
+      "id": 102,
+      "name": "Presto Sidekick #102",
+      "rarity": "Special",
+      "gender": "Female",
+      "archetype": "Moss Rider",
+      "imagePath": "/generated/presto-sidekicks/images/102.svg"
+    },
+    {
+      "id": 103,
+      "name": "Presto Sidekick #103",
+      "rarity": "Rare",
+      "gender": "Female",
+      "archetype": "Moss Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/103.svg"
+    },
+    {
+      "id": 104,
+      "name": "Presto Sidekick #104",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Moss Maker",
+      "imagePath": "/generated/presto-sidekicks/images/104.svg"
+    },
+    {
+      "id": 105,
+      "name": "Presto Sidekick #105",
+      "rarity": "Special",
+      "gender": "Male",
+      "archetype": "Echo Scout",
+      "imagePath": "/generated/presto-sidekicks/images/105.svg"
+    },
+    {
+      "id": 106,
+      "name": "Presto Sidekick #106",
+      "rarity": "Rare",
+      "gender": "Male",
+      "archetype": "Echo Stylist",
+      "imagePath": "/generated/presto-sidekicks/images/106.svg"
+    },
+    {
+      "id": 107,
+      "name": "Presto Sidekick #107",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Echo Rider",
+      "imagePath": "/generated/presto-sidekicks/images/107.svg"
+    },
+    {
+      "id": 108,
+      "name": "Presto Sidekick #108",
+      "rarity": "Common",
+      "gender": "Female",
+      "archetype": "Echo Dreamer",
+      "imagePath": "/generated/presto-sidekicks/images/108.svg"
+    },
+    {
+      "id": 109,
+      "name": "Presto Sidekick #109",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Echo Maker",
+      "imagePath": "/generated/presto-sidekicks/images/109.svg"
+    },
+    {
+      "id": 110,
+      "name": "Presto Sidekick #110",
+      "rarity": "Common",
+      "gender": "Male",
+      "archetype": "Nova Scout",
+      "imagePath": "/generated/presto-sidekicks/images/110.svg"
+    }
+  ]
+}

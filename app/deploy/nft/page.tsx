@@ -21,6 +21,11 @@ import { readFileAsDataUrl } from '@/lib/imageUpload';
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
 const ARC_CHAIN_ID = 5042002;
+const SIDEKICKS_ROOT = '/generated/presto-sidekicks';
+const SIDEKICKS_BASE_URI = `${SIDEKICKS_ROOT}/metadata/`;
+const SIDEKICKS_COVER = `${SIDEKICKS_ROOT}/cover.svg`;
+const SIDEKICKS_GALLERY = `${SIDEKICKS_ROOT}/gallery.html`;
+const SIDEKICKS_PREVIEW = `${SIDEKICKS_ROOT}/images/000.svg`;
 
 const NFT_OWNER_ABI = parseAbi([
   'function ownerMint(address to) external',
@@ -47,6 +52,7 @@ export default function DeployNFTPage() {
   const [collectionImageDataUrl, setCollectionImageDataUrl] = useState('');
   const [collectionImageName, setCollectionImageName] = useState('');
   const [collectionImageInputKey, setCollectionImageInputKey] = useState(0);
+  const [presetKey, setPresetKey] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
 
@@ -102,11 +108,36 @@ export default function DeployNFTPage() {
     setCollectionImageDataUrl('');
     setCollectionImageName('');
     setCollectionImageInputKey((prev) => prev + 1);
+    setPresetKey('');
     setOwnerMintTo('');
     setMintNftName('');
     setMintNftDescription('');
     setMintNftImage('');
     setNewBaseURI('');
+  }
+
+  function handleLoadSidekicksPreset() {
+    if (deployResult) return;
+    setPresetKey('presto-sidekicks');
+    setName('Presto Sidekicks');
+    setSymbol('PSK');
+    setMaxSupply('111');
+    setMintPrice('0');
+    setBaseURI(
+      typeof window !== 'undefined'
+        ? `${window.location.origin}${SIDEKICKS_BASE_URI}`
+        : SIDEKICKS_BASE_URI,
+    );
+    setCollectionImageSource('url');
+    setCollectionImageUrl(
+      typeof window !== 'undefined'
+        ? `${window.location.origin}${SIDEKICKS_COVER}`
+        : SIDEKICKS_COVER,
+    );
+    setCollectionImageDataUrl('');
+    setCollectionImageName('');
+    setCollectionImageInputKey((prev) => prev + 1);
+    toast.success('Loaded the Presto Sidekicks preset');
   }
 
   async function handleDeploy() {
@@ -150,6 +181,18 @@ export default function DeployNFTPage() {
           mintPrice: mintPrice || '0',
           baseURI,
           image: collectionImage,
+          ...(presetKey === 'presto-sidekicks'
+            ? {
+                previewImage:
+                  typeof window !== 'undefined'
+                    ? `${window.location.origin}${SIDEKICKS_PREVIEW}`
+                    : SIDEKICKS_PREVIEW,
+                gallery: typeof window !== 'undefined'
+                  ? `${window.location.origin}${SIDEKICKS_GALLERY}`
+                  : SIDEKICKS_GALLERY,
+                preset: 'presto-sidekicks',
+              }
+            : {}),
           imageSource: collectionImageSource,
           ...(collectionImageSource === 'upload' && collectionImageName ? { imageName: collectionImageName } : {}),
         },
@@ -254,6 +297,62 @@ export default function DeployNFTPage() {
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               Back to deploy
             </Link>
+          </div>
+
+          <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
+            <div className="space-y-3 px-5 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[12px] font-bold uppercase tracking-[0.28em] text-primary">Collection preset</p>
+                  <p className="mt-1 text-[15px] font-bold text-slate-100">Presto Sidekicks</p>
+                  <p className="mt-1 text-[12px] leading-5 text-slate-400">
+                    111 original Arc Testnet NFTs with 55 archetypes, 33 female variations, weighted rarity,
+                    and generated metadata ready for mint testing.
+                  </p>
+                </div>
+                <img
+                  src={SIDEKICKS_COVER}
+                  alt="Presto Sidekicks cover"
+                  className="h-14 w-20 rounded-[10px] border border-white/[0.08] object-cover"
+                />
+              </div>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="rounded-[10px] border border-white/[0.07] bg-[#263347] px-2 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Supply</p>
+                  <p className="mt-1 text-[13px] font-bold text-slate-100">111</p>
+                </div>
+                <div className="rounded-[10px] border border-white/[0.07] bg-[#263347] px-2 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Types</p>
+                  <p className="mt-1 text-[13px] font-bold text-slate-100">55</p>
+                </div>
+                <div className="rounded-[10px] border border-white/[0.07] bg-[#263347] px-2 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Female</p>
+                  <p className="mt-1 text-[13px] font-bold text-slate-100">30%</p>
+                </div>
+                <div className="rounded-[10px] border border-white/[0.07] bg-[#263347] px-2 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Legendary</p>
+                  <p className="mt-1 text-[13px] font-bold text-slate-100">5%</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleLoadSidekicksPreset}
+                  disabled={!!deployResult}
+                  className="rounded-[10px] bg-primary px-4 py-2 text-[12px] font-bold text-[#0f172a] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Load preset
+                </button>
+                <a
+                  href={SIDEKICKS_GALLERY}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-[10px] border border-white/[0.07] bg-[#263347] px-4 py-2 text-[12px] font-semibold text-slate-200 transition-colors hover:bg-[#2a3950] hover:text-white"
+                >
+                  Open gallery
+                </a>
+              </div>
+            </div>
           </div>
 
           {/* Deploy Form */}

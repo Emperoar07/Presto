@@ -1,0 +1,40 @@
+{
+  "name": "Presto Sidekick #009",
+  "description": "Presto Sidekicks is an original 111-piece Arc Testnet companion collection with weighted rarity, streetwear traits, and a compact anime-inspired silhouette built for Presto mint testing.",
+  "image": "/generated/presto-sidekicks/images/009.svg",
+  "external_url": "/generated/presto-sidekicks/gallery.html",
+  "attributes": [
+    {
+      "trait_type": "Rarity",
+      "value": "Special"
+    },
+    {
+      "trait_type": "Gender",
+      "value": "Female"
+    },
+    {
+      "trait_type": "Archetype",
+      "value": "Harbor Maker"
+    },
+    {
+      "trait_type": "Background",
+      "value": "Candy Pulse"
+    },
+    {
+      "trait_type": "Hair",
+      "value": "Ribbon Curls"
+    },
+    {
+      "trait_type": "Outfit",
+      "value": "Tech Hoodie"
+    },
+    {
+      "trait_type": "Accessory",
+      "value": "Audio Halo"
+    },
+    {
+      "trait_type": "Object",
+      "value": "Camera"
+    }
+  ]
+}

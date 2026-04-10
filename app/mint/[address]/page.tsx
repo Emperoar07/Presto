@@ -79,7 +79,11 @@ export default function MintPage() {
         const deployment = deployments.find(
           (item) => item.address.toLowerCase() === contractAddress.toLowerCase() && item.type === 'nft',
         );
-        const art = normalizeImageSource(deployment?.metadata?.image?.toString() ?? '');
+        const art = normalizeImageSource(
+          deployment?.metadata?.previewImage?.toString() ??
+          deployment?.metadata?.image?.toString() ??
+          '',
+        );
         setCollectionImage(art);
         setCollectionLabel(deployment?.name || name);
       } catch {
@@ -132,17 +136,17 @@ export default function MintPage() {
       ) : info ? (
         <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <section className="overflow-hidden rounded-[18px]" style={{ background: SURF, border: BDR }}>
-            <div className="border-b border-white/[0.07] p-4 md:p-5">
+            <div className="border-b border-white/[0.07] p-4 md:p-[18px]">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Collection</p>
-                <h2 className="mt-1 break-words text-[22px] font-extrabold text-white md:text-[26px]">{info.name}</h2>
+                <h2 className="mt-1 break-words text-[21px] font-extrabold text-white md:text-[25px]">{info.name}</h2>
                 <p className="mt-1 text-[13px] font-medium tracking-[0.08em] text-primary">{info.symbol}</p>
               </div>
             </div>
 
-            <div className="p-4 md:p-5">
+            <div className="p-4 md:p-[18px]">
               <div className="overflow-hidden rounded-[16px] border border-white/[0.07] bg-[#101c31]">
-                <div className="aspect-[4/3] w-full">
+                <div className="aspect-[16/7] w-full">
                   {collectionImage ? (
                     <img
                       src={collectionImage}
@@ -166,13 +170,13 @@ export default function MintPage() {
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-3.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Minted</p>
-                  <p className="mt-2 text-[20px] font-extrabold text-white">
+                  <p className="mt-2 text-[19px] font-extrabold text-white">
                     {info.totalMinted.toString()} / {info.maxSupply.toString()}
                   </p>
                 </div>
                 <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-3.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Mint price</p>
-                  <p className="mt-2 text-[20px] font-extrabold text-white">
+                  <p className="mt-2 text-[19px] font-extrabold text-white">
                     {info.mintPrice === 0n ? 'Free' : `${formatEther(info.mintPrice)} USDC`}
                   </p>
                 </div>
