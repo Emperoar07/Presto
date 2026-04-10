@@ -8,7 +8,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { AppSidebar } from '@/components/common/AppSidebar';
 import { AppFooter } from '@/components/common/AppFooter';
 import { PageTopbar } from '@/components/common/PageTopbar';
-import { SidebarProvider, useSidebar } from '@/components/common/SidebarContext';
+import { SidebarProvider } from '@/components/common/SidebarContext';
 import { PrestoDexLogo } from '@/components/common/PrestoDexLogo';
 
 const ARC_CHAIN_ID = 5042002;
@@ -19,7 +19,6 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const isMintPage = pathname.startsWith('/mint/');
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
-  const { collapsed } = useSidebar();
   const prevPathname = useRef(pathname);
 
   useEffect(() => {
@@ -84,13 +83,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         <AppSidebar />
       </Suspense>
 
-      <div
-        className="flex min-h-screen w-full flex-col"
-        style={{
-          paddingLeft: collapsed ? 64 : 220,
-          transition: 'padding-left 0.25s ease',
-        }}
-      >
+      <div className="flex min-h-screen w-full flex-col md:pl-[220px]">
         <div className="h-14 md:hidden" />
         <Suspense fallback={null}>
           <PageTopbar />
