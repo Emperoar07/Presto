@@ -5,11 +5,13 @@ import { createContext, useContext, useEffect, useState } from 'react';
 type SidebarContextValue = {
   collapsed: boolean;
   toggle: () => void;
+  setCollapsed: (collapsed: boolean) => void;
 };
 
 const SidebarContext = createContext<SidebarContextValue>({
   collapsed: false,
   toggle: () => {},
+  setCollapsed: () => {},
 });
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
@@ -32,7 +34,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const toggle = () => setCollapsed((prev) => !prev);
 
   return (
-    <SidebarContext.Provider value={{ collapsed, toggle }}>
+    <SidebarContext.Provider value={{ collapsed, toggle, setCollapsed }}>
       {children}
     </SidebarContext.Provider>
   );

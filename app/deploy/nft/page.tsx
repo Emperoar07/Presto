@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
 import { parseAbi } from 'viem';
@@ -16,6 +16,7 @@ import {
   patchLocalActivityItem,
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
+import { readFileAsDataUrl } from '@/lib/imageUpload';
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
@@ -41,7 +42,11 @@ export default function DeployNFTPage() {
   const [maxSupply, setMaxSupply] = useState('');
   const [mintPrice, setMintPrice] = useState('');
   const [baseURI, setBaseURI] = useState('');
-  const [collectionImage, setCollectionImage] = useState('');
+  const [collectionImageSource, setCollectionImageSource] = useState<'url' | 'upload'>('url');
+  const [collectionImageUrl, setCollectionImageUrl] = useState('');
+  const [collectionImageDataUrl, setCollectionImageDataUrl] = useState('');
+  const [collectionImageName, setCollectionImageName] = useState('');
+  const [collectionImageInputKey, setCollectionImageInputKey] = useState(0);
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
 
@@ -55,7 +60,54 @@ export default function DeployNFTPage() {
   const [updatingURI, setUpdatingURI] = useState(false);
 
   const explorerBase = getExplorerBaseUrl(ARC_CHAIN_ID);
-  const canDeploy = name.trim() && symbol.trim() && maxSupply.trim() && Number(maxSupply) > 0 && !deploying;
+  const collectionImage = collectionImageSource === 'upload' ? collectionImageDataUrl : collectionImageUrl.trim();
+  const canDeploy = Boolean(
+    name.trim() &&
+      symbol.trim() &&
+      maxSupply.trim() &&
+      Number(maxSupply) > 0 &&
+      collectionImage &&
+      !deploying,
+  );
+
+  async function handleCollectionImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setCollectionImageDataUrl('');
+      setCollectionImageName('');
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setCollectionImageDataUrl(dataUrl);
+      setCollectionImageName(file.name);
+      setCollectionImageSource('upload');
+    } catch {
+      toast.error('Could not read the selected image');
+      setCollectionImageDataUrl('');
+      setCollectionImageName('');
+    }
+  }
+
+  function resetForm() {
+    setDeployResult(null);
+    setName('');
+    setSymbol('');
+    setMaxSupply('');
+    setMintPrice('');
+    setBaseURI('');
+    setCollectionImageSource('url');
+    setCollectionImageUrl('');
+    setCollectionImageDataUrl('');
+    setCollectionImageName('');
+    setCollectionImageInputKey((prev) => prev + 1);
+    setOwnerMintTo('');
+    setMintNftName('');
+    setMintNftDescription('');
+    setMintNftImage('');
+    setNewBaseURI('');
+  }
 
   async function handleDeploy() {
     if (!walletClient || !publicClient || !address) {
@@ -97,7 +149,9 @@ export default function DeployNFTPage() {
           maxSupply,
           mintPrice: mintPrice || '0',
           baseURI,
-          ...(collectionImage.trim() ? { image: collectionImage.trim() } : {}),
+          image: collectionImage,
+          imageSource: collectionImageSource,
+          ...(collectionImageSource === 'upload' && collectionImageName ? { imageName: collectionImageName } : {}),
         },
       });
 
@@ -268,15 +322,72 @@ export default function DeployNFTPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Collection Image / Logo URL</label>
-                <input
-                  type="text"
-                  value={collectionImage}
-                  onChange={(e) => setCollectionImage(e.target.value)}
-                  placeholder="https://... or ipfs://..."
-                  disabled={!!deployResult}
-                  className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
-                />
+                <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Collection Image / Logo</label>
+                <div className="mb-2 inline-flex rounded-[10px] border border-white/[0.07] bg-[#263347] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCollectionImageSource('url')}
+                    disabled={!!deployResult}
+                    className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors ${
+                      collectionImageSource === 'url'
+                        ? 'bg-primary text-[#0f172a]'
+                        : 'text-slate-400 hover:text-slate-200'
+                    } disabled:opacity-50`}
+                  >
+                    Link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollectionImageSource('upload')}
+                    disabled={!!deployResult}
+                    className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors ${
+                      collectionImageSource === 'upload'
+                        ? 'bg-primary text-[#0f172a]'
+                        : 'text-slate-400 hover:text-slate-200'
+                    } disabled:opacity-50`}
+                  >
+                    Upload
+                  </button>
+                </div>
+                {collectionImageSource === 'url' ? (
+                  <input
+                    type="text"
+                    value={collectionImageUrl}
+                    onChange={(e) => setCollectionImageUrl(e.target.value)}
+                    placeholder="https://... or ipfs://..."
+                    disabled={!!deployResult}
+                    className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
+                  />
+                ) : (
+                  <div className="space-y-2 rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5">
+                    <input
+                      key={collectionImageInputKey}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCollectionImageUpload}
+                      disabled={!!deployResult}
+                      className="block w-full text-[12px] text-slate-400 file:mr-3 file:rounded-[8px] file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-[11.5px] file:font-semibold file:text-[#0f172a] hover:file:opacity-90 disabled:opacity-50"
+                    />
+                    {collectionImageName ? (
+                      <p className="text-[11px] text-slate-500">Selected file: {collectionImageName}</p>
+                    ) : null}
+                  </div>
+                )}
+                {collectionImage ? (
+                  <div className="mt-2 flex items-center gap-3 rounded-[10px] border border-white/[0.07] bg-[#263347] p-2">
+                    <img src={collectionImage} alt="Collection preview" className="h-10 w-10 rounded-[8px] object-cover" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold text-slate-300">Image ready</p>
+                      <p className="truncate text-[10.5px] text-slate-500">
+                        {collectionImageSource === 'upload' ? collectionImageName : collectionImageUrl.trim()}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    Provide a link or upload an image file before deploying.
+                  </p>
+                )}
               </div>
 
               {!deployResult && (
@@ -426,7 +537,7 @@ export default function DeployNFTPage() {
               {/* Deploy Another */}
               <button
                 type="button"
-                onClick={() => { setDeployResult(null); setName(''); setSymbol(''); setMaxSupply(''); setMintPrice(''); setBaseURI(''); setMintNftName(''); setMintNftDescription(''); setMintNftImage(''); }}
+                onClick={resetForm}
                 className="w-full rounded-[10px] py-[10px] text-[13px] font-semibold text-slate-400 transition-colors hover:text-slate-200"
               >
                 Deploy Another Collection

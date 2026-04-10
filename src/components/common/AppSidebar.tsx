@@ -55,18 +55,20 @@ export const AppSidebar = memo(function AppSidebar() {
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed, toggle, setCollapsed } = useSidebar();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [faucetModalOpen, setFaucetModalOpen] = useState(false);
   const [chainMenuOpen, setChainMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [sidebarHovering, setSidebarHovering] = useState(false);
   const [walletDropdownPos, setWalletDropdownPos] = useState<{ bottom: number; left: number } | null>(null);
 
   const chainMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const walletBtnRef = useRef<HTMLButtonElement>(null);
   const walletDropdownRef = useRef<HTMLDivElement>(null);
+  const collapseTimerRef = useRef<number | null>(null);
 
   const isMainnet = isProductionMode || MAINNET_CHAIN_IDS.includes(chainId);
   const isBridgePage = pathname === '/bridge';
@@ -98,6 +100,33 @@ export const AppSidebar = memo(function AppSidebar() {
     if (chainMenuOpen || accountMenuOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [accountMenuOpen, chainMenuOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (collapseTimerRef.current) {
+      window.clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+
+    if (!collapsed && !sidebarHovering) {
+      collapseTimerRef.current = window.setTimeout(() => {
+        setCollapsed(true);
+      }, 10000);
+    }
+
+    return () => {
+      if (collapseTimerRef.current) {
+        window.clearTimeout(collapseTimerRef.current);
+        collapseTimerRef.current = null;
+      }
+    };
+  }, [collapsed, setCollapsed, sidebarHovering]);
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimerRef.current) window.clearTimeout(collapseTimerRef.current);
+    };
+  }, []);
 
   const navLinks = NAV_LINKS.filter((link) => {
     if (link.href === '/analytics') return true;
@@ -474,7 +503,12 @@ export const AppSidebar = memo(function AppSidebar() {
   return (
     <>
       {/* ── Logo strip — always 220px, never collapses ── */}
-      <div className="fixed left-0 top-0 z-50 hidden md:flex h-[58px] items-center gap-2.5 border-b border-r border-white/[0.07] bg-[#1e293b] px-5" style={{ width: EXPANDED_W }}>
+      <div
+        className="fixed left-0 top-0 z-50 hidden md:flex h-[58px] items-center gap-2.5 border-b border-r border-white/[0.07] bg-[#1e293b] px-5"
+        style={{ width: EXPANDED_W }}
+        onMouseEnter={() => setSidebarHovering(true)}
+        onMouseLeave={() => setSidebarHovering(false)}
+      >
         <Link href="/" className="flex items-center gap-2 select-none">
           <LogoMark />
           <span className="text-[16px] font-extrabold tracking-tight text-white whitespace-nowrap">Presto</span>
@@ -490,6 +524,8 @@ export const AppSidebar = memo(function AppSidebar() {
       {/* ── Nav aside — collapses from 220px to 64px below the logo strip ── */}
       <aside
         className="fixed left-0 bottom-0 z-40 hidden md:flex md:flex-col border-r border-white/[0.07] bg-[#1e293b]"
+        onMouseEnter={() => setSidebarHovering(true)}
+        onMouseLeave={() => setSidebarHovering(false)}
         style={{
           top: 58,
           width: collapsed ? COLLAPSED_W : EXPANDED_W,

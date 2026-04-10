@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
 import { parseUnits, formatUnits } from 'viem';
@@ -18,6 +18,7 @@ import {
   patchLocalActivityItem,
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
+import { readFileAsDataUrl } from '@/lib/imageUpload';
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
@@ -32,7 +33,11 @@ export default function DeployTokenPage() {
   const [symbol, setSymbol] = useState('');
   const [decimals, setDecimals] = useState('18');
   const [initialSupply, setInitialSupply] = useState('');
-  const [tokenImage, setTokenImage] = useState('');
+  const [tokenImageSource, setTokenImageSource] = useState<'url' | 'upload'>('url');
+  const [tokenImageUrl, setTokenImageUrl] = useState('');
+  const [tokenImageDataUrl, setTokenImageDataUrl] = useState('');
+  const [tokenImageName, setTokenImageName] = useState('');
+  const [tokenImageInputKey, setTokenImageInputKey] = useState(0);
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
 
@@ -49,8 +54,52 @@ export default function DeployTokenPage() {
   const hubToken = getHubToken(ARC_CHAIN_ID);
   const hubSymbol = hubToken?.symbol ?? 'USDC';
   const hubAddress = hubToken?.address ?? '';
+  const tokenImage = tokenImageSource === 'upload' ? tokenImageDataUrl : tokenImageUrl.trim();
 
-  const canDeploy = name.trim() && symbol.trim() && initialSupply.trim() && Number(initialSupply) > 0 && !deploying;
+  const canDeploy = Boolean(
+    name.trim() &&
+      symbol.trim() &&
+      initialSupply.trim() &&
+      Number(initialSupply) > 0 &&
+      tokenImage &&
+      !deploying,
+  );
+
+  async function handleTokenImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setTokenImageDataUrl('');
+      setTokenImageName('');
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setTokenImageDataUrl(dataUrl);
+      setTokenImageName(file.name);
+      setTokenImageSource('upload');
+    } catch {
+      toast.error('Could not read the selected image');
+      setTokenImageDataUrl('');
+      setTokenImageName('');
+    }
+  }
+
+  function resetForm() {
+    setDeployResult(null);
+    setName('');
+    setSymbol('');
+    setDecimals('18');
+    setInitialSupply('');
+    setTokenImageSource('url');
+    setTokenImageUrl('');
+    setTokenImageDataUrl('');
+    setTokenImageName('');
+    setTokenImageInputKey((prev) => prev + 1);
+    setSeedAmount('');
+    setMintTo('');
+    setMintAmount('');
+  }
 
   async function handleDeploy() {
     if (!walletClient || !publicClient || !address) {
@@ -92,7 +141,9 @@ export default function DeployTokenPage() {
         metadata: {
           decimals: dec.toString(),
           initialSupply,
-          ...(tokenImage.trim() ? { image: tokenImage.trim() } : {}),
+          image: tokenImage,
+          imageSource: tokenImageSource,
+          ...(tokenImageSource === 'upload' && tokenImageName ? { imageName: tokenImageName } : {}),
         },
       });
 
@@ -260,15 +311,74 @@ export default function DeployTokenPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">Token Image / Logo URL</label>
-                <input
-                  type="text"
-                  value={tokenImage}
-                  onChange={(e) => setTokenImage(e.target.value)}
-                  placeholder="https://... or ipfs://..."
-                  disabled={!!deployResult}
-                  className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
-                />
+                <label className="mb-1 block text-[11.5px] font-semibold text-slate-400">
+                  Token Image / Logo
+                </label>
+                <div className="mb-2 inline-flex rounded-[10px] border border-white/[0.07] bg-[#263347] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setTokenImageSource('url')}
+                    disabled={!!deployResult}
+                    className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors ${
+                      tokenImageSource === 'url'
+                        ? 'bg-primary text-[#0f172a]'
+                        : 'text-slate-400 hover:text-slate-200'
+                    } disabled:opacity-50`}
+                  >
+                    Link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTokenImageSource('upload')}
+                    disabled={!!deployResult}
+                    className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors ${
+                      tokenImageSource === 'upload'
+                        ? 'bg-primary text-[#0f172a]'
+                        : 'text-slate-400 hover:text-slate-200'
+                    } disabled:opacity-50`}
+                  >
+                    Upload
+                  </button>
+                </div>
+                {tokenImageSource === 'url' ? (
+                  <input
+                    type="text"
+                    value={tokenImageUrl}
+                    onChange={(e) => setTokenImageUrl(e.target.value)}
+                    placeholder="https://... or ipfs://..."
+                    disabled={!!deployResult}
+                    className="w-full rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5 text-[13px] text-slate-100 placeholder-slate-600 outline-none focus:border-primary/40 disabled:opacity-50"
+                  />
+                ) : (
+                  <div className="space-y-2 rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-2.5">
+                    <input
+                      key={tokenImageInputKey}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleTokenImageUpload}
+                      disabled={!!deployResult}
+                      className="block w-full text-[12px] text-slate-400 file:mr-3 file:rounded-[8px] file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-[11.5px] file:font-semibold file:text-[#0f172a] hover:file:opacity-90 disabled:opacity-50"
+                    />
+                    {tokenImageName ? (
+                      <p className="text-[11px] text-slate-500">Selected file: {tokenImageName}</p>
+                    ) : null}
+                  </div>
+                )}
+                {tokenImage ? (
+                  <div className="mt-2 flex items-center gap-3 rounded-[10px] border border-white/[0.07] bg-[#263347] p-2">
+                    <img src={tokenImage} alt="Token preview" className="h-10 w-10 rounded-[8px] object-cover" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold text-slate-300">Image ready</p>
+                      <p className="truncate text-[10.5px] text-slate-500">
+                        {tokenImageSource === 'upload' ? tokenImageName : tokenImageUrl.trim()}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    Provide a link or upload an image file before deploying.
+                  </p>
+                )}
               </div>
 
               {!deployResult && (
@@ -406,7 +516,7 @@ export default function DeployTokenPage() {
               {/* Deploy Another */}
               <button
                 type="button"
-                onClick={() => { setDeployResult(null); setName(''); setSymbol(''); setDecimals('18'); setInitialSupply(''); setSeedAmount(''); setMintTo(''); setMintAmount(''); }}
+                onClick={resetForm}
                 className="w-full rounded-[10px] py-[10px] text-[13px] font-semibold text-slate-400 transition-colors hover:text-slate-200"
               >
                 Deploy Another Token

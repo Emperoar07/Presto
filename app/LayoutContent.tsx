@@ -8,7 +8,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { AppSidebar } from '@/components/common/AppSidebar';
 import { AppFooter } from '@/components/common/AppFooter';
 import { PageTopbar } from '@/components/common/PageTopbar';
-import { SidebarProvider } from '@/components/common/SidebarContext';
+import { SidebarProvider, useSidebar } from '@/components/common/SidebarContext';
 import { PrestoDexLogo } from '@/components/common/PrestoDexLogo';
 
 const ARC_CHAIN_ID = 5042002;
@@ -19,6 +19,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const isMintPage = pathname.startsWith('/mint/');
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
+  const { collapsed } = useSidebar();
   const prevPathname = useRef(pathname);
 
   useEffect(() => {
@@ -44,23 +45,21 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#0f172a] text-slate-100">
         <header className="sticky top-0 z-40 border-b border-white/5 bg-[#101a2c]/95 backdrop-blur">
-          <div className="mx-auto flex h-16 w-full max-w-[1140px] items-center justify-between px-4 md:px-7">
-            <Link href="/" className="inline-flex items-center gap-3">
-              <div className="flex items-center justify-center rounded-xl bg-[#172544] p-1.5">
-                <PrestoDexLogo />
-              </div>
+          <div className="mx-auto flex h-14 w-full max-w-[1140px] items-center justify-between px-4 md:px-6">
+            <Link href="/" className="inline-flex items-center gap-2.5">
+              <PrestoDexLogo />
               <div className="hidden sm:block">
-                <p className="text-[14px] font-extrabold leading-none text-white">Presto</p>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Arc Testnet</p>
+                <p className="text-[13px] font-extrabold leading-none text-white">Presto</p>
+                <p className="mt-0.5 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-primary">Arc Testnet</p>
               </div>
             </Link>
 
             <div className="flex items-center gap-2">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-2 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
               >
-                <span className="material-symbols-outlined text-[16px]">home</span>
+                <span className="material-symbols-outlined text-[15px]">home</span>
                 Home
               </Link>
 
@@ -85,7 +84,13 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         <AppSidebar />
       </Suspense>
 
-      <div className="flex min-h-screen w-full flex-col md:pl-[220px]">
+      <div
+        className="flex min-h-screen w-full flex-col"
+        style={{
+          paddingLeft: collapsed ? 64 : 220,
+          transition: 'padding-left 0.25s ease',
+        }}
+      >
         <div className="h-14 md:hidden" />
         <Suspense fallback={null}>
           <PageTopbar />

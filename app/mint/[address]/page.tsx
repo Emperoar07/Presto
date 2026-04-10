@@ -10,6 +10,8 @@ import { writeContractWithRetry } from '@/lib/txRetry';
 import { parseContractError, isUserCancellation } from '@/lib/errorHandling';
 import { getExplorerBaseUrl } from '@/lib/explorer';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { loadAllDeployments } from '@/lib/deployUtils';
+import { normalizeImageSource } from '@/lib/imageSource';
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
@@ -47,6 +49,8 @@ export default function MintPage() {
   const { data: walletClient } = useWalletClient();
 
   const [info, setInfo] = useState<CollectionInfo | null>(null);
+  const [collectionImage, setCollectionImage] = useState('');
+  const [collectionLabel, setCollectionLabel] = useState('Base preview');
   const [loading, setLoading] = useState(true);
   const [minting, setMinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +74,14 @@ export default function MintPage() {
           publicClient.readContract({ address: contractAddress, abi: NFT_READ_ABI, functionName: 'owner' }),
         ]);
         setInfo({ name, symbol, totalMinted, maxSupply, mintPrice, owner });
+
+        const deployments = loadAllDeployments();
+        const deployment = deployments.find(
+          (item) => item.address.toLowerCase() === contractAddress.toLowerCase() && item.type === 'nft',
+        );
+        const art = normalizeImageSource(deployment?.metadata?.image?.toString() ?? '');
+        setCollectionImage(art);
+        setCollectionLabel(deployment?.name || name);
       } catch {
         setError('Could not load NFT collection. Check the contract address.');
       }
@@ -108,102 +120,161 @@ export default function MintPage() {
   const progressPct = info ? Number((info.totalMinted * 100n) / (info.maxSupply || 1n)) : 0;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0f172a] px-4 py-10">
-      <div className="w-full max-w-[420px] space-y-4">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mb-3 inline-flex size-14 items-center justify-center rounded-2xl" style={{ background: 'rgba(167,139,250,0.12)' }}>
-            <span className="material-symbols-outlined text-[28px] text-[#a78bfa]">image</span>
+    <div className="mx-auto w-full max-w-[1140px] px-4 py-6 md:px-7 md:py-8">
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#172544] px-4 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Public mint</p>
+            <p className="mt-1 text-[18px] font-extrabold text-white">Mint your NFT</p>
           </div>
-          {loading ? (
-            <p className="mt-2 text-[13px] text-slate-500">Loading collection...</p>
-          ) : error ? (
-            <p className="mt-2 text-[13px] text-rose-400">{error}</p>
-          ) : info ? (
-            <>
-              <h1 className="break-words text-[20px] font-bold text-slate-100">{info.name}</h1>
-              <p className="text-[13px] text-slate-500">{info.symbol}</p>
-            </>
-          ) : null}
+          <p className="hidden text-[13px] text-slate-500 md:block">
+            A simple mint page with a live collection preview and Arc Testnet wallet connection.
+          </p>
         </div>
 
-        {info && !error && (
-          <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
-            <div className="space-y-4 p-5">
-              {/* Progress */}
-              <div>
-                <div className="mb-1 flex items-center justify-between text-[12px]">
-                  <span className="text-slate-400">Minted</span>
-                  <span className="font-semibold text-slate-200">
-                    {info.totalMinted.toString()} / {info.maxSupply.toString()}
-                  </span>
+        {loading ? (
+          <div className="flex min-h-[420px] items-center justify-center rounded-[18px]" style={{ background: SURF, border: BDR }}>
+            <p className="text-[13px] text-slate-500">Loading collection...</p>
+          </div>
+        ) : error ? (
+          <div className="flex min-h-[420px] items-center justify-center rounded-[18px]" style={{ background: SURF, border: BDR }}>
+            <p className="text-[13px] text-rose-400">{error}</p>
+          </div>
+        ) : info ? (
+          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="overflow-hidden rounded-[18px]" style={{ background: SURF, border: BDR }}>
+              <div className="p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Collection</p>
+                    <h1 className="mt-1 break-words text-[26px] font-extrabold text-white">{info.name}</h1>
+                    <p className="mt-1 text-[13px] text-slate-500">{info.symbol}</p>
+                  </div>
+                  <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                    Arc Testnet
+                  </div>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[#263347]">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#a78bfa] to-[#25c0f4] transition-all duration-500"
-                    style={{ width: `${Math.min(progressPct, 100)}%` }}
-                  />
+
+                <div className="mt-5 overflow-hidden rounded-[16px] border border-white/[0.07] bg-[#101c31]">
+                  <div className="aspect-square w-full">
+                    {collectionImage ? (
+                      <img
+                        src={collectionImage}
+                        alt={`${info.name} preview`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#172544] via-[#1c2744] to-[#0f172a]">
+                      <div className="text-center">
+                        <div className="mx-auto inline-flex size-20 items-center justify-center rounded-2xl border border-white/[0.07] bg-[#1e293b]">
+                          <span className="material-symbols-outlined text-[34px] text-primary">image</span>
+                        </div>
+                        <p className="mt-4 text-[14px] font-semibold text-slate-100">Base preview</p>
+                        <p className="mt-1 text-[12px] text-slate-500">Reveal later for {collectionLabel}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Minted</p>
+                    <p className="mt-2 text-[24px] font-extrabold text-white">
+                      {info.totalMinted.toString()} / {info.maxSupply.toString()}
+                    </p>
+                  </div>
+                  <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Mint price</p>
+                    <p className="mt-2 text-[24px] font-extrabold text-white">
+                      {info.mintPrice === 0n ? 'Free' : `${formatEther(info.mintPrice)} USDC`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-[18px]" style={{ background: SURF, border: BDR }}>
+                <div className="p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-500">Mint progress</p>
+                    <p className="text-[12px] font-semibold text-slate-300">
+                      {progressPct.toFixed(0)}%
+                    </p>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#263347]">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-[#4dd8ff] transition-all duration-500"
+                      style={{ width: `${Math.min(progressPct, 100)}%` }}
+                    />
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Owner</p>
+                      <p className="mt-2 truncate text-[13px] font-semibold text-slate-100">{info.owner}</p>
+                    </div>
+                    <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Status</p>
+                      <p className="mt-2 text-[13px] font-semibold text-slate-100">{soldOut ? 'Sold out' : 'Live now'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Price */}
-              <div className="flex items-center justify-between rounded-[10px] bg-[#263347] px-4 py-3">
-                <span className="text-[12px] text-slate-400">Mint Price</span>
-                <span className="text-[14px] font-bold text-slate-100">
-                  {info.mintPrice === 0n ? 'Free' : `${formatEther(info.mintPrice)} USDC`}
-                </span>
-              </div>
-
-              {/* Mint Button */}
-              {!address ? (
-                <ConnectButton.Custom>
-                  {({ openConnectModal }) => (
+              <div className="overflow-hidden rounded-[18px]" style={{ background: SURF, border: BDR }}>
+                <div className="space-y-4 p-5">
+                  {!address ? (
+                    <ConnectButton.Custom>
+                      {({ openConnectModal }) => (
+                        <button
+                          type="button"
+                          onClick={openConnectModal}
+                          className="w-full rounded-[12px] bg-primary py-[14px] text-[14px] font-bold text-[#0f172a] transition-opacity hover:opacity-90"
+                        >
+                          Connect wallet to mint
+                        </button>
+                      )}
+                    </ConnectButton.Custom>
+                  ) : soldOut ? (
+                    <div className="rounded-[12px] border border-rose-500/20 bg-rose-500/10 py-[14px] text-center text-[14px] font-bold text-rose-400">
+                      Sold out
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={openConnectModal}
-                      className="w-full rounded-[10px] bg-primary py-[12px] text-[14px] font-bold text-[#0f172a] transition-opacity hover:opacity-90"
+                      onClick={handleMint}
+                      disabled={minting}
+                      className="w-full rounded-[12px] bg-primary py-[14px] text-[14px] font-bold text-[#0f172a] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Connect Wallet to Mint
+                      {minting ? 'Minting...' : 'Mint NFT'}
                     </button>
                   )}
-                </ConnectButton.Custom>
-              ) : soldOut ? (
-                <div className="rounded-[10px] bg-rose-500/10 py-[12px] text-center text-[14px] font-bold text-rose-400">
-                  Sold Out
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleMint}
-                  disabled={minting}
-                  className="w-full rounded-[10px] bg-primary py-[12px] text-[14px] font-bold text-[#0f172a] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {minting ? 'Minting...' : 'Mint NFT'}
-                </button>
-              )}
 
-              {/* Contract link */}
-              <div className="text-center">
-                <a
-                  href={`${explorerBase}/address/${contractAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] text-slate-600 hover:text-slate-400"
-                >
-                  View Contract on Explorer
-                  <span className="material-symbols-outlined ml-0.5 align-middle text-[11px]">open_in_new</span>
-                </a>
+                  <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Contract</p>
+                        <p className="mt-1 font-mono text-[12px] text-slate-300">
+                          {contractAddress.slice(0, 8)}...{contractAddress.slice(-6)}
+                        </p>
+                      </div>
+                      <a
+                        href={`${explorerBase}/address/${contractAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-[10px] border border-white/[0.07] bg-[#203049] px-3 py-2 text-[11px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
+                      >
+                        Explorer
+                        <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        )}
-
-        {/* Powered by */}
-        <div className="text-center">
-          <p className="text-[10px] text-slate-600">
-            Powered by <span className="font-bold text-primary">Presto DEX</span> on Arc Testnet
-          </p>
-        </div>
+        ) : null}
       </div>
     </div>
   );
