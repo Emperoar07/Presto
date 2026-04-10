@@ -134,9 +134,6 @@ export default function MintPage() {
             </p>
           </div>
         </div>
-        <div className="inline-flex items-center rounded-full border border-white/[0.07] bg-[#17233a] px-3 py-1.5 text-[11px] font-semibold text-slate-300">
-          Arc Testnet only
-        </div>
       </div>
 
       {loading ? (

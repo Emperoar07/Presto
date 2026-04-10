@@ -2,13 +2,14 @@
 
 import { Suspense, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { AppSidebar } from '@/components/common/AppSidebar';
 import { AppFooter } from '@/components/common/AppFooter';
 import { PageTopbar } from '@/components/common/PageTopbar';
 import { SidebarProvider } from '@/components/common/SidebarContext';
+import { isArcChain } from '@/config/contracts';
 
 const ARC_CHAIN_ID = 5042002;
 
@@ -17,8 +18,15 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const isLanding = pathname === '/';
   const isMintPage = pathname.startsWith('/mint/');
   const chainId = useChainId();
+  const { address } = useAccount();
   const { switchChain } = useSwitchChain();
   const prevPathname = useRef(pathname);
+  const isProductionMode = process.env.NEXT_PUBLIC_PRODUCTION_MODE === 'true';
+  const faucetUrl = isArcChain(chainId)
+    ? 'https://faucet.circle.com'
+    : address
+      ? `https://docs.tempo.xyz/quickstart/faucet?address=${address}`
+      : 'https://docs.tempo.xyz/quickstart/faucet';
 
   useEffect(() => {
     const wasBridge = prevPathname.current === '/bridge';
@@ -59,6 +67,17 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             </Link>
 
             <div className="flex items-center gap-2">
+              {!isProductionMode ? (
+                <a
+                  href={faucetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-[10px] border border-primary/20 bg-transparent px-3 py-1.5 text-[11.5px] font-semibold text-primary transition-colors hover:bg-primary/10"
+                >
+                  <span className="material-symbols-outlined text-[15px]">water_drop</span>
+                  Faucet
+                </a>
+              ) : null}
               <Link
                 href="/"
                 className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
