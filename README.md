@@ -6,7 +6,7 @@ Presto is a testnet DEX for Arc and Tempo with a live normalized hub AMM, USDC b
 
 - Instant token swaps via a USDC hub-and-spoke AMM on Arc Testnet
 - Bidirectional liquidity management with auto-calculated pair amounts
-- Real-time analytics tracking all time volume, trades, and unique traders from on-chain events
+- Real-time analytics tracking all time DEX volume, trades, and unique traders from on-chain events
 - USDC bridge workspace powered by Circle CCTP for Arc, Ethereum Sepolia, Base Sepolia, and Solana Devnet routes
 - Manual bridge destination address support where the route allows it
 - Send any ERC20 token on Arc Testnet, including custom tokens by pasting a contract address
@@ -134,7 +134,7 @@ All deployments are tracked in localStorage per wallet and shown on the deploy l
 
 The analytics page tracks protocol-wide stats by scanning on-chain events from block 0:
 
-- **All-time Volume**: Total protocol volume since launch
+- **All-time Volume**: Total protocol volume since launch, including swap and liquidity add flow
 - **All-time Trades**: Count of all Swap events across every pool
 - **Unique Traders**: Distinct wallets from swap events
 - **Pool Activity**: Live table with liquidity, volume, and status per pool
@@ -149,7 +149,7 @@ Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk sca
 | Tempo Testnet | 42431 | Supported |
 | Ethereum Sepolia | 11155111 | Bridge origin |
 | Base Sepolia | 84532 | Bridge origin |
-| Solana Devnet | — | Bridge origin |
+| Solana Devnet | N/A | Bridge origin |
 | Hardhat Local | 31337 | Development |
 
 ## Docs

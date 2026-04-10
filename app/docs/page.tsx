@@ -339,12 +339,12 @@ export default function DocsPage() {
             <Section id="analytics" title="Analytics and Activity">
               <p>
                 The Analytics page tracks all time protocol volume, trades, and unique traders. Stats are read directly from
-                on-chain Swap events emitted by the Hub AMM contract, scanning from the deployment block
+                on-chain Swap and LiquidityAdded events emitted by the Hub AMM contract, scanning from the deployment block
                 with parallel chunk fetching for fast cold starts.
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
-                <li><strong>All-time Volume</strong> shows total DEX swap volume since launch, normalized to USDC.</li>
+                <li><strong>All-time Volume</strong> shows total DEX volume since launch, normalized to USDC and including liquidity adds from the Hub AMM contract.</li>
                 <li><strong>All-time Trades</strong> counts every Swap event across all pools.</li>
                 <li><strong>Unique Traders</strong> tracks distinct wallet addresses that have executed swaps.</li>
               </ul>

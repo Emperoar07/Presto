@@ -62,6 +62,14 @@ function normalizeToUsdcRaw(amount: bigint, decimals: number): bigint {
   return amount * 10n ** BigInt(6 - decimals);
 }
 
+function addToVolumeRaw(
+  currentRaw: bigint,
+  amount: bigint,
+  decimals: number
+): bigint {
+  return currentRaw + normalizeToUsdcRaw(amount ?? 0n, decimals);
+}
+
 function toPublicStats(snapshot: DexStatsSnapshot): DexStats {
   return {
     totalSwaps: snapshot.totalSwaps,
@@ -156,7 +164,13 @@ function aggregateStats(
       shares: bigint;
     } }).args;
     if (!args) continue;
-    // Liquidity events are tracked for event count only — not added to volume or traders
+    const { token, tokenAmount, pathAmount } = args;
+
+    // Liquidity adds are part of the DEX itself, so count both sides of the
+    // on-chain deposit in the protocol volume total.
+    const tokenDecimals = tokenDecimalsByAddress.get(token?.toLowerCase() ?? '') ?? hubDecimals;
+    volumeRaw = addToVolumeRaw(volumeRaw, tokenAmount ?? 0n, tokenDecimals);
+    volumeRaw = addToVolumeRaw(volumeRaw, pathAmount ?? 0n, hubDecimals);
   }
 
   totalSwaps += swapLogs.length;
