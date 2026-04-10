@@ -132,22 +132,17 @@ export default function MintPage() {
       ) : info ? (
         <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <section className="overflow-hidden rounded-[18px]" style={{ background: SURF, border: BDR }}>
-            <div className="border-b border-white/[0.07] p-5 md:p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Collection</p>
-                  <h2 className="mt-1 break-words text-[24px] font-extrabold text-white md:text-[28px]">{info.name}</h2>
-                  <p className="mt-1 text-[13px] font-medium tracking-[0.08em] text-primary">{info.symbol}</p>
-                </div>
-                <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
-                  Reveal later
-                </div>
+            <div className="border-b border-white/[0.07] p-4 md:p-5">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Collection</p>
+                <h2 className="mt-1 break-words text-[22px] font-extrabold text-white md:text-[26px]">{info.name}</h2>
+                <p className="mt-1 text-[13px] font-medium tracking-[0.08em] text-primary">{info.symbol}</p>
               </div>
             </div>
 
-            <div className="p-5 md:p-6">
+            <div className="p-4 md:p-5">
               <div className="overflow-hidden rounded-[16px] border border-white/[0.07] bg-[#101c31]">
-                <div className="aspect-[4/5] w-full">
+                <div className="aspect-[4/3] w-full">
                   {collectionImage ? (
                     <img
                       src={collectionImage}
@@ -161,7 +156,7 @@ export default function MintPage() {
                           <span className="material-symbols-outlined text-[30px] text-primary">image</span>
                         </div>
                         <p className="mt-4 text-[14px] font-semibold text-slate-100">Base preview</p>
-                        <p className="mt-1 text-[12px] text-slate-500">Reveal later for {collectionLabel}</p>
+                        <p className="mt-1 text-[12px] text-slate-500">Preview for {collectionLabel}</p>
                       </div>
                     </div>
                   )}
@@ -169,15 +164,15 @@ export default function MintPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-4">
+                <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-3.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Minted</p>
-                  <p className="mt-2 text-[22px] font-extrabold text-white">
+                  <p className="mt-2 text-[20px] font-extrabold text-white">
                     {info.totalMinted.toString()} / {info.maxSupply.toString()}
                   </p>
                 </div>
-                <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-4">
+                <div className="rounded-[14px] border border-white/[0.07] bg-[#17233a] p-3.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Mint price</p>
-                  <p className="mt-2 text-[22px] font-extrabold text-white">
+                  <p className="mt-2 text-[20px] font-extrabold text-white">
                     {info.mintPrice === 0n ? 'Free' : `${formatEther(info.mintPrice)} USDC`}
                   </p>
                 </div>
