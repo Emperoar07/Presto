@@ -521,14 +521,15 @@ export const AppSidebar = memo(function AppSidebar() {
         </span>
       </div>
 
-      {/* ── Nav aside — keeps a fixed shell width so content never shifts ── */}
+      {/* ── Nav aside — collapses from 220px to 64px below the logo strip ── */}
       <aside
-        className="fixed left-0 bottom-0 z-40 hidden overflow-hidden md:flex md:flex-col border-r border-white/[0.07] bg-[#1e293b]"
+        className="fixed left-0 bottom-0 z-40 hidden md:flex md:flex-col border-r border-white/[0.07] bg-[#1e293b]"
         onMouseEnter={() => setSidebarHovering(true)}
         onMouseLeave={() => setSidebarHovering(false)}
         style={{
           top: 58,
-          width: EXPANDED_W,
+          width: collapsed ? COLLAPSED_W : EXPANDED_W,
+          transition: 'width 0.25s ease',
         }}
       >
         {renderSidebar(collapsed, true)}

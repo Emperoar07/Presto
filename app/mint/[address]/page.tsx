@@ -121,6 +121,24 @@ export default function MintPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1140px] px-4 py-5 md:px-7 md:py-7">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+            <span className="size-1.5 rounded-full bg-primary" />
+            Public mint
+          </div>
+          <div>
+            <h1 className="text-[28px] font-black leading-none text-white md:text-[34px]">Mint your NFT</h1>
+            <p className="mt-2 max-w-[720px] text-[13px] leading-6 text-slate-500 md:text-[14px]">
+              Clean Arc Testnet minting with a live collection preview, a compact mint flow, and optional reveal later.
+            </p>
+          </div>
+        </div>
+        <div className="inline-flex items-center rounded-full border border-white/[0.07] bg-[#17233a] px-3 py-1.5 text-[11px] font-semibold text-slate-300">
+          Arc Testnet only
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex min-h-[360px] items-center justify-center rounded-[18px]" style={{ background: SURF, border: BDR }}>
           <p className="text-[13px] text-slate-500">Loading collection...</p>
@@ -147,7 +165,7 @@ export default function MintPage() {
 
             <div className="p-5 md:p-6">
               <div className="overflow-hidden rounded-[16px] border border-white/[0.07] bg-[#101c31]">
-                <div className="aspect-[4/3] w-full">
+                <div className="aspect-[4/5] w-full">
                   {collectionImage ? (
                     <img
                       src={collectionImage}
