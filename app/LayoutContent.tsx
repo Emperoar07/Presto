@@ -78,13 +78,6 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                   Faucet
                 </a>
               ) : null}
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
-              >
-                <span className="material-symbols-outlined text-[15px]">home</span>
-                Home
-              </Link>
 
               <div className="hidden sm:block">
                 <ConnectButton />
