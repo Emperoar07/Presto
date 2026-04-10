@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useParams } from 'next/navigation';
@@ -131,6 +132,16 @@ export default function ManageTokenPage() {
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
       <div className="flex min-h-[calc(100vh-180px)] items-start justify-center pt-10 md:pt-16">
         <div className="w-full max-w-[520px] space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/deploy"
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.07] bg-[#1e293b] px-3 py-2 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              Back to deploy
+            </Link>
+          </div>
+
           {/* Token Info */}
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
             <div className="px-5 py-[14px]" style={{ borderBottom: BDR }}>
