@@ -9,7 +9,6 @@ import { AppSidebar } from '@/components/common/AppSidebar';
 import { AppFooter } from '@/components/common/AppFooter';
 import { PageTopbar } from '@/components/common/PageTopbar';
 import { SidebarProvider } from '@/components/common/SidebarContext';
-import { PrestoDexLogo } from '@/components/common/PrestoDexLogo';
 
 const ARC_CHAIN_ID = 5042002;
 
@@ -46,10 +45,16 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-40 border-b border-white/5 bg-[#101a2c]/95 backdrop-blur">
           <div className="mx-auto flex h-14 w-full max-w-[1140px] items-center justify-between px-4 md:px-6">
             <Link href="/" className="inline-flex items-center gap-2.5">
-              <PrestoDexLogo />
+              <span className="inline-flex size-10 items-center justify-center rounded-[12px] bg-primary/10">
+                <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                  <circle cx="16" cy="16" r="15" stroke="#25c0f4" strokeWidth="1.5" strokeOpacity="0.45" fill="#25c0f4" fillOpacity="0.08" />
+                  <circle cx="16" cy="16" r="10" stroke="#25c0f4" strokeWidth="1.5" strokeOpacity="0.7" fill="none" />
+                  <circle cx="16" cy="16" r="4.5" fill="#25c0f4" />
+                </svg>
+              </span>
               <div className="hidden sm:block">
-                <p className="text-[13px] font-extrabold leading-none text-white">Presto</p>
-                <p className="mt-0.5 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-primary">Arc Testnet</p>
+                <p className="text-[15px] font-extrabold leading-none text-white">Presto</p>
+                <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">Arc Testnet</p>
               </div>
             </Link>
 
