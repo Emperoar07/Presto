@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { AppSidebar } from '@/components/common/AppSidebar';
 import { AppFooter } from '@/components/common/AppFooter';
@@ -78,13 +79,43 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                   Faucet
                 </a>
               ) : null}
+              <span
+                className="inline-flex items-center gap-2 rounded-[10px] border border-white/[0.07] bg-[#263347] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300"
+                aria-label="Arc Testnet"
+              >
+                <span className="flex size-4 items-center justify-center overflow-hidden rounded-[4px] bg-white/10">
+                  <Image src="/networks/arc.svg" alt="Arc Testnet" width={14} height={14} className="rounded-sm" />
+                </span>
+                Arc Testnet
+              </span>
+              <ConnectButton.Custom>
+                {({ account, chain, mounted, openConnectModal, openAccountModal }) => {
+                  const connected = mounted && account && chain;
+                  if (!connected) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={openConnectModal}
+                        className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">person</span>
+                        Connect Wallet
+                      </button>
+                    );
+                  }
 
-              <div className="hidden sm:block">
-                <ConnectButton />
-              </div>
-              <div className="sm:hidden">
-                <ConnectButton />
-              </div>
+                  return (
+                    <button
+                      type="button"
+                      onClick={openAccountModal}
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">account_circle</span>
+                      <span className="max-w-[130px] truncate">{account?.displayName ?? 'Wallet'}</span>
+                    </button>
+                  );
+                }}
+              </ConnectButton.Custom>
             </div>
           </div>
         </header>
