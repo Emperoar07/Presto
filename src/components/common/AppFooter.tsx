@@ -14,32 +14,18 @@ export const AppFooter = memo(function AppFooter() {
               href="https://arclenz.xyz/ecosystem/presto"
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 14px',
-                background: '#04060f',
-                border: '1px solid rgba(26,86,255,0.3)',
-                borderRadius: '8px',
-                textDecoration: 'none',
-                fontFamily: 'monospace',
-              }}
+              className="transition-colors hover:text-slate-200"
             >
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00b87a', display: 'inline-block' }} />
-              <span style={{ color: '#e8ecff', fontWeight: 600 }}>Presto</span>
-              <span style={{ color: '#6b7da8' }}>on ArcLens</span>
+              Presto on ArcLens
             </Link>
-            <p>
-              <Link
-                href="https://x.com/emperoar007"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline transition-colors hover:text-primary"
-              >
-                Built with love by 0xb for the decentralized world.
-              </Link>
-            </p>
+            <Link
+              href="https://x.com/emperoar007"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline transition-colors hover:text-primary"
+            >
+              Built with love by 0xb for the decentralized world.
+            </Link>
           </div>
         </div>
       </div>
