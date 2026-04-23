@@ -309,7 +309,7 @@ export default function DocsPage() {
                   <p className="mt-2 text-[13px] leading-6 text-slate-300">
                     USYCRewards is a standalone contract separate from the Hub AMM, funded with{' '}
                     <strong>2,000,000 USYC</strong>. Contract address:{' '}
-                    <code className="text-[11px] text-slate-400">0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7</code>
+                    <code className="text-[11px] text-slate-400">0x297EDe265Bbc697B409fB371386eBD6370553Dec</code>
                   </p>
                 </div>
               </div>

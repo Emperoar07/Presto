@@ -38,12 +38,12 @@ Liquidity providers earn USYC passively based on pool share and time held. Rewar
 | USYC / USDC | 1.7% |
 | All other pairs | 1.5% |
 
-**USYCRewards contract:** `0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7`
+**USYCRewards contract:** `0x297EDe265Bbc697B409fB371386eBD6370553Dec`
 Funded with **2,000,000 USYC**.
 
 Set in Vercel after deploying:
 ```
-NEXT_PUBLIC_USYC_REWARDS_ADDRESS=0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7
+NEXT_PUBLIC_USYC_REWARDS_ADDRESS=0x297EDe265Bbc697B409fB371386eBD6370553Dec
 ```
 
 ## Tech Stack

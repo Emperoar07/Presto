@@ -229,6 +229,8 @@ export const USYC_REWARDS_ABI = parseAbi([
   "function contractBalance() external view returns (uint256)",
   "function snapshot(address user, address token) external",
   "function claim(address token) external",
+  "function ownerSnapshot(address user, address token, uint256 firstDepositTimestamp) external",
+  "function ownerSnapshotBatch(address[] users, address[] tokens, uint256[] timestamps) external",
   "event RewardClaimed(address indexed user, address indexed token, uint256 amount)",
   "event RewardAccrued(address indexed user, address indexed token, uint256 amount)",
 ]);

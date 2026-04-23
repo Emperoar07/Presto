@@ -149,6 +149,8 @@ function MyPositionRow({
   const reserveHubValue = pool?.reserveValidatorToken ? Number(formatUnits(pool.reserveValidatorToken, hubToken.decimals)) : 0;
   const poolTvlUsd = reserveUserValue + reserveHubValue;
   const estimatedValue = poolTvlUsd > 0 ? (poolTvlUsd * sharePercent) / 100 : 0;
+  // Daily reward = user's share of TVL × APR / 365
+  const dailyRewardUsyc = estimatedValue > 0 ? (estimatedValue * aprPercent) / 100 / 365 : 0;
 
   return (
     <div
@@ -214,11 +216,18 @@ function MyPositionRow({
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]" style={{ background: 'rgba(0,184,122,0.08)', border: '1px solid rgba(0,184,122,0.18)' }}>
-            <span className="font-semibold text-[#00b87a]">
-              {claimableUsyc > 0 ? `${claimableUsyc.toFixed(4)} USYC` : '0 USYC'}
-            </span>
-            <span className="text-slate-500">claimable</span>
+          <div className="flex flex-col rounded-[10px] px-3 py-2 text-[12px]" style={{ background: 'rgba(0,184,122,0.08)', border: '1px solid rgba(0,184,122,0.18)' }}>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-[#00b87a]">
+                {claimableUsyc > 0 ? `${claimableUsyc.toFixed(4)} USYC` : '0 USYC'}
+              </span>
+              <span className="text-slate-500">claimable</span>
+            </div>
+            {dailyRewardUsyc > 0 && (
+              <span className="mt-0.5 text-[10.5px] text-slate-500">
+                ~{dailyRewardUsyc.toFixed(4)} USYC / day
+              </span>
+            )}
           </div>
           <button
             type="button"

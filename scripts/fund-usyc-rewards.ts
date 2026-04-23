@@ -2,7 +2,7 @@ import hre from "hardhat";
 const { ethers } = hre;
 
 const USYC_ADDRESS = "0x825Ae482558415310C71B7E03d2BbBe409345903";
-const REWARDS_ADDRESS = "0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7";
+const REWARDS_ADDRESS = "0x297EDe265Bbc697B409fB371386eBD6370553Dec";
 const AMOUNT = ethers.parseUnits("1000000", 6); // top up 1M more → total 2M
 
 async function main() {

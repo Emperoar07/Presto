@@ -66,6 +66,34 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         usyc.transfer(msg.sender, amount);
     }
 
+    /**
+     * Backdate a user's snapshot to their first-ever liquidity deposit timestamp.
+     * Only callable by owner. Used once to bootstrap past LPs so they can claim
+     * rewards retroactively from when they first provided liquidity.
+     * Will not overwrite a snapshot that is already set (protects against double-counting).
+     */
+    function ownerSnapshot(address user, address token, uint256 firstDepositTimestamp) external onlyOwner {
+        require(firstDepositTimestamp < block.timestamp, "timestamp in future");
+        require(lastSnapshot[user][token] == 0, "snapshot already set");
+        lastSnapshot[user][token] = firstDepositTimestamp;
+    }
+
+    /**
+     * Batch version of ownerSnapshot for efficiency.
+     */
+    function ownerSnapshotBatch(
+        address[] calldata users,
+        address[] calldata tokens,
+        uint256[] calldata timestamps
+    ) external onlyOwner {
+        require(users.length == tokens.length && tokens.length == timestamps.length, "length mismatch");
+        for (uint256 i = 0; i < users.length; i++) {
+            if (lastSnapshot[users[i]][tokens[i]] == 0 && timestamps[i] < block.timestamp) {
+                lastSnapshot[users[i]][tokens[i]] = timestamps[i];
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Snapshot — called externally when LP position changes
     // -------------------------------------------------------------------------
