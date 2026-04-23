@@ -1,7 +1,7 @@
 import { useReadContract, useReadContracts, useWriteContract, useWatchContractEvent, usePublicClient, useChainId } from 'wagmi';
 import { encodeFunctionData, parseAbi } from 'viem';
 import { useState, useEffect } from 'react';
-import { getContractAddresses, HUB_AMM_ABI, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
+import { getContractAddresses, HUB_AMM_ABI, isTempoNativeChain, ZERO_ADDRESS, USYC_REWARDS_ABI, USYC_REWARDS_ADDRESS } from '@/config/contracts';
 
 // --- Configuration ---
 
@@ -545,6 +545,60 @@ export const Hooks = {
                 },
                 isPending
             };
-        }
+        },
+        useClaimableRewards: ({ user, token }: { user?: `0x${string}`; token: `0x${string}` }) => {
+            const chainId = useChainId();
+            const isArc = chainId === 5042002;
+            return useReadContract({
+                address: USYC_REWARDS_ADDRESS,
+                abi: USYC_REWARDS_ABI,
+                functionName: 'claimableOf',
+                args: user ? [user, token] : undefined,
+                query: {
+                    enabled: isArc && !!user && !!token && USYC_REWARDS_ADDRESS !== ZERO_ADDRESS,
+                    refetchInterval: 30000,
+                }
+            });
+        },
+        useRewardRate: ({ token }: { token: `0x${string}` }) => {
+            const chainId = useChainId();
+            const isArc = chainId === 5042002;
+            return useReadContract({
+                address: USYC_REWARDS_ADDRESS,
+                abi: USYC_REWARDS_ABI,
+                functionName: 'rewardRate',
+                args: [token],
+                query: {
+                    enabled: isArc && !!token && USYC_REWARDS_ADDRESS !== ZERO_ADDRESS,
+                    staleTime: 60000,
+                }
+            });
+        },
+        useClaimRewards: () => {
+            const { writeContractAsync, isPending } = useWriteContract();
+            return {
+                claimAsync: (token: `0x${string}`) =>
+                    writeContractAsync({
+                        address: USYC_REWARDS_ADDRESS,
+                        abi: USYC_REWARDS_ABI,
+                        functionName: 'claim',
+                        args: [token],
+                    }),
+                isPending,
+            };
+        },
+        useSnapshotRewards: () => {
+            const { writeContractAsync, isPending } = useWriteContract();
+            return {
+                snapshotAsync: (user: `0x${string}`, token: `0x${string}`) =>
+                    writeContractAsync({
+                        address: USYC_REWARDS_ADDRESS,
+                        abi: USYC_REWARDS_ABI,
+                        functionName: 'snapshot',
+                        args: [user, token],
+                    }),
+                isPending,
+            };
+        },
     }
 };

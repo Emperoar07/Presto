@@ -88,6 +88,35 @@ function MyPositionRow({
       })
     : { data: null }) as { data: bigint | null };
 
+  const { data: claimableRaw, refetch: refetchClaimable } = (Hooks.amm.useClaimableRewards
+    ? Hooks.amm.useClaimableRewards({
+        user: walletAddress,
+        token: token.address as `0x${string}`,
+      })
+    : { data: null, refetch: () => {} }) as { data: bigint | null; refetch: () => void };
+
+  const { data: rewardRateRaw } = (Hooks.amm.useRewardRate
+    ? Hooks.amm.useRewardRate({ token: token.address as `0x${string}` })
+    : { data: null }) as { data: bigint | null };
+
+  const { claimAsync, isPending: isClaiming } = Hooks.amm.useClaimRewards
+    ? Hooks.amm.useClaimRewards()
+    : { claimAsync: null, isPending: false };
+
+  const claimableUsyc = claimableRaw ? Number(claimableRaw) / 1e6 : 0;
+  const aprPercent = rewardRateRaw ? Number(rewardRateRaw) / 100 : 1.5;
+
+  const handleClaim = async () => {
+    if (!claimAsync || claimableUsyc <= 0) return;
+    try {
+      await claimAsync(token.address as `0x${string}`);
+      toast.success(`Claimed ${claimableUsyc.toFixed(4)} USYC`);
+      refetchClaimable();
+    } catch (e: unknown) {
+      if (!isUserCancellation(e)) toast.error('Claim failed');
+    }
+  };
+
   const { data: totalShares } = (Hooks.amm.useTotalShares
     ? Hooks.amm.useTotalShares({
         userToken: token.address as `0x${string}`,
@@ -181,17 +210,34 @@ function MyPositionRow({
             {poolStat?.vol24h ?? '$0'} 24h volume
           </span>
           <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            {poolStat?.vol24h ?? '$0'} vol
+            {aprPercent.toFixed(1)}% APR
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => onManage(token.address)}
-          className="rounded-[10px] px-3.5 py-2 text-[12px] font-bold text-[#0f172a]"
-          style={{ background: '#25c0f4' }}
-        >
-          {isActive ? 'Hide Manager' : 'Manage Position'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]" style={{ background: 'rgba(0,184,122,0.08)', border: '1px solid rgba(0,184,122,0.18)' }}>
+            <span className="font-semibold text-[#00b87a]">
+              {claimableUsyc > 0 ? `${claimableUsyc.toFixed(4)} USYC` : '0 USYC'}
+            </span>
+            <span className="text-slate-500">claimable</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleClaim}
+            disabled={isClaiming || claimableUsyc <= 0}
+            className="rounded-[10px] px-3.5 py-2 text-[12px] font-bold disabled:opacity-40"
+            style={{ background: claimableUsyc > 0 ? '#00b87a' : 'rgba(0,184,122,0.2)', color: claimableUsyc > 0 ? '#0f172a' : '#00b87a' }}
+          >
+            {isClaiming ? 'Claiming…' : 'Claim USYC'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onManage(token.address)}
+            className="rounded-[10px] px-3.5 py-2 text-[12px] font-bold text-[#0f172a]"
+            style={{ background: '#25c0f4' }}
+          >
+            {isActive ? 'Hide Manager' : 'Manage Position'}
+          </button>
+        </div>
       </div>
 
       {isActive ? (
