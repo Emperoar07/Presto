@@ -3,7 +3,7 @@ const { ethers } = hre;
 
 const USYC_ADDRESS = "0x825Ae482558415310C71B7E03d2BbBe409345903";
 const HUB_AMM_ADDRESS = "0x5794a8284A29493871Fbfa3c4f343D42001424D6";
-const USYC_FUND_AMOUNT = ethers.parseUnits("1000000", 6); // 1,000,000 USYC
+const USYC_FUND_AMOUNT = ethers.parseUnits("2000000", 6); // 2,000,000 USYC
 
 // USYC pair on Arc gets 1.7%, everything else defaults to 1.5%
 const USYC_TOKEN_ADDRESS = "0x825Ae482558415310C71B7E03d2BbBe409345903";
