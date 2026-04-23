@@ -53,6 +53,7 @@ const toc = [
   { id: 'networks', label: 'Arc Testnet' },
   { id: 'swap', label: 'Swap Flow' },
   { id: 'liquidity', label: 'Liquidity' },
+  { id: 'lp-rewards', label: 'LP Rewards' },
   { id: 'send', label: 'Send Tokens' },
   { id: 'bridge', label: 'Bridge' },
   { id: 'deploy', label: 'Deploy' },
@@ -262,6 +263,56 @@ export default function DocsPage() {
                 In practice, that means token listing, approvals, seed liquidity, and UI exposure all need to happen together. A token
                 appearing in a public tokenlist is not enough by itself.
               </p>
+            </Section>
+
+            <Section id="lp-rewards" title="LP Rewards">
+              <p>
+                Liquidity providers on Arc Testnet earn <strong>USYC</strong> (US Yield Coin) passively based on their share of each pool and how long they hold the position. Rewards accrue continuously from the moment liquidity is first added — there is no lockup or staking step required.
+              </p>
+
+              <DataTable
+                headers={['Pair', 'Annual Reward Rate', 'Reward Token']}
+                rows={[
+                  [
+                    <span key="usyc-pair" className="font-semibold text-slate-100">USYC / USDC</span>,
+                    <span key="usyc-rate" className="font-semibold text-[#00b87a]">1.7% APR</span>,
+                    'USYC',
+                  ],
+                  [
+                    <span key="other-pair" className="font-semibold text-slate-100">All other pairs</span>,
+                    <span key="other-rate" className="font-semibold text-[#00b87a]">1.5% APR</span>,
+                    'USYC',
+                  ],
+                ]}
+              />
+
+              <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">How it works</p>
+                <ol className="mt-3 list-decimal space-y-2 pl-5 text-[14px] leading-7 text-slate-300">
+                  <li>Add liquidity to any supported pair on the Pools page.</li>
+                  <li>Rewards begin accruing from that moment based on your pool share and the pool TVL.</li>
+                  <li>Return to the Pools page at any time — each pair panel shows your claimable USYC balance.</li>
+                  <li>Click <strong>Claim USYC</strong> to transfer your accumulated rewards directly to your wallet.</li>
+                </ol>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
+                  <p className="text-[13px] font-semibold text-slate-100">Reward accrual formula</p>
+                  <p className="mt-2 text-[13px] leading-6 text-slate-300">
+                    Rewards are calculated as: your share of pool TVL × annual rate × time held (in seconds / seconds per year).
+                    They update in real time and are checkpointed whenever you add or remove liquidity.
+                  </p>
+                </div>
+                <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
+                  <p className="text-[13px] font-semibold text-slate-100">Reward contract</p>
+                  <p className="mt-2 text-[13px] leading-6 text-slate-300">
+                    USYCRewards is a standalone contract separate from the Hub AMM, funded with{' '}
+                    <strong>2,000,000 USYC</strong>. Contract address:{' '}
+                    <code className="text-[11px] text-slate-400">0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7</code>
+                  </p>
+                </div>
+              </div>
             </Section>
 
             <Section id="send" title="Send Tokens">

@@ -29,6 +29,23 @@ Presto is a testnet DEX for Arc and Tempo with a live normalized hub AMM, USDC b
 
 Hub AMM (ArcHubAMMNormalized): `0x5794a8284A29493871Fbfa3c4f343D42001424D6`
 
+## LP Rewards
+
+Liquidity providers earn USYC passively based on pool share and time held. Rewards accrue from the moment liquidity is first added and can be claimed anytime from each pair panel on the Pools page.
+
+| Pair | APR |
+|------|-----|
+| USYC / USDC | 1.7% |
+| All other pairs | 1.5% |
+
+**USYCRewards contract:** `0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7`
+Funded with **2,000,000 USYC**.
+
+Set in Vercel after deploying:
+```
+NEXT_PUBLIC_USYC_REWARDS_ADDRESS=0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7
+```
+
 ## Tech Stack
 
 - **Frontend**: Next.js 16.1.1, React 18, Tailwind CSS
@@ -77,6 +94,8 @@ npm start
 # Contracts
 npm run compile
 npx hardhat run scripts/deploy-arc.ts --network arc
+npx hardhat run scripts/deploy-usyc-rewards.ts --network arc   # deploy + fund 2M USYC
+npx hardhat run scripts/fund-usyc-rewards.ts --network arc     # top up existing contract
 npx hardhat run scripts/seed-arc-liquidity.ts --network arc
 npx hardhat run scripts/seed-usyc-liquidity.ts --network arc
 
