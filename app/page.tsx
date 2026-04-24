@@ -258,18 +258,15 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="mx-auto grid max-w-[760px] grid-cols-2 overflow-hidden rounded-[14px] border border-white/10 bg-[#141e30] sm:grid-cols-4">
+          <div className="mx-auto grid max-w-[600px] grid-cols-3 overflow-hidden rounded-[14px] border border-white/10 bg-[#141e30]">
             {[
               { v: loading ? '—' : (stats?.totalVolumeUSDC ?? '$0'), l: 'All-time Volume' },
               { v: loading ? '—' : (poolStats?.totalLiquidityUsdc ?? '$0'), l: 'Total Liquidity' },
-              { v: loading ? '—' : (stats?.totalSwaps ? Number(stats.totalSwaps).toLocaleString() : '0'), l: 'All-time Trades' },
               { v: loading ? '—' : (stats?.uniqueTraders ? Number(stats.uniqueTraders).toLocaleString() : '0'), l: 'Unique Traders' },
             ].map(({ v, l }, i) => (
               <div key={i} className={[
                 'px-4 py-4 text-center',
-                i % 2 === 0 ? 'border-r border-white/[0.06]' : '',
-                i < 2 ? 'border-b border-white/[0.06]' : '',
-                'sm:border-b-0 sm:border-r sm:border-white/[0.06] sm:last:border-r-0',
+                i < 2 ? 'border-r border-white/[0.06]' : '',
               ].join(' ')}>
                 <div className="text-[17px] font-extrabold tracking-tight text-[#25c0f4] md:text-[20px]">{v}</div>
                 <div className="mt-1 text-[10px] font-medium text-[#4b6280] md:text-[11px]">{l}</div>
