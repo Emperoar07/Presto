@@ -176,6 +176,17 @@ export function ManageFeeLiquidity({
       })
     : { data: null }) as { data: bigint | null };
   const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
+  const { snapshotAsync } = Hooks.amm.useSnapshotRewards
+    ? Hooks.amm.useSnapshotRewards()
+    : { snapshotAsync: null };
+  const { data: rewardsEnabled } = (Hooks.amm.usePoolRewardsEnabled
+    ? Hooks.amm.usePoolRewardsEnabled({ token: userToken as `0x${string}` })
+    : { data: false }) as { data: boolean | null };
+
+  const checkpointRewards = async () => {
+    if (!address || !rewardsEnabled || !snapshotAsync) return;
+    await snapshotAsync(address as `0x${string}`, userToken as `0x${string}`);
+  };
 
   const estimatedTotalShares = isTempoChain
     ? (pool?.reserveValidatorToken ? pool.reserveValidatorToken * 2n : null)
@@ -263,6 +274,8 @@ export function ManageFeeLiquidity({
         }
       }
 
+      await checkpointRewards();
+
       hash = await addFeeLiquidity(
         walletClient,
         publicClient as unknown as PublicClient,
@@ -346,6 +359,8 @@ export function ManageFeeLiquidity({
     };
 
     try {
+      await checkpointRewards();
+
       if (typeof burnLiquidity.mutateAsync === 'function') {
         hash = await burnLiquidity.mutateAsync(payload);
       } else {

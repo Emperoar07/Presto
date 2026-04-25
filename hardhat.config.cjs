@@ -37,7 +37,12 @@ module.exports = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     arc: {
-      url: "https://rpc.testnet.arc.network",
+      url: process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network",
+      chainId: 5042002,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+    arcDrpc: {
+      url: "https://arc-testnet.drpc.org",
       chainId: 5042002,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     }

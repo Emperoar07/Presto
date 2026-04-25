@@ -1,52 +1,83 @@
 import hre from "hardhat";
+import fs from "fs";
 const { ethers } = hre;
 
 const HUB_AMM_ADDRESS = "0x5794a8284A29493871Fbfa3c4f343D42001424D6";
-const REWARDS_ADDRESS = "0x73EE8fc7F98f18F2bE97227F913F387Ca8eC65b7";
+const REWARDS_ADDRESS = process.env.NEW_REWARDS_ADDRESS ?? "";
 
 const LIQUIDITY_ADDED_TOPIC = ethers.id(
   "LiquidityAdded(address,address,uint256,uint256,uint256)"
 );
 
-async function main() {
-  const provider = ethers.provider;
-  const [deployer] = await ethers.getSigners();
+const FROM_BLOCK = 38500000; // ~5 days ago (rewards start date)
+const CHUNK = 5000;
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 3000;
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      const msg = (e as Error)?.message ?? String(e);
+      console.warn(`  ${label} attempt ${attempt} failed: ${msg.slice(0, 120)}`);
+      if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastErr;
+}
+
+async function main() {
+  if (!ethers.isAddress(REWARDS_ADDRESS)) {
+    throw new Error("Set NEW_REWARDS_ADDRESS env var to the new contract address");
+  }
+
+  const provider = ethers.provider;
   const rewards = await ethers.getContractAt("USYCRewards", REWARDS_ADDRESS);
 
   console.log("Scanning LiquidityAdded events from HubAMM...");
 
-  const latestBlock = await provider.getBlockNumber();
-  const CHUNK = 2000;
+  const latestBlock = await withRetry("getBlockNumber", () => provider.getBlockNumber());
+  console.log(`Latest block: ${latestBlock}`);
 
-  // user+token => earliest block timestamp
-  const earliest: Map<string, { user: string; token: string; timestamp: number }> = new Map();
+  const earliest: Map<string, { user: string; token: string; timestamp: number; blockNumber: number }> = new Map();
 
-  for (let from = 0; from <= latestBlock; from += CHUNK) {
+  for (let from = FROM_BLOCK; from <= latestBlock; from += CHUNK) {
     const to = Math.min(from + CHUNK - 1, latestBlock);
-    const logs = await provider.getLogs({
-      address: HUB_AMM_ADDRESS,
-      topics: [LIQUIDITY_ADDED_TOPIC],
-      fromBlock: from,
-      toBlock: to,
-    });
+
+    const logs = await withRetry(`getLogs ${from}-${to}`, () =>
+      provider.getLogs({
+        address: HUB_AMM_ADDRESS,
+        topics: [LIQUIDITY_ADDED_TOPIC],
+        fromBlock: from,
+        toBlock: to,
+      })
+    );
 
     for (const log of logs) {
-      const provider_addr = "0x" + log.topics[1].slice(26);
+      const providerAddr = "0x" + log.topics[1].slice(26);
       const token = "0x" + log.topics[2].slice(26);
-      const key = `${provider_addr.toLowerCase()}-${token.toLowerCase()}`;
-
-      const block = await ethers.provider.getBlock(log.blockNumber);
-      if (!block) continue;
-      const ts = block.timestamp;
-
+      const key = `${providerAddr.toLowerCase()}-${token.toLowerCase()}`;
       const existing = earliest.get(key);
-      if (!existing || ts < existing.timestamp) {
-        earliest.set(key, { user: provider_addr, token, timestamp: ts });
+      if (!existing || log.blockNumber < existing.blockNumber) {
+        earliest.set(key, {
+          user: providerAddr,
+          token,
+          timestamp: 0,
+          blockNumber: log.blockNumber,
+        });
       }
     }
 
-    if (logs.length > 0) process.stdout.write(`  scanned to block ${to}, found ${earliest.size} unique positions so far\n`);
+    if (logs.length > 0) {
+      process.stdout.write(`  scanned to block ${to}, ${earliest.size} unique positions\n`);
+    }
   }
 
   if (earliest.size === 0) {
@@ -54,41 +85,29 @@ async function main() {
     return;
   }
 
-  const entries = Array.from(earliest.values());
-  console.log(`\nFound ${entries.length} unique user/token positions. Backfilling snapshots...`);
-
-  // Filter out entries where snapshot is already set
-  const toSet: typeof entries = [];
-  for (const e of entries) {
-    const existing = await rewards.lastSnapshot(e.user, e.token);
-    if (existing === 0n) toSet.push(e);
+  console.log(`\nResolving timestamps for ${earliest.size} positions...`);
+  const blockTsCache = new Map<number, number>();
+  for (const entry of earliest.values()) {
+    if (!blockTsCache.has(entry.blockNumber)) {
+      const block = await withRetry(`getBlock ${entry.blockNumber}`, () =>
+        provider.getBlock(entry.blockNumber)
+      );
+      if (!block) continue;
+      blockTsCache.set(entry.blockNumber, block.timestamp);
+    }
+    entry.timestamp = blockTsCache.get(entry.blockNumber) ?? 0;
   }
 
-  console.log(`${toSet.length} positions need snapshots (${entries.length - toSet.length} already set).`);
+  const entries = Array.from(earliest.values()).filter((e) => e.timestamp > 0);
+  console.log(`\nFound ${entries.length} positions with valid timestamps.`);
 
-  if (toSet.length === 0) {
-    console.log("All snapshots already set.");
-    return;
-  }
-
-  // Batch in chunks of 50 to avoid gas limits
-  const BATCH = 50;
-  for (let i = 0; i < toSet.length; i += BATCH) {
-    const chunk = toSet.slice(i, i + BATCH);
-    const users = chunk.map(e => e.user);
-    const tokens = chunk.map(e => e.token);
-    const timestamps = chunk.map(e => BigInt(e.timestamp));
-
-    const tx = await rewards.ownerSnapshotBatch(users, tokens, timestamps);
-    await tx.wait();
-    console.log(`  Set snapshots for ${i + chunk.length}/${toSet.length}`);
-  }
-
-  console.log("\nDone. All past LPs can now claim retroactive rewards.");
-  console.log("Sample positions:");
-  toSet.slice(0, 5).forEach(e =>
-    console.log(`  ${e.user} / ${e.token} — first deposit: ${new Date(e.timestamp * 1000).toISOString()}`)
-  );
+  const output = entries.map(e => ({ user: e.user, token: e.token, timestamp: e.timestamp }));
+  if (!fs.existsSync("data")) fs.mkdirSync("data");
+  fs.writeFileSync("data/backfill-positions.json", JSON.stringify(output, null, 2));
+  console.log(`Saved to data/backfill-positions.json — now run set-snapshots.ts to write on-chain.`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

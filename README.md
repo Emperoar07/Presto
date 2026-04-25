@@ -31,19 +31,19 @@ Hub AMM (ArcHubAMMNormalized): `0x5794a8284A29493871Fbfa3c4f343D42001424D6`
 
 ## LP Rewards
 
-Liquidity providers earn USYC passively based on pool share and time held. Rewards accrue from the moment liquidity is first added and can be claimed anytime from each pair panel on the Pools page.
+Liquidity providers primarily earn from pool fees. Optional USYC reward campaigns can be enabled per pair through the standalone `USYCRewards` contract without redeploying the DEX.
 
-| Pair | APR |
-|------|-----|
-| USYC / USDC | 1.7% |
-| All other pairs | 1.5% |
+| Reward Source | Status |
+|---------------|--------|
+| Pool fees | Primary LP reward path |
+| USYC campaigns | Optional and enabled per pair |
 
-**USYCRewards contract:** `0x297EDe265Bbc697B409fB371386eBD6370553Dec`
-Funded with **2,000,000 USYC**.
+**USYCRewards contract:** `0x3454fB11Ead7a10806434daE0A7EfFd289ABb908`
+Funded with **4,000,000 USYC**.
 
 Set in Vercel after deploying:
 ```
-NEXT_PUBLIC_USYC_REWARDS_ADDRESS=0x297EDe265Bbc697B409fB371386eBD6370553Dec
+NEXT_PUBLIC_USYC_REWARDS_ADDRESS=0x3454fB11Ead7a10806434daE0A7EfFd289ABb908
 ```
 
 ## Tech Stack

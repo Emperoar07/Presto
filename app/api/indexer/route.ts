@@ -3,7 +3,18 @@ import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
 
-const OUTPUT = process.env.INDEXER_OUTPUT ?? 'data/indexer.json';
+const DEFAULT_OUTPUT = 'data/indexer.json';
+const OUTPUT = process.env.INDEXER_OUTPUT ?? DEFAULT_OUTPUT;
+
+function resolveSafeOutputPath(): string | null {
+  const root = path.resolve(process.cwd());
+  const candidate = path.isAbsolute(OUTPUT) ? OUTPUT : path.join(root, OUTPUT);
+  const resolved = path.resolve(candidate);
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+    return null;
+  }
+  return resolved;
+}
 
 // Fallback data for Vercel deployment (no local filesystem)
 const FALLBACK_DATA = {
@@ -23,7 +34,14 @@ export async function GET(request: Request) {
     );
   }
 
-  const filePath = path.isAbsolute(OUTPUT) ? OUTPUT : path.join(process.cwd(), OUTPUT);
+  const filePath = resolveSafeOutputPath();
+
+  if (!filePath) {
+    console.error('Indexer output path escapes project root; ignoring.');
+    const response = NextResponse.json(FALLBACK_DATA);
+    response.headers.set('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=60');
+    return response;
+  }
 
   // Return fallback data if file doesn't exist (Vercel deployment)
   if (!fs.existsSync(filePath)) {

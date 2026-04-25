@@ -1,6 +1,8 @@
 import { getOrderbookData, isValidAddress } from '@/lib/orderbook';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
 
+const SUPPORTED_ORDERBOOK_CHAIN_IDS = new Set([5042002, 42431]);
+
 export async function GET(request: Request) {
   const ip = getClientIp(request);
   const { allowed, retryAfter } = await rateLimit(`orderbook-stream:${ip}`, 30, 60_000);
@@ -15,10 +17,17 @@ export async function GET(request: Request) {
   const token = searchParams.get('token');
   const depthParam = Number(searchParams.get('depth') ?? '10');
   const chainIdParam = searchParams.get('chainId');
-  const chainId = chainIdParam ? parseInt(chainIdParam, 10) : undefined;
+  const chainId = chainIdParam ? Number(chainIdParam) : undefined;
 
   if (!isValidAddress(token)) {
     return new Response('Invalid token address', { status: 400 });
+  }
+
+  if (
+    chainId !== undefined &&
+    (!Number.isInteger(chainId) || !SUPPORTED_ORDERBOOK_CHAIN_IDS.has(chainId))
+  ) {
+    return new Response('Unsupported chain', { status: 400 });
   }
 
   const depth = Number.isFinite(depthParam) ? Math.min(Math.max(depthParam, 1), 50) : 10;

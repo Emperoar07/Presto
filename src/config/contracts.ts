@@ -221,19 +221,26 @@ export const CHAIN_CONTRACTS = DEFAULT_CHAIN_CONTRACTS;
 // USYC Rewards Contract
 // ============================================================================
 
-export const USYC_REWARDS_ABI = parseAbi([
-  "function claimableOf(address user, address token) external view returns (uint256)",
-  "function pendingRewards(address user, address token) external view returns (uint256)",
-  "function lastSnapshot(address user, address token) external view returns (uint256)",
-  "function rewardRate(address token) external view returns (uint256)",
-  "function contractBalance() external view returns (uint256)",
-  "function snapshot(address user, address token) external",
-  "function claim(address token) external",
-  "function ownerSnapshot(address user, address token, uint256 firstDepositTimestamp) external",
-  "function ownerSnapshotBatch(address[] users, address[] tokens, uint256[] timestamps) external",
-  "event RewardClaimed(address indexed user, address indexed token, uint256 amount)",
-  "event RewardAccrued(address indexed user, address indexed token, uint256 amount)",
-]);
+  export const USYC_REWARDS_ABI = parseAbi([
+    "function claimableOf(address user, address token) external view returns (uint256)",
+    "function pendingRewards(address user, address token) external view returns (uint256)",
+    "function lastSnapshot(address user, address token) external view returns (uint256)",
+    "function rewardRate(address token) external view returns (uint256)",
+    "function rewardRateConfigured(address token) external view returns (bool)",
+    "function poolEnabled(address token) external view returns (bool)",
+    "function contractBalance() external view returns (uint256)",
+    "function snapshot(address user, address token) external",
+    "function claim(address token) external",
+    "function setRewardRate(address token, uint256 rateBps) external",
+    "function setPoolEnabled(address token, bool enabled) external",
+    "function ownerSnapshot(address user, address token, uint256 firstDepositTimestamp) external",
+    "function ownerSnapshotBatch(address[] users, address[] tokens, uint256[] timestamps) external",
+    "event RewardClaimed(address indexed user, address indexed token, uint256 amount)",
+    "event RewardAccrued(address indexed user, address indexed token, uint256 amount)",
+    "event RewardPoolEnabled(address indexed token, bool enabled)",
+    "event OwnerSnapshotSet(address indexed user, address indexed token, uint256 timestamp)",
+    "event Initialized(address indexed owner, address indexed usyc, address indexed hubAmm)",
+  ]);
 
 export const USYC_REWARDS_ADDRESS: `0x${string}` = (
   process.env.NEXT_PUBLIC_USYC_REWARDS_ADDRESS ?? '0x0000000000000000000000000000000000000000'

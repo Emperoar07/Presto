@@ -188,6 +188,18 @@ export function LiquidityCard({
   const removeActionRef = useRef<HTMLDivElement | null>(null);
 
   const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync ? Hooks.amm.useBurnSync() : { mutate: () => {}, isPending: false };
+  const { snapshotAsync } = Hooks.amm.useSnapshotRewards
+    ? Hooks.amm.useSnapshotRewards()
+    : { snapshotAsync: null };
+  const { data: rewardsEnabled } = (Hooks.amm.usePoolRewardsEnabled
+    ? Hooks.amm.usePoolRewardsEnabled({ token: selectedToken.address as `0x${string}` })
+    : { data: false }) as { data: boolean | null };
+
+  const checkpointRewards = async () => {
+    if (!address || !rewardsEnabled || !snapshotAsync) return;
+    await snapshotAsync(address as `0x${string}`, selectedToken.address as `0x${string}`);
+  };
+
   const { data: lpBalance } = (Hooks.amm.useLiquidityBalance
     ? Hooks.amm.useLiquidityBalance({
         address,
@@ -291,6 +303,8 @@ export function LiquidityCard({
     };
 
     try {
+      await checkpointRewards();
+
       if (typeof burnLiquidity.mutateAsync === 'function') {
         hash = await burnLiquidity.mutateAsync(payload);
       } else {

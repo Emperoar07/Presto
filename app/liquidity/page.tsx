@@ -99,12 +99,17 @@ function MyPositionRow({
     ? Hooks.amm.useRewardRate({ token: token.address as `0x${string}` })
     : { data: null }) as { data: bigint | null };
 
+  const { data: rewardsEnabled } = (Hooks.amm.usePoolRewardsEnabled
+    ? Hooks.amm.usePoolRewardsEnabled({ token: token.address as `0x${string}` })
+    : { data: false }) as { data: boolean | null };
+
   const { claimAsync, isPending: isClaiming } = Hooks.amm.useClaimRewards
     ? Hooks.amm.useClaimRewards()
     : { claimAsync: null, isPending: false };
 
-  const claimableUsyc = claimableRaw ? Number(claimableRaw) / 1e6 : 0;
-  const aprPercent = rewardRateRaw ? Number(rewardRateRaw) / 100 : 1.5;
+  const rewardCampaignActive = Boolean(rewardsEnabled);
+  const claimableUsyc = rewardCampaignActive && claimableRaw ? Number(claimableRaw) / 1e6 : 0;
+  const aprPercent = rewardCampaignActive && rewardRateRaw ? Number(rewardRateRaw) / 100 : 0;
 
   const handleClaim = async () => {
     if (!claimAsync || claimableUsyc <= 0) return;
@@ -430,6 +435,17 @@ function PositionManagerInline({
   const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync
     ? Hooks.amm.useBurnSync()
     : { mutate: () => {}, isPending: false };
+  const { snapshotAsync } = Hooks.amm.useSnapshotRewards
+    ? Hooks.amm.useSnapshotRewards()
+    : { snapshotAsync: null };
+  const { data: rewardsEnabled } = (Hooks.amm.usePoolRewardsEnabled
+    ? Hooks.amm.usePoolRewardsEnabled({ token: token.address as `0x${string}` })
+    : { data: false }) as { data: boolean | null };
+
+  const checkpointRewards = async () => {
+    if (!address || !rewardsEnabled || !snapshotAsync) return;
+    await snapshotAsync(address as `0x${string}`, token.address as `0x${string}`);
+  };
 
   const [addAmount, setAddAmount] = useState('');
   const [removeAmount, setRemoveAmount] = useState('');
@@ -561,6 +577,8 @@ function PositionManagerInline({
     let hash: `0x${string}` | undefined;
 
     try {
+      await checkpointRewards();
+
       hash = await addFeeLiquidity(
         walletClient,
         publicClient as PublicClient,
@@ -636,6 +654,8 @@ function PositionManagerInline({
     };
 
     try {
+      await checkpointRewards();
+
       if (typeof burnLiquidity.mutateAsync === 'function') {
         hash = await burnLiquidity.mutateAsync(payload);
       } else {
@@ -880,6 +900,17 @@ function CompactPositionManagerInline({
   const burnLiquidity: BurnLiquidityAction = Hooks.amm.useBurnSync
     ? Hooks.amm.useBurnSync()
     : { mutate: () => {}, isPending: false };
+  const { snapshotAsync } = Hooks.amm.useSnapshotRewards
+    ? Hooks.amm.useSnapshotRewards()
+    : { snapshotAsync: null };
+  const { data: rewardsEnabled } = (Hooks.amm.usePoolRewardsEnabled
+    ? Hooks.amm.usePoolRewardsEnabled({ token: token.address as `0x${string}` })
+    : { data: false }) as { data: boolean | null };
+
+  const checkpointRewards = async () => {
+    if (!address || !rewardsEnabled || !snapshotAsync) return;
+    await snapshotAsync(address as `0x${string}`, token.address as `0x${string}`);
+  };
 
   const [addAmount, setAddAmountRaw] = useState('');
   const [hubAddAmount, setHubAddAmountRaw] = useState('');
@@ -1050,6 +1081,8 @@ function CompactPositionManagerInline({
         }
       }
 
+      await checkpointRewards();
+
       const hash = await addFeeLiquidity(
         walletClient,
         publicClient as PublicClient,
@@ -1086,6 +1119,8 @@ function CompactPositionManagerInline({
     };
 
     try {
+      await checkpointRewards();
+
       if (typeof burnLiquidity.mutateAsync === 'function') {
         const hash = await burnLiquidity.mutateAsync(payload);
         if (hash) {

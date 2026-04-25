@@ -574,6 +574,20 @@ export const Hooks = {
                 }
             });
         },
+        usePoolRewardsEnabled: ({ token }: { token: `0x${string}` }) => {
+            const chainId = useChainId();
+            const isArc = chainId === 5042002;
+            return useReadContract({
+                address: USYC_REWARDS_ADDRESS,
+                abi: USYC_REWARDS_ABI,
+                functionName: 'poolEnabled',
+                args: [token],
+                query: {
+                    enabled: isArc && !!token && USYC_REWARDS_ADDRESS !== ZERO_ADDRESS,
+                    staleTime: 60000,
+                }
+            });
+        },
         useClaimRewards: () => {
             const { writeContractAsync, isPending } = useWriteContract();
             return {
@@ -590,13 +604,17 @@ export const Hooks = {
         useSnapshotRewards: () => {
             const { writeContractAsync, isPending } = useWriteContract();
             return {
-                snapshotAsync: (user: `0x${string}`, token: `0x${string}`) =>
-                    writeContractAsync({
+                snapshotAsync: (user: `0x${string}`, token: `0x${string}`) => {
+                    if (USYC_REWARDS_ADDRESS === ZERO_ADDRESS) {
+                        return Promise.resolve(undefined);
+                    }
+                    return writeContractAsync({
                         address: USYC_REWARDS_ADDRESS,
                         abi: USYC_REWARDS_ABI,
                         functionName: 'snapshot',
                         args: [user, token],
-                    }),
+                    });
+                },
                 isPending,
             };
         },
