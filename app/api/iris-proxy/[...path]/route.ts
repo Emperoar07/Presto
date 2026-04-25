@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const IRIS_SANDBOX_BASE = 'https://iris-api-sandbox.circle.com';
-const IRIS_PROD_BASE = 'https://iris-api.circle.com';
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +24,7 @@ export async function GET(
     });
 
     const text = await upstream.text();
-    console.log(`[iris-proxy] GET ${segments} → ${upstream.status}`, text.slice(0, 500));
+    console.info(`[iris-proxy] GET ${segments} -> ${upstream.status}`);
 
     return new NextResponse(text, {
       status: upstream.status,
@@ -37,7 +36,7 @@ export async function GET(
   } catch (error) {
     console.error(`[iris-proxy] GET ${segments} FAILED:`, error instanceof Error ? error.message : error);
     return NextResponse.json(
-      { error: 'Iris API proxy request failed.', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Iris API proxy request failed.' },
       { status: 502 },
     );
   }
@@ -68,7 +67,7 @@ export async function POST(
     });
 
     const text = await upstream.text();
-    console.log(`[iris-proxy] POST ${segments} → ${upstream.status}`, text.slice(0, 500));
+    console.info(`[iris-proxy] POST ${segments} -> ${upstream.status}`);
 
     return new NextResponse(text, {
       status: upstream.status,
@@ -80,7 +79,7 @@ export async function POST(
   } catch (error) {
     console.error(`[iris-proxy] POST ${segments} FAILED:`, error instanceof Error ? error.message : error);
     return NextResponse.json(
-      { error: 'Iris API proxy request failed.', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Iris API proxy request failed.' },
       { status: 502 },
     );
   }
