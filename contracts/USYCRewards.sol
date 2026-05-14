@@ -14,11 +14,10 @@ interface IHubAMM {
 }
 
 /**
- * USYCRewards — time-based LP reward distributor
+ * USYCRewards - time-based LP reward distributor.
  *
- * LPs earn USYC at 1.5%–1.7% APR on their proportional share of pool TVL.
- * Accrual starts from the block timestamp when the user first adds liquidity
- * (tracked via the first snapshot call). Rewards are claimed per pair.
+ * LPs earn USYC at 1.5%-1.7% APR on their stablecoin LP share value.
+ * Accrual starts from the block timestamp when the user first snapshots.
  *
  * Rate is stored in basis points: 150 = 1.5%, 170 = 1.7%.
  * Default rate for all pairs is 150 bps. Override per token via setRewardRate().
@@ -80,7 +79,7 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         emit RewardPoolEnabled(token, enabled);
     }
 
-    // Convenience: withdraw USYC from contract if needed (emergency)
+    // Convenience: withdraw USYC from contract if needed (emergency).
     function withdrawUsyc(uint256 amount) external onlyOwner {
         usyc.safeTransfer(msg.sender, amount);
     }
@@ -89,7 +88,7 @@ contract USYCRewards is Ownable, ReentrancyGuard {
      * Backdate a user's snapshot to their first-ever liquidity deposit timestamp.
      * Only callable by owner. Used once to bootstrap past LPs so they can claim
      * rewards retroactively from when they first provided liquidity.
-     * Will not overwrite a snapshot that is already set (protects against double-counting).
+     * Will not overwrite a snapshot that is already set.
      */
     function ownerSnapshot(address user, address token, uint256 firstDepositTimestamp) external onlyOwner {
         require(firstDepositTimestamp < block.timestamp, "timestamp in future");
@@ -98,9 +97,6 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         emit OwnerSnapshotSet(user, token, firstDepositTimestamp);
     }
 
-    /**
-     * Batch version of ownerSnapshot for efficiency.
-     */
     function ownerSnapshotBatch(
         address[] calldata users,
         address[] calldata tokens,
@@ -116,17 +112,16 @@ contract USYCRewards is Ownable, ReentrancyGuard {
     }
 
     // -------------------------------------------------------------------------
-    // Snapshot — called externally when LP position changes
+    // Snapshot - called externally when LP position changes
     // -------------------------------------------------------------------------
 
     /**
      * Checkpoint a user's accrued rewards for a given token pair.
      * Must be called before LP share changes (add/remove liquidity).
-     * Anyone can call — safest to call from the front-end before tx.
+     * Anyone can call; the frontend calls it before liquidity actions.
      */
     function snapshot(address user, address token) public {
         _accrueRewards(user, token);
-        // lastSnapshot is updated inside _accrueRewards
     }
 
     // -------------------------------------------------------------------------
@@ -152,8 +147,7 @@ contract USYCRewards is Ownable, ReentrancyGuard {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns total claimable USYC for a user on a given pair (accrued + pending).
-     * Safe to call from the UI without a state change.
+     * Returns total claimable USYC for a user on a given pair.
      */
     function claimableOf(address user, address token) external view returns (uint256) {
         uint256 accrued = _computeAccrued(user, token);
@@ -178,8 +172,9 @@ contract USYCRewards is Ownable, ReentrancyGuard {
             pendingRewards[user][token] += accrued;
             emit RewardAccrued(user, token, accrued);
         }
-        // Set snapshot to now whether or not they had a position —
-        // this marks the start of their accrual window on first call.
+
+        // Set snapshot to now whether or not they had a position. This marks
+        // the start of their accrual window on first call.
         lastSnapshot[user][token] = block.timestamp;
     }
 
@@ -187,7 +182,6 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         if (!poolEnabled[token]) return 0;
 
         uint256 snapshotTime = lastSnapshot[user][token];
-        // No snapshot yet — no retroactive accrual before first snapshot
         if (snapshotTime == 0) return 0;
 
         uint256 elapsed = block.timestamp - snapshotTime;
@@ -197,22 +191,16 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         uint256 total = hubAmm.totalShares(token);
         if (userShares == 0 || total == 0) return 0;
 
-        // TVL in hub token (USDC, 6 decimals) — use path side as USD proxy
-        uint256 pathReserve = hubAmm.pathReserves(token);
-        // Full pool TVL = 2 × path side (balanced pool approximation)
-        uint256 tvlUsdc = pathReserve * 2;
-        if (tvlUsdc == 0) return 0;
+        // ArcHubAMMNormalized mints LP shares in 18-decimal normalized units.
+        // A balanced stable LP position has roughly one side of USD value in
+        // shares, so rewards use shares * 2 as the full stablecoin position.
+        // This avoids current reserves because reserves can move inside one
+        // block and must not retroactively inflate rewards.
+        uint256 userTvl = (userShares * 2) / 1e12;
+        if (userTvl == 0) return 0;
 
-        // User's proportional TVL (6 decimals)
-        uint256 userTvl = (tvlUsdc * userShares) / total;
-
-        // Annual rate in bps
         uint256 rate = _effectiveRewardRate(token);
-
-        // reward = userTvl × rate / 10000 × elapsed / SECONDS_PER_YEAR
-        // All in 6-decimal USDC space → USYC is also 6 decimals, 1:1 peg assumed
-        uint256 reward = (userTvl * rate * elapsed) / (10000 * SECONDS_PER_YEAR);
-        return reward;
+        return (userTvl * rate * elapsed) / (10000 * SECONDS_PER_YEAR);
     }
 
     function _effectiveRewardRate(address token) internal view returns (uint256) {

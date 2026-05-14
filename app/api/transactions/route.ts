@@ -470,7 +470,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get('address');
   const chainIdParam = searchParams.get('chainId');
-  const chainId = chainIdParam !== null ? parseInt(chainIdParam, 10) : DEFAULT_CHAIN_ID;
+  const chainId = chainIdParam !== null ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
   const limitParam = Number(searchParams.get('limit') ?? DEFAULT_LIMIT);
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), MAX_LIMIT) : DEFAULT_LIMIT;
   const toBlockParam = searchParams.get('toBlock');
@@ -478,6 +478,10 @@ export async function GET(request: Request) {
 
   if (!isValidAddress(address)) {
     return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
+  }
+
+  if (!Number.isInteger(chainId)) {
+    return NextResponse.json({ error: 'Invalid chain' }, { status: 400 });
   }
 
   const context = getChainContext(chainId);
@@ -527,11 +531,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Transactions API error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to load transactions';
     return NextResponse.json(
       {
         ...buildEmptyPayload(context, context.notice),
-        error: message,
+        error: 'Failed to load transactions',
       },
       { status: 200 }
     );
