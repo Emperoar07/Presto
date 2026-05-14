@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { PRESTO_MARKETS_URL } from '@/config/links';
 
 const FEATURES = [
   { t: 'Token Swaps', d: 'Instant onchain execution against stable hub pools. No offchain order books and no hidden routing fees.', icon: 'swap_horiz', color: '#25c0f4' },
@@ -213,6 +214,14 @@ export default function Home() {
                 {label}
               </Link>
             ))}
+            <a
+              href={PRESTO_MARKETS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-[#94a3b8] transition-all hover:bg-white/[0.04] hover:text-[#f1f5f9]"
+            >
+              Markets
+            </a>
           </div>
           <Link
             href="/swap"

@@ -34,9 +34,19 @@ import {
 } from '@/lib/activityHistory';
 import { readLocalActivityHistory, type LocalActivityRecord } from '@/lib/activityHistory';
 import { emitPrestoDataRefresh, refreshPrestoQueries, subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
+import { useTokenBalances } from '@/hooks/useApiQueries';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
+
+const formatSwapBalance = (value: string) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return '0';
+  return parsed.toLocaleString('en-US', {
+    minimumFractionDigits: parsed < 1 ? 4 : 2,
+    maximumFractionDigits: 6,
+  });
+};
 
 export function SwapCardEnhanced() {
   const chainId = useChainId();
@@ -99,6 +109,11 @@ export function SwapCardEnhanced() {
   const [balanceIn, setBalanceIn] = useState('0.00');
   const [balanceOut, setBalanceOut] = useState('0.00');
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
+  const {
+    data: polledBalances = {},
+    isFetching: isPollingBalances,
+    refetch: refetchPolledBalances,
+  } = useTokenBalances();
 
   const refreshSwapHistory = useCallback(() => {
     const items = readLocalActivityHistory()
@@ -161,6 +176,22 @@ export function SwapCardEnhanced() {
   }, [fetchBalances]);
 
   useEffect(() => {
+    if (!inputToken || !outputToken) return;
+    const nextInput = (polledBalances as Record<string, string>)[inputToken.address];
+    const nextOutput = (polledBalances as Record<string, string>)[outputToken.address];
+    if (nextInput != null) setBalanceIn(nextInput);
+    if (nextOutput != null) setBalanceOut(nextOutput);
+  }, [inputToken, outputToken, polledBalances]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void refetchPolledBalances();
+      void fetchBalances();
+    }, 15_000);
+    return () => window.clearInterval(intervalId);
+  }, [fetchBalances, refetchPolledBalances]);
+
+  useEffect(() => {
     refreshSwapHistory();
   }, [refreshSwapHistory]);
 
@@ -177,9 +208,10 @@ export function SwapCardEnhanced() {
 
   useEffect(() => {
     return subscribePrestoDataRefresh(() => {
+      void refetchPolledBalances();
       void fetchBalances();
     });
-  }, [fetchBalances]);
+  }, [fetchBalances, refetchPolledBalances]);
 
   // Note: Tempo DEX uses getPool instead of tokenReserves
   // For now, we'll skip reserves-based price impact for Tempo chain
@@ -533,6 +565,7 @@ export function SwapCardEnhanced() {
       setInputAmount('');
       setOutputAmount('');
       invalidateQuoteCache(); // Clear quote cache after successful swap
+      await refetchPolledBalances();
       await fetchBalances();
       await refreshPrestoQueries(queryClient, { address, chainId });
       emitPrestoDataRefresh('swap');
@@ -651,7 +684,7 @@ export function SwapCardEnhanced() {
               </div>
               <div className="mt-2 flex justify-between">
                 <span className="text-[11px] font-semibold text-primary">
-                  Balance: {isBalanceLoading ? '...' : Number(balanceIn).toFixed(4)} {inputToken.symbol}
+                  Balance: {isBalanceLoading || isPollingBalances ? '...' : formatSwapBalance(balanceIn)} {inputToken.symbol}
                 </span>
                 <button
                   type="button"
@@ -711,7 +744,7 @@ export function SwapCardEnhanced() {
               </div>
               <div className="mt-2">
                 <span className="text-[11px] font-semibold text-primary">
-                  Balance: {isBalanceLoading ? '...' : Number(balanceOut).toFixed(4)} {outputToken.symbol}
+                  Balance: {isBalanceLoading || isPollingBalances ? '...' : formatSwapBalance(balanceOut)} {outputToken.symbol}
                 </span>
               </div>
             </div>

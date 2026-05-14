@@ -242,6 +242,8 @@ export const CHAIN_CONTRACTS = DEFAULT_CHAIN_CONTRACTS;
     "event Initialized(address indexed owner, address indexed usyc, address indexed hubAmm)",
   ]);
 
+export const DEFAULT_USYC_REWARDS_ADDRESS = '0x3454fB11Ead7a10806434daE0A7EfFd289ABb908' as const;
+
 export const USYC_REWARDS_ADDRESS: `0x${string}` = (
-  process.env.NEXT_PUBLIC_USYC_REWARDS_ADDRESS ?? '0x0000000000000000000000000000000000000000'
+  process.env.NEXT_PUBLIC_USYC_REWARDS_ADDRESS ?? DEFAULT_USYC_REWARDS_ADDRESS
 ) as `0x${string}`;
