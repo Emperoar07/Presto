@@ -1,6 +1,6 @@
 # Presto
 
-Presto is a testnet DEX for Arc and Tempo with a live normalized hub AMM, USDC bridge flows, on-chain analytics, and full liquidity management.
+Presto is a testnet DEX for Arc with a live normalized hub AMM, USDC bridge flows, on-chain analytics, and full liquidity management.
 
 ## Features
 
