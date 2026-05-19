@@ -4,7 +4,6 @@ import { memo } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAccount, useChainId } from 'wagmi';
 import { isArcChain } from '@/config/contracts';
-import { PRESTO_MARKETS_URL } from '@/config/links';
 
 const PAGE_TITLES: Record<string, string> = {
   '/swap': 'Swap',
@@ -41,15 +40,16 @@ export const PageTopbar = memo(function PageTopbar() {
     <div className="sticky top-0 z-30 flex h-[58px] items-center border-b border-white/[0.07] bg-[#0f172a]/95 px-4 backdrop-blur-md md:px-7">
       <span className="text-[15px] font-bold text-slate-100">{title}</span>
       <div className="ml-auto flex items-center gap-2">
-        <a
-          href={PRESTO_MARKETS_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-[8px] border border-white/[0.07] bg-[#1e293b] px-[10px] py-2 text-[11px] font-semibold text-slate-300 transition-colors hover:border-primary/25 hover:text-primary"
+        <span
+          aria-disabled="true"
+          className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-[8px] border border-white/[0.07] bg-[#1e293b] px-[10px] py-2 text-[11px] font-semibold text-slate-500"
         >
           <span className="material-symbols-outlined text-[14px]">trending_up</span>
           Markets
-        </a>
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            Soon
+          </span>
+        </span>
         {!isProductionMode ? (
           <a
             href={faucetUrl}
