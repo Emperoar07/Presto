@@ -63,7 +63,6 @@ export const HUB_AMM_ABI = parseAbi([
   "function shares(address token, address provider) external view returns (uint256)",
   "function liquidityOf(address userToken, address provider) external view returns (uint256)",
   "function pathUSD() external view returns (address)",
-  // Admin / Emergency
   "function pause() external",
   "function unpause() external",
   "function paused() external view returns (bool)",
@@ -80,13 +79,12 @@ export const ARC_STABLESWAP_ABI = parseAbi([
   "function getSupportedTokens() external view returns (address[] memory)",
   "function getTokenCount() external view returns (uint256)",
   "function isSupportedToken(address token) external view returns (bool)",
-  "function tokenDecimals(address token) external view returns (uint8)"
+  "function tokenDecimals(address token) external view returns (uint8)",
+  "function reserves(address token) external view returns (uint256)",
+  "function lpBalanceOf(address provider) external view returns (uint256)",
+  "function totalLpSupply() external view returns (uint256)"
 ]);
 
-/**
- * Tempo Native DEX ABI - For Tempo chain precompile at 0xdec0...
- * This is the native DEX on Tempo blockchain
- */
 export const TEMPO_DEX_ABI = parseAbi([
   // Swapping
   "function swapExactAmountIn(address tokenIn, address tokenOut, uint128 amountIn, uint128 minAmountOut) external returns (uint128 amountOut)",

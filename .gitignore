@@ -22,3 +22,7 @@ arcscan_*.html
 output_synthra_*.png
 synthra_universal_router.sol
 tsconfig.tsbuildinfo
+
+# Generated / data files
+repomix-output.xml
+data/backfill-positions.json

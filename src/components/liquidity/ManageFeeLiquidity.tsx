@@ -3,18 +3,19 @@
 import { useState, useEffect, type ReactNode, type RefObject } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatUnits, parseUnits } from 'viem';
-import { useAccount, useChainId, useWalletClient, usePublicClient } from 'wagmi';
+import { useAccount, useChainId, useWalletClient, usePublicClient, useReadContracts } from 'wagmi';
 import toast from 'react-hot-toast';
 import { Hooks } from '@/lib/tempo';
 import { MonitorSwaps } from './MonitorSwaps';
 import { RebalancePool } from './RebalancePool';
 import { PoolStats } from './PoolStats';
-import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount } from '@/lib/tempoClient';
+import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount, approveToken } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
 import { isUserCancellation } from '@/lib/errorHandling';
 import { emitPrestoDataRefresh, refreshPrestoQueries } from '@/lib/appDataRefresh';
 import type { PublicClient } from 'viem';
-import { FACTORY_ABI, getContractAddresses, isArcChain, isTempoNativeChain, ZERO_ADDRESS } from '@/config/contracts';
+import { FACTORY_ABI, getContractAddresses, isArcChain, isTempoNativeChain, ZERO_ADDRESS, ARC_STABLESWAP_ABI } from '@/config/contracts';
+import { isStableBasketToken, getStableTokenIndex, USDC_ADDR, EURC_ADDR, USDT_ADDR, WUSDC_ADDR } from '@/lib/stableswap';
 import {
   createLocalActivityItem,
   patchLocalActivityItem,
@@ -89,6 +90,14 @@ export function ManageFeeLiquidity({
   const [feeToSetter, setFeeToSetter] = useState<string>('');
   const [feeToInput, setFeeToInput] = useState('');
   const [isSettingFeeTo, setIsSettingFeeTo] = useState(false);
+  const [slippageTolerance, setSlippageTolerance] = useState(0.5);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedSlippage = localStorage.getItem('swapSlippage');
+      if (savedSlippage) setSlippageTolerance(parseFloat(savedSlippage));
+    }
+  }, []);
 
   useEffect(() => {
     const fetchBalance = async () => {
@@ -103,31 +112,6 @@ export function ManageFeeLiquidity({
     };
     fetchBalance();
   }, [publicClient, address, userToken, userTokenDecimals, validatorToken, validatorTokenDecimals, isAdding]);
-
-  useEffect(() => {
-    const fetchRequirement = async () => {
-      if (!publicClient || !amount || Number(amount) <= 0 || !userToken || !validatorToken || isTempoChain) {
-        setRequiredPathAmount('0');
-        return;
-      }
-
-      try {
-        const pathRequired = await quoteHubLiquidityPathAmount(
-          publicClient as PublicClient,
-          userToken,
-          validatorToken,
-          parseUnits(amount, userTokenDecimals),
-          chainId
-        );
-        setRequiredPathAmount(formatUnits(pathRequired, validatorTokenDecimals));
-      } catch (error) {
-        console.error('Failed to quote Arc paired liquidity amount', error);
-        setRequiredPathAmount('0');
-      }
-    };
-
-    fetchRequirement();
-  }, [amount, chainId, isTempoChain, publicClient, userToken, userTokenDecimals, validatorToken, validatorTokenDecimals]);
 
   useEffect(() => {
     const fetchFeeTo = async () => {
@@ -183,17 +167,127 @@ export function ManageFeeLiquidity({
     ? Hooks.amm.usePoolRewardsEnabled({ token: userToken as `0x${string}` })
     : { data: false }) as { data: boolean | null };
 
+  const { ARC_STABLESWAP_ADDRESS } = getContractAddresses(chainId);
+  const isStableSwapLiquidity = !!(isArcTestnet &&
+    ARC_STABLESWAP_ADDRESS &&
+    ARC_STABLESWAP_ADDRESS !== ZERO_ADDRESS &&
+    isStableBasketToken(userTokenSymbol) &&
+    isStableBasketToken(validatorTokenSymbol));
+
+  const { data: stableSwapData } = useReadContracts({
+    contracts: isStableSwapLiquidity ? [
+      {
+        address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+        abi: ARC_STABLESWAP_ABI,
+        functionName: 'reserves',
+        args: [USDC_ADDR as `0x${string}`],
+      },
+      {
+        address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+        abi: ARC_STABLESWAP_ABI,
+        functionName: 'reserves',
+        args: [EURC_ADDR as `0x${string}`],
+      },
+      {
+        address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+        abi: ARC_STABLESWAP_ABI,
+        functionName: 'reserves',
+        args: [USDT_ADDR as `0x${string}`],
+      },
+      {
+        address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+        abi: ARC_STABLESWAP_ABI,
+        functionName: 'reserves',
+        args: [WUSDC_ADDR as `0x${string}`],
+      },
+      {
+        address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+        abi: ARC_STABLESWAP_ABI,
+        functionName: 'lpBalanceOf',
+        args: [address as `0x${string}`],
+      },
+      {
+        address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+        abi: ARC_STABLESWAP_ABI,
+        functionName: 'totalLpSupply',
+      }
+    ] : [],
+    query: {
+      enabled: !!isStableSwapLiquidity && !!address && !!ARC_STABLESWAP_ADDRESS,
+    }
+  });
+
+  const stableUsdcReserve = stableSwapData?.[0]?.result as bigint | undefined;
+  const stableEurcReserve = stableSwapData?.[1]?.result as bigint | undefined;
+  const stableUsdtReserve = stableSwapData?.[2]?.result as bigint | undefined;
+  const stableWusdcReserve = stableSwapData?.[3]?.result as bigint | undefined;
+  const stableUserBalance = stableSwapData?.[4]?.result as bigint | undefined;
+  const stableTotalSupply = stableSwapData?.[5]?.result as bigint | undefined;
+
+  const getStableReserveByIndex = (index: number) => {
+    if (index === 0) return stableUsdcReserve;
+    if (index === 1) return stableEurcReserve;
+    if (index === 2) return stableUsdtReserve;
+    if (index === 3) return stableWusdcReserve;
+    return undefined;
+  };
+
+  const userIndex = getStableTokenIndex(userToken);
+  const validatorIndex = getStableTokenIndex(validatorToken);
+
+  const stableUserReserve = getStableReserveByIndex(userIndex);
+  const stableValidatorReserve = getStableReserveByIndex(validatorIndex);
+
+  const poolReservesUser = isStableSwapLiquidity ? (stableUserReserve ?? 0n) : (pool?.reserveUserToken ?? 0n);
+  const poolReservesValidator = isStableSwapLiquidity ? (stableValidatorReserve ?? 0n) : (pool?.reserveValidatorToken ?? 0n);
+  const userLpBalance = isStableSwapLiquidity ? (stableUserBalance ?? 0n) : (balance ?? 0n);
+  const lpTotalShares = isStableSwapLiquidity ? (stableTotalSupply ?? 0n) : (totalShares ?? 0n);
   const checkpointRewards = async () => {
     if (!address || !rewardsEnabled || !snapshotAsync) return;
     await snapshotAsync(address as `0x${string}`, userToken as `0x${string}`);
   };
 
+  useEffect(() => {
+    const fetchRequirement = async () => {
+      if (!publicClient || !amount || Number(amount) <= 0 || !userToken || !validatorToken || isTempoChain) {
+        setRequiredPathAmount('0');
+        return;
+      }
+
+      if (isStableSwapLiquidity) {
+        if (poolReservesUser > 0n && poolReservesValidator > 0n) {
+          const pathRequired = (parseUnits(amount, userTokenDecimals) * poolReservesValidator) / poolReservesUser;
+          setRequiredPathAmount(formatUnits(pathRequired, validatorTokenDecimals));
+        } else {
+          setRequiredPathAmount(amount);
+        }
+        return;
+      }
+
+      try {
+        const pathRequired = await quoteHubLiquidityPathAmount(
+          publicClient as PublicClient,
+          userToken,
+          validatorToken,
+          parseUnits(amount, userTokenDecimals),
+          chainId
+        );
+        setRequiredPathAmount(formatUnits(pathRequired, validatorTokenDecimals));
+      } catch (error) {
+        console.error('Failed to quote Arc paired liquidity amount', error);
+        setRequiredPathAmount('0');
+      }
+    };
+
+    fetchRequirement();
+  }, [amount, chainId, isTempoChain, publicClient, userToken, userTokenDecimals, validatorToken, validatorTokenDecimals, isStableSwapLiquidity, poolReservesUser, poolReservesValidator]);
+
   const estimatedTotalShares = isTempoChain
     ? (pool?.reserveValidatorToken ? pool.reserveValidatorToken * 2n : null)
-    : (totalShares ?? null);
+    : (lpTotalShares || null);
 
   const estimatedLpTokens = (() => {
-    if (!amount || !pool?.reserveValidatorToken || pool.reserveValidatorToken === 0n || !estimatedTotalShares) {
+    if (!amount || !poolReservesValidator || poolReservesValidator === 0n || !estimatedTotalShares) {
       return null;
     }
     try {
@@ -202,9 +296,9 @@ export function ManageFeeLiquidity({
 
       const reserveBase = isTempoChain
         ? Number.parseFloat(validatorTokenBalance || '0')
-        : Number(formatUnits(pool.reserveUserToken, userTokenDecimals));
+        : Number(formatUnits(poolReservesUser, userTokenDecimals));
       const reserveForMint = isTempoChain
-        ? Number(formatUnits(pool.reserveValidatorToken, validatorTokenDecimals))
+        ? Number(formatUnits(poolReservesValidator, validatorTokenDecimals))
         : reserveBase;
       const currentTotalShares = Number(formatUnits(estimatedTotalShares, 18));
 
@@ -222,17 +316,19 @@ export function ManageFeeLiquidity({
   const estimatedPoolShare = (() => {
     if (estimatedLpTokens === null || !estimatedTotalShares) return null;
     const currentTotal = Number(formatUnits(estimatedTotalShares, 18));
-    const currentUserShares = balance ? Number(formatUnits(balance, 18)) : 0;
+    const currentUserShares = userLpBalance ? Number(formatUnits(userLpBalance, 18)) : 0;
     const newTotal = currentTotal + estimatedLpTokens;
     const newUserShares = currentUserShares + estimatedLpTokens;
     if (!Number.isFinite(newTotal) || newTotal <= 0) return null;
     const share = (newUserShares / newTotal) * 100;
     return Number.isFinite(share) ? share : null;
   })();
+
   const numericUserBalance = Number.parseFloat(userTokenBalance || '0');
   const numericValidatorBalance = Number.parseFloat(validatorTokenBalance || '0');
-  const reserveUserValue = pool?.reserveUserToken ? Number(formatUnits(pool.reserveUserToken, userTokenDecimals)) : 0;
-  const reserveValidatorValue = pool?.reserveValidatorToken ? Number(formatUnits(pool.reserveValidatorToken, validatorTokenDecimals)) : 0;
+  const reserveUserValue = poolReservesUser ? Number(formatUnits(poolReservesUser, userTokenDecimals)) : 0;
+  const reserveValidatorValue = poolReservesValidator ? Number(formatUnits(poolReservesValidator, validatorTokenDecimals)) : 0;
+
   const maxAddAmount = (() => {
     if (isTempoChain) return validatorTokenBalance;
     if (!Number.isFinite(numericUserBalance) || numericUserBalance <= 0) return '0';
@@ -276,22 +372,62 @@ export function ManageFeeLiquidity({
 
       await checkpointRewards();
 
-      hash = await addFeeLiquidity(
-        walletClient,
-        publicClient as unknown as PublicClient,
-        address as `0x${string}`,
-        userToken as `0x${string}`,
-        validatorToken as `0x${string}`,
-        parseUnits(amount, isTempoChain ? validatorTokenDecimals : userTokenDecimals),
-        (stage: 'approving' | 'adding') => {
-          if (stage === 'approving') {
-            setIsApproving(true);
-          } else {
-            setIsApproving(false);
-          }
-        },
-        chainId
-      );
+      if (isStableSwapLiquidity) {
+        const amountsArray = [0n, 0n, 0n, 0n];
+        const userIndex = getStableTokenIndex(userToken);
+        const validatorIndex = getStableTokenIndex(validatorToken);
+
+        const userAmountBig = parseUnits(amount, userTokenDecimals);
+        const validatorAmountBig = parseUnits(requiredPathAmount, validatorTokenDecimals);
+
+        if (userIndex !== -1) amountsArray[userIndex] = userAmountBig;
+        if (validatorIndex !== -1) amountsArray[validatorIndex] = validatorAmountBig;
+
+        setIsApproving(true);
+        if (userAmountBig > 0n && userToken !== ZERO_ADDRESS) {
+          await approveToken(walletClient, publicClient, address, userToken, ARC_STABLESWAP_ADDRESS, userAmountBig);
+        }
+        if (validatorAmountBig > 0n && validatorToken !== ZERO_ADDRESS) {
+          await approveToken(walletClient, publicClient, address, validatorToken, ARC_STABLESWAP_ADDRESS, validatorAmountBig);
+        }
+        setIsApproving(false);
+
+        // Calculate minLpOut with slippage protection
+        let minLpOut = 1n;
+        if (lpTotalShares > 0n && poolReservesUser > 0n) {
+          const expectedLp = (lpTotalShares * userAmountBig) / poolReservesUser;
+          const slippageBps = BigInt(Math.min(Math.max(Math.floor(slippageTolerance * 100), 1), 2000));
+          minLpOut = (expectedLp * (10000n - slippageBps)) / 10000n;
+        }
+
+        const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60));
+        hash = await walletClient.writeContract({
+          address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+          abi: ARC_STABLESWAP_ABI,
+          functionName: 'addLiquidity',
+          args: [amountsArray, minLpOut, deadlineTimestamp],
+          account: address as `0x${string}`,
+          chain: null
+        });
+      } else {
+        hash = await addFeeLiquidity(
+          walletClient,
+          publicClient as unknown as PublicClient,
+          address as `0x${string}`,
+          userToken as `0x${string}`,
+          validatorToken as `0x${string}`,
+          parseUnits(amount, isTempoChain ? validatorTokenDecimals : userTokenDecimals),
+          (stage: 'approving' | 'adding') => {
+            if (stage === 'approving') {
+              setIsApproving(true);
+            } else {
+              setIsApproving(false);
+            }
+          },
+          chainId
+        );
+      }
+
       const pendingActivity = createLocalActivityItem({
         category: 'liquidity',
         title: `Add Liquidity ${userTokenSymbol}/${validatorTokenSymbol}`,
@@ -361,10 +497,47 @@ export function ManageFeeLiquidity({
     try {
       await checkpointRewards();
 
-      if (typeof burnLiquidity.mutateAsync === 'function') {
-        hash = await burnLiquidity.mutateAsync(payload);
+      if (isStableSwapLiquidity) {
+        if (!walletClient) {
+          toast.error('Wallet client unavailable');
+          return;
+        }
+        const lpAmountBig = parseUnits(removeAmount, 18);
+
+        // Calculate minAmounts array for all 4 tokens with slippage protection
+        const minAmounts = [1n, 1n, 1n, 1n];
+        if (lpTotalShares > 0n) {
+          const slippageBps = BigInt(Math.min(Math.max(Math.floor(slippageTolerance * 100), 1), 2000));
+          const reserves = [
+            stableUsdcReserve ?? 0n,
+            stableEurcReserve ?? 0n,
+            stableUsdtReserve ?? 0n,
+            stableWusdcReserve ?? 0n
+          ];
+          for (let i = 0; i < 4; i++) {
+            const expectedAmount = (reserves[i] * lpAmountBig) / lpTotalShares;
+            minAmounts[i] = (expectedAmount * (10000n - slippageBps)) / 10000n;
+            if (minAmounts[i] === 0n) {
+              minAmounts[i] = 1n; // Fallback to 1n to avoid reverts or overly strict zero checks
+            }
+          }
+        }
+
+        const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60));
+        hash = await walletClient.writeContract({
+          address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+          abi: ARC_STABLESWAP_ABI,
+          functionName: 'removeLiquidity',
+          args: [lpAmountBig, minAmounts, deadlineTimestamp],
+          account: address as `0x${string}`,
+          chain: null
+        });
       } else {
-        burnLiquidity.mutate(payload);
+        if (typeof burnLiquidity.mutateAsync === 'function') {
+          hash = await burnLiquidity.mutateAsync(payload);
+        } else {
+          burnLiquidity.mutate(payload);
+        }
       }
 
       const pendingActivity = createLocalActivityItem({

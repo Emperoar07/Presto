@@ -20,9 +20,11 @@ import { parseContractError, logError, isUserCancellation } from '@/lib/errorHan
 import {
   HUB_AMM_ABI,
   TEMPO_DEX_ABI,
+  ARC_STABLESWAP_ABI,
   isArcChain,
   isTempoNativeChain,
-  getDexAddress
+  getDexAddress,
+  getContractAddresses
 } from '@/config/contracts';
 import { writeContractWithRetry } from '@/lib/txRetry';
 import { readContractWithFallback, invalidateQuoteCache } from '@/lib/rpc';
@@ -35,6 +37,7 @@ import {
 import { readLocalActivityHistory, type LocalActivityRecord } from '@/lib/activityHistory';
 import { emitPrestoDataRefresh, refreshPrestoQueries, subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
 import { useTokenBalances } from '@/hooks/useApiQueries';
+import { isStableBasketToken } from '@/lib/stableswap';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
@@ -138,6 +141,15 @@ export function SwapCardEnhanced() {
   const isArcTestnet = isArcChain(chainId);
   const dexAddress = getDexAddress(chainId);
   const dexAbi = isTempoChain ? TEMPO_DEX_ABI : HUB_AMM_ABI;
+
+  const { ARC_STABLESWAP_ADDRESS } = getContractAddresses(chainId);
+  const isStableSwapRoute = useMemo(() => {
+    return !!(isArcTestnet &&
+      ARC_STABLESWAP_ADDRESS &&
+      ARC_STABLESWAP_ADDRESS !== '0x0000000000000000000000000000000000000000' &&
+      isStableBasketToken(inputToken?.symbol) &&
+      isStableBasketToken(outputToken?.symbol));
+  }, [isArcTestnet, ARC_STABLESWAP_ADDRESS, inputToken?.symbol, outputToken?.symbol]);
 
   // Fetch token balances
   const fetchBalances = useCallback(async () => {
@@ -309,8 +321,7 @@ export function SwapCardEnhanced() {
   const [priceImpact, setPriceImpact] = useState<number>(0);
   // Track quote request version to cancel stale requests
   const quoteRequestId = useRef(0);
-
-  useEffect(() => {
+  useEffect(() => {
     const fetchQuote = async () => {
       const currentRequestId = ++quoteRequestId.current;
       if (!publicClient || !inputToken.address || !outputToken.address) return;
@@ -331,7 +342,14 @@ export function SwapCardEnhanced() {
 
           // Get quote - use different function based on chain
           let result: bigint;
-          if (isTempoChain) {
+          if (isStableSwapRoute) {
+            result = await readContractWithFallback<bigint>(publicClient, {
+              address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+              abi: ARC_STABLESWAP_ABI,
+              functionName: 'getQuote',
+              args: [inputToken.address, outputToken.address, amount],
+            });
+          } else if (isTempoChain) {
             // Tempo DEX uses quoteSwapExactAmountIn
             result = await readContractWithFallback<bigint>(publicClient, {
               address: dexAddress as `0x${string}`,
@@ -363,7 +381,17 @@ export function SwapCardEnhanced() {
           setOutputAmount(formatUnits(result, outputToken.decimals));
 
           // Calculate price impact using the correct reserve model per chain
-          if (!isTempoChain && isArcTestnet) {
+          if (isStableSwapRoute) {
+            if (amount > 0n && result > 0n) {
+              const inputValue = Number(formatUnits(amount, inputToken.decimals));
+              const outputValue = Number(formatUnits(result, outputToken.decimals));
+              const effectiveRate = outputValue / inputValue;
+              const impact = Math.abs(1 - effectiveRate) * 100;
+              setPriceImpact(impact > 0.01 ? impact : 0);
+            } else {
+              setPriceImpact(0);
+            }
+          } else if (!isTempoChain && isArcTestnet) {
             // Price impact = difference between spot rate and effective rate.
             // Spot rate: output for an infinitely small trade (reserves ratio).
             // Effective rate: actual output / input from the on-chain quote.
@@ -418,7 +446,7 @@ export function SwapCardEnhanced() {
 
     const timer = setTimeout(fetchQuote, 500); // 500ms debounce — avoids RPC calls mid-typing
     return () => clearTimeout(timer);
-  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain, isArcTestnet, inputReserves, outputReserves, calculateArcSpotOutput]);
+  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain, isArcTestnet, inputReserves, outputReserves, calculateArcSpotOutput, isStableSwapRoute, ARC_STABLESWAP_ADDRESS]);
 
 
   // Swap execution
@@ -444,7 +472,6 @@ export function SwapCardEnhanced() {
       return;
     }
 
-    setIsSwapping(true);
     setSwapStage('approving');
 
     let hash: `0x${string}` | undefined;
@@ -458,6 +485,9 @@ export function SwapCardEnhanced() {
         return;
       }
       const minOut = calculateMinAmountOut(expectedOut, slippageTolerance);
+
+      const targetSpender = isStableSwapRoute ? ARC_STABLESWAP_ADDRESS : dexAddress;
+      const targetAbi = isStableSwapRoute ? ARC_STABLESWAP_ABI : HUB_AMM_ABI;
 
       if (isTempoChain) {
         if (!publicClient) {
@@ -499,7 +529,7 @@ export function SwapCardEnhanced() {
           }
         );
       } else {
-        // HubAMM uses swap with deadline
+        // HubAMM or StableSwap uses swap with deadline
         const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadline * 60));
 
         await approveToken(
@@ -507,7 +537,7 @@ export function SwapCardEnhanced() {
           publicClient,
           address,
           inputToken.address,
-          dexAddress,
+          targetSpender,
           amount
         );
 
@@ -516,8 +546,8 @@ export function SwapCardEnhanced() {
           walletClient,
           publicClient ?? undefined,
           {
-            address: dexAddress as `0x${string}`,
-            abi: HUB_AMM_ABI,
+            address: targetSpender as `0x${string}`,
+            abi: targetAbi,
             functionName: 'swap',
             args: [
               inputToken.address,
@@ -547,7 +577,6 @@ export function SwapCardEnhanced() {
       activityId = pendingActivity.id;
       upsertLocalActivityHistoryItem(pendingActivity);
       refreshSwapHistory();
-
       toast.custom(() => <TxToast hash={hash!} title="Swap submitted" />);
 
       // Wait for transaction confirmation
