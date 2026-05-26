@@ -187,6 +187,7 @@ export const Hooks = {
                 args: [owner, spender],
                 query: {
                     enabled: !!token && !!owner && !!spender && token !== '0x0000000000000000000000000000000000000000',
+                    staleTime: 10_000,
                 }
             });
         }
@@ -225,6 +226,7 @@ export const Hooks = {
                 args: [user, token],
                 query: {
                     enabled: !!user && !!token,
+                    staleTime: 10_000,
                 }
             });
         },
@@ -382,6 +384,7 @@ export const Hooks = {
                 args: [userToken, validatorToken],
                 query: {
                     enabled: isTempoChain && !!userToken && !!validatorToken,
+                    staleTime: 5_000,
                 }
             });
 
@@ -402,6 +405,7 @@ export const Hooks = {
                 ],
                 query: {
                     enabled: !isTempoChain && arcHubAddress !== ZERO_ADDRESS && !!userToken,
+                    staleTime: 5_000,
                 }
             });
 
@@ -441,6 +445,7 @@ export const Hooks = {
                 query: {
                     enabled: !!address && !!userToken && !!validatorToken && (isTempoChain || arcHubAddress !== ZERO_ADDRESS),
                     refetchInterval: 10000,
+                    staleTime: 5_000,
                 }
             });
         },
@@ -457,6 +462,7 @@ export const Hooks = {
                 query: {
                     enabled: !isTempoChain && arcHubAddress !== ZERO_ADDRESS && !!userToken && !!validatorToken,
                     refetchInterval: 10000,
+                    staleTime: 5_000,
                 }
             });
 
@@ -557,6 +563,7 @@ export const Hooks = {
                 query: {
                     enabled: isArc && !!user && !!token && USYC_REWARDS_ADDRESS !== ZERO_ADDRESS,
                     refetchInterval: 30000,
+                    staleTime: 10_000,
                 }
             });
         },
@@ -570,7 +577,7 @@ export const Hooks = {
                 args: [token],
                 query: {
                     enabled: isArc && !!token && USYC_REWARDS_ADDRESS !== ZERO_ADDRESS,
-                    staleTime: 60000,
+                    staleTime: Infinity,
                 }
             });
         },
@@ -584,7 +591,7 @@ export const Hooks = {
                 args: [token],
                 query: {
                     enabled: isArc && !!token && USYC_REWARDS_ADDRESS !== ZERO_ADDRESS,
-                    staleTime: 60000,
+                    staleTime: Infinity,
                 }
             });
         },

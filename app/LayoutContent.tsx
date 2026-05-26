@@ -5,12 +5,22 @@ import { usePathname } from 'next/navigation';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import dynamic from 'next/dynamic';
 import { AppSidebar } from '@/components/common/AppSidebar';
 import { AppFooter } from '@/components/common/AppFooter';
 import { PageTopbar } from '@/components/common/PageTopbar';
 import { SidebarProvider } from '@/components/common/SidebarContext';
 import { isArcChain } from '@/config/contracts';
+
+const RainbowConnect = dynamic(
+  () => import('@/components/common/RainbowConnect').then((m) => m.RainbowConnect),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[29px] w-[110px] animate-pulse rounded-[10px] bg-[#1e293b]" />
+    ),
+  }
+);
 
 const ARC_CHAIN_ID = 5042002;
 
@@ -88,30 +98,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                 </span>
                 Arc Testnet
               </span>
-              <ConnectButton.Custom>
-                {({ account, chain, mounted, openConnectModal }) => {
-                  const connected = mounted && account && chain;
-                  if (!connected) {
-                    return (
-                      <button
-                        type="button"
-                        onClick={openConnectModal}
-                        className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300 transition-colors hover:bg-[#263347] hover:text-white"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">person</span>
-                        Connect Wallet
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <div className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/10 bg-[#1e293b] px-3 py-1.5 text-[11.5px] font-semibold text-slate-300">
-                      <span className="material-symbols-outlined text-[15px]">account_circle</span>
-                      <span className="max-w-[130px] truncate">{account?.displayName ?? 'Wallet'}</span>
-                    </div>
-                  );
-                }}
-              </ConnectButton.Custom>
+              <RainbowConnect />
             </div>
           </div>
         </header>

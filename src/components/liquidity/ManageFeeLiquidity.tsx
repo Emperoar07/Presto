@@ -214,6 +214,7 @@ export function ManageFeeLiquidity({
     ] : [],
     query: {
       enabled: !!isStableSwapLiquidity && !!address && !!ARC_STABLESWAP_ADDRESS,
+      staleTime: 5_000,
     }
   });
 

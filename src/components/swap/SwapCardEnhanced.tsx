@@ -38,6 +38,7 @@ import { readLocalActivityHistory, type LocalActivityRecord } from '@/lib/activi
 import { emitPrestoDataRefresh, refreshPrestoQueries, subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
 import { useTokenBalances } from '@/hooks/useApiQueries';
 import { isStableBasketToken } from '@/lib/stableswap';
+import { useTransactionExecution } from '@/hooks/useTransactionExecution';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
@@ -59,6 +60,7 @@ export function SwapCardEnhanced() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const { execute } = useTransactionExecution();
   const [inputAmount, setInputAmount] = useState('');
   const [outputAmount, setOutputAmount] = useState('');
   const [exactField, setExactField] = useState<'input' | 'output'>('input');
@@ -256,6 +258,7 @@ export function SwapCardEnhanced() {
     ],
     query: {
       enabled: !isTempoChain && !!dexAddress && !!inputTokenAddress && !!outputTokenAddress,
+      staleTime: 5_000,
     },
   });
 
@@ -489,117 +492,119 @@ export function SwapCardEnhanced() {
       const targetSpender = isStableSwapRoute ? ARC_STABLESWAP_ADDRESS : dexAddress;
       const targetAbi = isStableSwapRoute ? ARC_STABLESWAP_ABI : HUB_AMM_ABI;
 
-      if (isTempoChain) {
-        if (!publicClient) {
-          toast.error('Public client unavailable');
-          return;
-        }
-        if (inputToken.address !== '0x0000000000000000000000000000000000000000') {
-          await approveToken(
-            walletClient,
-            publicClient,
-            address,
-            inputToken.address,
-            dexAddress,
-            amount
-          );
-        }
-        setSwapStage('swapping');
-        // Tempo DEX uses swapExactAmountIn (no deadline parameter, uses uint128)
-        hash = await writeContractWithRetry(
-          walletClient,
-          publicClient ?? undefined,
-          {
-            address: dexAddress as `0x${string}`,
-            abi: TEMPO_DEX_ABI,
-            functionName: 'swapExactAmountIn',
-            args: [
-              inputToken.address,
-              outputToken.address,
-              toUint128(amount),
-              toUint128(minOut),
-            ],
-            account: address as `0x${string}`,
-            chain: null,
-          },
-          {
-            onRetry: (attempt) => {
-              toast.loading(`Retrying swap with higher gas (attempt ${attempt})...`, { duration: 1200 });
+      let txHash: `0x${string}` | undefined;
+      await execute(
+        'Swap',
+        async () => {
+          if (isTempoChain) {
+            if (!publicClient) {
+              throw new Error('Public client unavailable');
             }
-          }
-        );
-      } else {
-        // HubAMM or StableSwap uses swap with deadline
-        const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadline * 60));
-
-        await approveToken(
-          walletClient,
-          publicClient,
-          address,
-          inputToken.address,
-          targetSpender,
-          amount
-        );
-
-        setSwapStage('swapping');
-        hash = await writeContractWithRetry(
-          walletClient,
-          publicClient ?? undefined,
-          {
-            address: targetSpender as `0x${string}`,
-            abi: targetAbi,
-            functionName: 'swap',
-            args: [
-              inputToken.address,
-              outputToken.address,
-              amount,
-              minOut,
-              deadlineTimestamp,
-            ],
-            account: address as `0x${string}`,
-            chain: null,
-          },
-          {
-            onRetry: (attempt) => {
-              toast.loading(`Retrying swap with higher gas (attempt ${attempt})...`, { duration: 1200 });
+            if (inputToken.address !== '0x0000000000000000000000000000000000000000') {
+              await approveToken(
+                walletClient,
+                publicClient,
+                address,
+                inputToken.address,
+                dexAddress,
+                amount
+              );
             }
+            setSwapStage('swapping');
+            // Tempo DEX uses swapExactAmountIn (no deadline parameter, uses uint128)
+            txHash = await writeContractWithRetry(
+              walletClient,
+              publicClient ?? undefined,
+              {
+                address: dexAddress as `0x${string}`,
+                abi: TEMPO_DEX_ABI,
+                functionName: 'swapExactAmountIn',
+                args: [
+                  inputToken.address,
+                  outputToken.address,
+                  toUint128(amount),
+                  toUint128(minOut),
+                ],
+                account: address as `0x${string}`,
+                chain: null,
+              },
+              {
+                onRetry: (attempt) => {
+                  toast.loading(`Retrying swap with higher gas (attempt ${attempt})...`, { duration: 1200 });
+                }
+              }
+            );
+            return txHash;
+          } else {
+            // HubAMM or StableSwap uses swap with deadline
+            const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadline * 60));
+
+            await approveToken(
+              walletClient,
+              publicClient,
+              address,
+              inputToken.address,
+              targetSpender,
+              amount
+            );
+
+            setSwapStage('swapping');
+            txHash = await writeContractWithRetry(
+              walletClient,
+              publicClient ?? undefined,
+              {
+                address: targetSpender as `0x${string}`,
+                abi: targetAbi,
+                functionName: 'swap',
+                args: [
+                  inputToken.address,
+                  outputToken.address,
+                  amount,
+                  minOut,
+                  deadlineTimestamp,
+                ],
+                account: address as `0x${string}`,
+                chain: null,
+              },
+              {
+                onRetry: (attempt) => {
+                  toast.loading(`Retrying swap with higher gas (attempt ${attempt})...`, { duration: 1200 });
+                }
+              }
+            );
+            return txHash;
           }
-        );
-      }
-
-      const pendingActivity = createLocalActivityItem({
-        category: 'swaps',
-        title: `Swap ${inputToken.symbol} to ${outputToken.symbol}`,
-        subtitle: `${inputAmount} ${inputToken.symbol} to ${outputAmount || '--'} ${outputToken.symbol}`,
-        status: 'pending',
-        hash,
-      });
-      activityId = pendingActivity.id;
-      upsertLocalActivityHistoryItem(pendingActivity);
-      refreshSwapHistory();
-      toast.custom(() => <TxToast hash={hash!} title="Swap submitted" />);
-
-      // Wait for transaction confirmation
-      await publicClient.waitForTransactionReceipt({ hash });
-
-      if (activityId) {
-        patchLocalActivityItem(activityId, {
-          status: 'success',
-          hash,
-        });
-      }
-      refreshSwapHistory();
-
-      // Clear inputs, invalidate cache, and refresh balances
-      setInputAmount('');
-      setOutputAmount('');
-      invalidateQuoteCache(); // Clear quote cache after successful swap
-      await refetchPolledBalances();
-      await fetchBalances();
-      await refreshPrestoQueries(queryClient, { address, chainId });
-      emitPrestoDataRefresh('swap');
-
-      toast.success('Swap completed successfully!');
+        },
+        {
+          reason: 'swap',
+          onSubmitted: async (subHash) => {
+            hash = subHash;
+            const pendingActivity = createLocalActivityItem({
+              category: 'swaps',
+              title: `Swap ${inputToken.symbol} to ${outputToken.symbol}`,
+              subtitle: `${inputAmount} ${inputToken.symbol} to ${outputAmount || '--'} ${outputToken.symbol}`,
+              status: 'pending',
+              hash: subHash,
+            });
+            activityId = pendingActivity.id;
+            upsertLocalActivityHistoryItem(pendingActivity);
+            refreshSwapHistory();
+            toast.custom(() => <TxToast hash={subHash} title="Swap submitted" />);
+          },
+          onSuccess: async (sucHash) => {
+            if (activityId) {
+              patchLocalActivityItem(activityId, {
+                status: 'success',
+                hash: sucHash,
+              });
+            }
+            refreshSwapHistory();
+            setInputAmount('');
+            setOutputAmount('');
+            invalidateQuoteCache();
+          }
+        }
+      );
     } catch (e: unknown) {
       logError(e, 'Swap failed');
 
