@@ -14,54 +14,6 @@ const FEATURES = [
   { t: 'Analytics', d: 'Onchain orderbook data and trade volume summaries on supported routes.', icon: 'bar_chart', color: '#10b981' },
 ];
 
-type DexStats = {
-  totalSwaps: number;
-  totalVolumeUSDC: string;
-  totalLiquidityEvents: number;
-  uniqueTraders: number;
-  scannedBlocks: number;
-  latestBlock: string;
-  updatedAt: number;
-};
-
-type PoolStats = {
-  totalLiquidityUsdc: string;
-};
-
-function useLiveDexStats() {
-  const [stats, setStats] = useState<DexStats | null>(null);
-  const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetch_ = useCallback(async () => {
-    try {
-      const [dexRes, poolRes] = await Promise.all([
-        fetch('/api/dex-stats'),
-        fetch('/api/pool-stats'),
-      ]);
-      if (dexRes.ok) {
-        const data: DexStats = await dexRes.json();
-        setStats(data);
-      }
-      if (poolRes.ok) {
-        const data: PoolStats = await poolRes.json();
-        setPoolStats(data);
-      }
-    } catch {
-      // silently ignore and keep showing the last known value
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetch_();
-    const id = setInterval(fetch_, 20_000);
-    return () => clearInterval(id);
-  }, [fetch_]);
-
-  return { stats, poolStats, loading };
-}
 
 function FeatureCarousel() {
   const [active, setActive] = useState(0);
@@ -168,7 +120,6 @@ function LogoMark({ size = 34 }: { size?: number }) {
 
 export default function Home() {
   const navRef = useRef<HTMLElement>(null);
-  const { stats, poolStats, loading } = useLiveDexStats();
 
   useEffect(() => {
     const onScroll = () => {
@@ -265,22 +216,6 @@ export default function Home() {
             >
               Read Docs
             </Link>
-          </div>
-
-          <div className="mx-auto grid max-w-[600px] grid-cols-3 overflow-hidden rounded-[14px] border border-white/10 bg-[#141e30]">
-            {[
-              { v: loading ? '—' : (stats?.totalVolumeUSDC ?? '$0'), l: 'All-time Volume' },
-              { v: loading ? '—' : (poolStats?.totalLiquidityUsdc ?? '$0'), l: 'Total Liquidity' },
-              { v: loading ? '—' : (stats?.uniqueTraders ? Number(stats.uniqueTraders).toLocaleString() : '0'), l: 'Unique Traders' },
-            ].map(({ v, l }, i) => (
-              <div key={i} className={[
-                'px-4 py-4 text-center',
-                i < 2 ? 'border-r border-white/[0.06]' : '',
-              ].join(' ')}>
-                <div className="text-[17px] font-extrabold tracking-tight text-[#25c0f4] md:text-[20px]">{v}</div>
-                <div className="mt-1 text-[10px] font-medium text-[#4b6280] md:text-[11px]">{l}</div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
