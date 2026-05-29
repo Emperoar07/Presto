@@ -121,10 +121,10 @@ export async function reconcileBridgeHistoryItem(
   if (mintHash) {
     const mintState = await getTransactionState(item.destinationKey, mintHash);
     if (mintState.confirmed) {
-      return { ...item, liveState: 'success', liveNote: 'Mint confirmed on the destination chain.' };
+      return { ...item, liveState: 'success', liveClaimable: false, liveNote: 'Mint confirmed on the destination chain.' };
     }
     if (mintState.failed) {
-      return { ...item, liveState: 'error', liveNote: 'Mint failed on the destination chain.' };
+      return { ...item, liveState: 'error', liveClaimable: true, liveNote: 'Mint failed on the destination chain.' };
     }
   }
 
@@ -139,7 +139,7 @@ export async function reconcileBridgeHistoryItem(
   if (burnHash) {
     const burnState = await getTransactionState(item.sourceKey, burnHash);
     if (burnState.failed) {
-      return { ...item, liveState: 'error', liveNote: 'Burn failed on the source chain.' };
+      return { ...item, liveState: 'error', liveClaimable: false, liveNote: 'Burn failed on the source chain.' };
     }
 
     if (burnState.confirmed) {
@@ -148,6 +148,7 @@ export async function reconcileBridgeHistoryItem(
         return {
           ...item,
           liveState: 'pending',
+          liveClaimable: attestationState.complete,
           liveNote: attestationState.available
             ? attestationState.complete
               ? 'Attestation is ready. Waiting for mint confirmation.'
