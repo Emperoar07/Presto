@@ -74,6 +74,16 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function')
   }
 }
 
+// Helper to convert base64 strings to Uint8Array in the browser without relying on Node's Buffer global
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = window.atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
 // ---------------------------------------------------------------------------
 // Bridge party builders
 // ---------------------------------------------------------------------------
@@ -419,7 +429,7 @@ export function BridgeWorkspace() {
         }
         let tx: VersionedTransaction;
         if (typeof transaction === 'string') {
-          tx = VersionedTransaction.deserialize(Buffer.from(transaction, 'base64'));
+          tx = VersionedTransaction.deserialize(base64ToUint8Array(transaction));
         } else if (transaction instanceof Uint8Array) {
           tx = VersionedTransaction.deserialize(transaction);
         } else {
@@ -431,7 +441,7 @@ export function BridgeWorkspace() {
       signAllTransactions: signAllSolanaTransactions
         ? async (transactions) => {
             const deserialized = (transactions as unknown[]).map((t) => {
-              if (typeof t === 'string') return VersionedTransaction.deserialize(Buffer.from(t, 'base64'));
+              if (typeof t === 'string') return VersionedTransaction.deserialize(base64ToUint8Array(t));
               if (t instanceof Uint8Array) return VersionedTransaction.deserialize(t);
               return t as VersionedTransaction;
             });
