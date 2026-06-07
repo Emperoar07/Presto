@@ -175,7 +175,7 @@ export async function reconcileBridgeHistoryItem(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useBridgeHistory(deps: {
   buildBridgeKit: () => Promise<{ kit: any }>;
-  createAdapterFor: (networkKey: BridgeNetworkKey) => Promise<unknown>;
+  createAdapterFor: (networkKey: BridgeNetworkKey, isDestination?: boolean) => Promise<unknown>;
   onBalanceRefresh: () => void;
 }) {
   const { buildBridgeKit, createAdapterFor, onBalanceRefresh } = deps;
@@ -228,10 +228,14 @@ export function useBridgeHistory(deps: {
 
     const [{ kit }, fromAdapter, toAdapter] = await Promise.all([
       buildBridgeKit(),
-      createAdapterFor(item.sourceKey),
-      createAdapterFor(item.destinationKey),
+      createAdapterFor(item.sourceKey, false),
+      createAdapterFor(item.destinationKey, true),
     ]);
     console.log('[bridge-retry] Adapters created. Calling kit.retry()...');
+
+    if (NETWORKS[item.destinationKey].ecosystem === 'solana' && !toAdapter) {
+      throw new Error('A Solana wallet like Phantom is required and must be connected to claim this transaction on Solana.');
+    }
 
     // RetryContext expects adapters directly, not { adapter, chain } wrappers.
     // For forwarder destinations (EVM), pass `to: undefined` so the SDK uses

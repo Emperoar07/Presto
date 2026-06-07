@@ -497,9 +497,12 @@ export function BridgeWorkspace() {
     solanaWalletConnected,
   ]);
 
-  async function createAdapterFor(networkKey: BridgeNetworkKey) {
+  async function createAdapterFor(networkKey: BridgeNetworkKey, isDestination = false) {
     if (networkKey === 'solana-devnet') {
       if (!solanaBridgeProvider) {
+        if (isDestination) {
+          return undefined;
+        }
         throw new Error('A Solana wallet like Phantom is required when Solana Devnet participates in the bridge.');
       }
 
@@ -838,8 +841,8 @@ export function BridgeWorkspace() {
 
       const [{ kit, transferSpeed }, fromAdapter, toAdapter] = await Promise.all([
         buildBridgeKit(),
-        createAdapterFor(sourceKey),
-        createAdapterFor(destinationKey),
+        createAdapterFor(sourceKey, false),
+        createAdapterFor(destinationKey, true),
       ]);
 
       const result = (await kit.estimate({
@@ -910,8 +913,8 @@ export function BridgeWorkspace() {
       console.log('[bridge] Building kit and adapters for', sourceKey, '→', destinationKey);
       const [{ kit, transferSpeed }, fromAdapter, toAdapter] = await Promise.all([
         buildBridgeKit(),
-        createAdapterFor(sourceKey),
-        createAdapterFor(destinationKey),
+        createAdapterFor(sourceKey, false),
+        createAdapterFor(destinationKey, true),
       ]);
       console.log('[bridge] Adapters created. sourceAddress:', sourceAddress, 'destAddress:', resolvedDestinationAddress);
 
