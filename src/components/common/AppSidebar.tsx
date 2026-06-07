@@ -35,9 +35,11 @@ type NavLink = {
   icon: string;
   section: 'trade' | 'account' | 'insights';
   comingSoon?: boolean;
+  isNew?: boolean;
 };
 
 const NAV_LINKS: NavLink[] = [
+  { href: 'https://presto-markets.vercel.app/markets?cat=Trending', label: 'Markets', icon: 'trending_up', section: 'trade', isNew: true },
   { href: '/swap', label: 'Swap', icon: 'swap_horiz', section: 'trade' },
   { href: '/liquidity', label: 'Pools', icon: 'water', section: 'trade' },
   { href: '/bridge', label: 'Bridge', icon: 'swap_horizontal_circle', section: 'trade' },
@@ -213,7 +215,7 @@ export const AppSidebar = memo(function AppSidebar() {
   );
 
   // Nav item — compact: icon only (label shrinks to w-0). Expanded: icon + label.
-  const NavItem = ({ href, label, icon, compact = false, comingSoon = false }: { href: string; label: string; icon: string; compact?: boolean; comingSoon?: boolean }) => {
+  const NavItem = ({ href, label, icon, compact = false, comingSoon = false, isNew = false }: { href: string; label: string; icon: string; compact?: boolean; comingSoon?: boolean; isNew?: boolean }) => {
     const isActive = pathname === href;
 
     if (comingSoon) {
@@ -243,21 +245,55 @@ export const AppSidebar = memo(function AppSidebar() {
       );
     }
 
+    const isExternal = href.startsWith('http');
+    const className = `group relative mb-0.5 flex items-center gap-2.5 rounded-[10px] border px-[10px] py-[9px] transition-all duration-200 ${
+      isActive ? 'border-primary/15 bg-primary/10' : 'border-transparent hover:bg-white/[0.04]'
+    }`;
+
+    const content = (
+      <>
+        <div className="relative flex items-center justify-center">
+          <span className={`material-symbols-outlined flex-shrink-0 text-[18px] ${isActive ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'}`}>
+            {icon}
+          </span>
+          {isNew && compact && (
+            <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
+          )}
+        </div>
+        <span className={`overflow-hidden whitespace-nowrap text-[13.5px] font-medium transition-all duration-200 ${compact ? 'w-0 opacity-0' : 'w-auto opacity-100'} ${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-100'}`}>
+          {label}
+        </span>
+        {isNew && !compact && (
+          <span className="ml-auto flex-shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[8px] font-bold uppercase tracking-wider text-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.1)]">
+            New
+          </span>
+        )}
+      </>
+    );
+
+    if (isExternal) {
+      return (
+        <a
+          href={href}
+          title={label}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setMobileOpen(false)}
+          className={className}
+        >
+          {content}
+        </a>
+      );
+    }
+
     return (
       <Link
         href={href}
         title={label}
         onClick={() => setMobileOpen(false)}
-        className={`group relative mb-0.5 flex items-center gap-2.5 rounded-[10px] border px-[10px] py-[9px] transition-all duration-200 ${
-          isActive ? 'border-primary/15 bg-primary/10' : 'border-transparent hover:bg-white/[0.04]'
-        }`}
+        className={className}
       >
-        <span className={`material-symbols-outlined flex-shrink-0 text-[18px] ${isActive ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300'}`}>
-          {icon}
-        </span>
-        <span className={`overflow-hidden whitespace-nowrap text-[13.5px] font-medium transition-all duration-200 ${compact ? 'w-0 opacity-0' : 'w-auto opacity-100'} ${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-100'}`}>
-          {label}
-        </span>
+        {content}
       </Link>
     );
   };
@@ -305,19 +341,19 @@ export const AppSidebar = memo(function AppSidebar() {
             {tradeLinks.length > 0 && (
               <div>
                 <SectionLabel label="Trade" compact={compact} />
-                {tradeLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} comingSoon={l.comingSoon} />)}
+                {tradeLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} comingSoon={l.comingSoon} isNew={l.isNew} />)}
               </div>
             )}
             {accountLinks.length > 0 && (
               <div>
                 <SectionLabel label="Account" compact={compact} />
-                {accountLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} />)}
+                {accountLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} isNew={l.isNew} />)}
               </div>
             )}
             {insightLinks.length > 0 && (
               <div>
                 <SectionLabel label="Insights" compact={compact} />
-                {insightLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} />)}
+                {insightLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} isNew={l.isNew} />)}
               </div>
             )}
           </nav>

@@ -207,6 +207,14 @@ function BridgeNetworkSelector({
 }
 
 // ---------------------------------------------------------------------------
+// Module-level caches to hold dynamically imported SDK modules to preserve
+// browser User Gesture context during transaction signing.
+// ---------------------------------------------------------------------------
+let preloadedBridgeKit: any = null;
+let preloadedSolanaKitAdapter: any = null;
+let preloadedViemAdapter: any = null;
+
+// ---------------------------------------------------------------------------
 // Main workspace component
 // ---------------------------------------------------------------------------
 
@@ -420,38 +428,62 @@ export function BridgeWorkspace() {
         await disconnectSolanaAdapter();
       },
       signTransaction: async (transaction) => {
+        console.log('[solana-provider] signTransaction requested');
         // Circle's adapter calls this via signVersionedTransaction path.
         // The adapter's executeSerializedTransaction / executeTransaction
         // handles sending via RPC after we return the signed tx.
         // We just need to sign and return the VersionedTransaction.
         if (!signSolanaTransaction) {
-          throw new Error('The selected Solana wallet cannot sign transactions.');
+          throw new Error('The selected Solana wallet cannot sign transactions. Check if it is fully connected.');
         }
         let tx: VersionedTransaction;
-        if (typeof transaction === 'string') {
-          tx = VersionedTransaction.deserialize(base64ToUint8Array(transaction));
-        } else if (transaction instanceof Uint8Array) {
-          tx = VersionedTransaction.deserialize(transaction);
-        } else {
-          tx = transaction as VersionedTransaction;
+        try {
+          if (typeof transaction === 'string') {
+            tx = VersionedTransaction.deserialize(base64ToUint8Array(transaction));
+          } else if (transaction instanceof Uint8Array) {
+            tx = VersionedTransaction.deserialize(transaction);
+          } else {
+            tx = transaction as VersionedTransaction;
+          }
+          console.log('[solana-provider] deserialized transaction successfully. Requesting wallet signature...');
+          const signed = await signSolanaTransaction(tx);
+          console.log('[solana-provider] transaction signed successfully');
+          return signed;
+        } catch (err) {
+          console.error('[solana-provider] signTransaction failed:', err);
+          throw err;
         }
-        const signed = await signSolanaTransaction(tx);
-        return signed;
       },
       signAllTransactions: signAllSolanaTransactions
         ? async (transactions) => {
-            const deserialized = (transactions as unknown[]).map((t) => {
-              if (typeof t === 'string') return VersionedTransaction.deserialize(base64ToUint8Array(t));
-              if (t instanceof Uint8Array) return VersionedTransaction.deserialize(t);
-              return t as VersionedTransaction;
-            });
-            return await signAllSolanaTransactions(deserialized);
+            console.log('[solana-provider] signAllTransactions requested, count:', transactions.length);
+            try {
+              const deserialized = (transactions as unknown[]).map((t) => {
+                if (typeof t === 'string') return VersionedTransaction.deserialize(base64ToUint8Array(t));
+                if (t instanceof Uint8Array) return VersionedTransaction.deserialize(t);
+                return t as VersionedTransaction;
+              });
+              const signed = await signAllSolanaTransactions(deserialized);
+              console.log('[solana-provider] all transactions signed successfully');
+              return signed;
+            } catch (err) {
+              console.error('[solana-provider] signAllTransactions failed:', err);
+              throw err;
+            }
           }
         : undefined,
       signMessage: signSolanaMessage
-        ? async (message) => ({
-            signature: await signSolanaMessage(message),
-          })
+        ? async (message) => {
+            console.log('[solana-provider] signMessage requested');
+            try {
+              const signature = await signSolanaMessage(message);
+              console.log('[solana-provider] message signed successfully');
+              return { signature };
+            } catch (err) {
+              console.error('[solana-provider] signMessage failed:', err);
+              throw err;
+            }
+          }
         : undefined,
     };
   }, [
@@ -471,7 +503,8 @@ export function BridgeWorkspace() {
         throw new Error('A Solana wallet like Phantom is required when Solana Devnet participates in the bridge.');
       }
 
-      const { createSolanaKitAdapterFromProvider } = await import('@circle-fin/adapter-solana-kit');
+      const mod = preloadedSolanaKitAdapter || (await import('@circle-fin/adapter-solana-kit'));
+      const { createSolanaKitAdapterFromProvider } = mod;
 
       const adapter = createSolanaKitAdapterFromProvider({
         provider: solanaBridgeProvider,
@@ -498,7 +531,8 @@ export function BridgeWorkspace() {
       throw new Error('An EVM wallet is required to bridge with Arc, Base Sepolia, or Ethereum Sepolia.');
     }
 
-    const { createViemAdapterFromProvider } = await import('@circle-fin/adapter-viem-v2');
+    const mod = preloadedViemAdapter || (await import('@circle-fin/adapter-viem-v2'));
+    const { createViemAdapterFromProvider } = mod;
     return createViemAdapterFromProvider({
       provider: ethereumProvider,
       capabilities: {
@@ -508,7 +542,8 @@ export function BridgeWorkspace() {
   }
 
   async function buildBridgeKit() {
-    const { BridgeKit, TransferSpeed } = await import('@circle-fin/bridge-kit');
+    const mod = preloadedBridgeKit || (await import('@circle-fin/bridge-kit'));
+    const { BridgeKit, TransferSpeed } = mod;
     return {
       kit: new BridgeKit(),
       transferSpeed: TransferSpeed.FAST,
@@ -529,6 +564,26 @@ export function BridgeWorkspace() {
   // ---- Lifecycle effects ----
 
   useEffect(() => {
+    // Preload heavy bridge SDK modules on mount to avoid async latency
+    // which breaks modern browser's User Gesture requirement for wallet popups.
+    const preloadModules = async () => {
+      try {
+        if (!preloadedBridgeKit) {
+          preloadedBridgeKit = await import('@circle-fin/bridge-kit');
+        }
+        if (!preloadedSolanaKitAdapter) {
+          preloadedSolanaKitAdapter = await import('@circle-fin/adapter-solana-kit');
+        }
+        if (!preloadedViemAdapter) {
+          preloadedViemAdapter = await import('@circle-fin/adapter-viem-v2');
+        }
+        console.log('[bridge] preloaded SDK modules successfully');
+      } catch (e) {
+        console.error('[bridge] failed to preload SDK modules:', e);
+      }
+    };
+    void preloadModules();
+
     setHasMounted(true);
   }, []);
 
@@ -860,7 +915,7 @@ export function BridgeWorkspace() {
       ]);
       console.log('[bridge] Adapters created. sourceAddress:', sourceAddress, 'destAddress:', resolvedDestinationAddress);
 
-      kit.on('*', (payload) => {
+      kit.on('*', (payload: any) => {
         const method = 'method' in payload && typeof payload.method === 'string' ? payload.method : 'bridge';
         try { console.log('[bridge] event:', method, JSON.parse(JSON.stringify(payload, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.log('[bridge] event:', method, payload); }
         setEventLog((current) => {
