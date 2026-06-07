@@ -497,9 +497,22 @@ export function BridgeWorkspace() {
     solanaWalletConnected,
   ]);
 
-  async function createAdapterFor(networkKey: BridgeNetworkKey, isDestination = false) {
+  async function createAdapterFor(networkKey: BridgeNetworkKey, isDestination = false, isRetry = false) {
     if (networkKey === 'solana-devnet') {
-      if (!solanaBridgeProvider) {
+      let providerToUse = solanaBridgeProvider;
+      if (!providerToUse && isRetry) {
+        providerToUse = {
+          isConnected: true,
+          address: '11111111111111111111111111111111',
+          connect: async () => ({ address: '11111111111111111111111111111111' }),
+          disconnect: async () => {},
+          signTransaction: async (tx: any) => tx,
+          signAllTransactions: async (txs: any[]) => txs,
+          signMessage: async (msg: any) => ({ signature: new Uint8Array() }),
+        } as any;
+      }
+
+      if (!providerToUse) {
         if (isDestination) {
           return undefined;
         }
@@ -510,28 +523,38 @@ export function BridgeWorkspace() {
       const { createSolanaKitAdapterFromProvider } = mod;
 
       const adapter = createSolanaKitAdapterFromProvider({
-        provider: solanaBridgeProvider,
+        provider: providerToUse,
       });
       return adapter;
     }
 
     const connectorProvider = getEvmProviderFromConnector(connectorClient as { transport?: { value?: unknown } } | undefined);
 
-    if (!connectorProvider && !evmAddress) {
+    let ethereumProvider: any =
+      connectorProvider ??
+      (typeof window !== 'undefined'
+        ? ((window as Window & { ethereum?: any }).ethereum ?? null)
+        : null);
+
+    if (!ethereumProvider && isRetry) {
+      ethereumProvider = {
+        request: async (args: { method: string; params?: any[] }) => {
+          if (args.method === 'eth_accounts' || args.method === 'eth_requestAccounts') {
+            return ['0x0000000000000000000000000000000000000000'];
+          }
+          if (args.method === 'personal_sign') {
+            return '0x';
+          }
+          return null;
+        }
+      };
+    }
+
+    if (!ethereumProvider) {
       throw new Error(
         `Connect an EVM wallet to bridge with ${NETWORKS[networkKey].label}. ` +
         'Open the wallet selector and connect a wallet like MetaMask or Rabby.',
       );
-    }
-
-    const ethereumProvider: import('viem').EIP1193Provider | null =
-      connectorProvider ??
-      (typeof window !== 'undefined'
-        ? ((window as Window & { ethereum?: import('viem').EIP1193Provider }).ethereum ?? null)
-        : null);
-
-    if (!ethereumProvider) {
-      throw new Error('An EVM wallet is required to bridge with Arc, Base Sepolia, or Ethereum Sepolia.');
     }
 
     const mod = preloadedViemAdapter || (await import('@circle-fin/adapter-viem-v2'));

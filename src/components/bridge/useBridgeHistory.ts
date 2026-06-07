@@ -175,7 +175,7 @@ export async function reconcileBridgeHistoryItem(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useBridgeHistory(deps: {
   buildBridgeKit: () => Promise<{ kit: any }>;
-  createAdapterFor: (networkKey: BridgeNetworkKey, isDestination?: boolean) => Promise<unknown>;
+  createAdapterFor: (networkKey: BridgeNetworkKey, isDestination?: boolean, isRetry?: boolean) => Promise<unknown>;
   onBalanceRefresh: () => void;
 }) {
   const { buildBridgeKit, createAdapterFor, onBalanceRefresh } = deps;
@@ -228,8 +228,8 @@ export function useBridgeHistory(deps: {
 
     const [{ kit }, fromAdapter, toAdapter] = await Promise.all([
       buildBridgeKit(),
-      createAdapterFor(item.sourceKey, false),
-      createAdapterFor(item.destinationKey, true),
+      createAdapterFor(item.sourceKey, false, true), // source is not destination during claim, so isRetry = true
+      createAdapterFor(item.destinationKey, true, false), // destination is required to sign the mint, so isRetry = false
     ]);
     console.log('[bridge-retry] Adapters created. Calling kit.retry()...');
 
@@ -238,11 +238,10 @@ export function useBridgeHistory(deps: {
     }
 
     // RetryContext expects adapters directly, not { adapter, chain } wrappers.
-    // For forwarder destinations (EVM), pass `to: undefined` so the SDK uses
-    // Circle's Orbit relayer for the mint. For Solana, pass the adapter.
+    // Pass toAdapter for all ecosystems to ensure manual mints prompt the wallet popup.
     const retryResult = (await kit.retry(item.rawResult, {
       from: fromAdapter,
-      to: NETWORKS[item.destinationKey].ecosystem === 'solana' ? toAdapter : undefined,
+      to: toAdapter,
     })) as BridgeSummary;
     try { console.log('[bridge-retry] kit.retry() returned:', JSON.parse(JSON.stringify(retryResult, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.log('[bridge-retry] kit.retry() returned:', retryResult); }
     if (Array.isArray((retryResult as any).steps)) {
