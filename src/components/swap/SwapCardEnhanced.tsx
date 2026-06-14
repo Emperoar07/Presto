@@ -81,6 +81,29 @@ export function SwapCardEnhanced() {
   const [showInputTokenModal, setShowInputTokenModal] = useState(false);
   const [showOutputTokenModal, setShowOutputTokenModal] = useState(false);
 
+  // Gas Fee State
+  const [gasPrice, setGasPrice] = useState<bigint | null>(null);
+
+  // Fetch gas price from publicClient
+  useEffect(() => {
+    if (!publicClient) return;
+    let active = true;
+    const fetchGasPrice = async () => {
+      try {
+        const price = await publicClient.getGasPrice();
+        if (active) setGasPrice(price);
+      } catch (err) {
+        console.error("Failed to fetch gas price", err);
+      }
+    };
+    fetchGasPrice();
+    const interval = setInterval(fetchGasPrice, 30_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [publicClient]);
+
   // Load saved settings from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -649,6 +672,20 @@ export function SwapCardEnhanced() {
   }, [priceImpact]);
 
   const inputUsdEstimate = inputAmount && Number(inputAmount) > 0 ? `~ $${Number(inputAmount).toFixed(2)}` : '';
+  const outputUsdEstimate = outputAmount && Number(outputAmount) > 0 ? `~ $${Number(outputAmount).toFixed(2)}` : '';
+
+  const networkFeeEstimate = useMemo(() => {
+    // Typical swap transaction gas limit: 150,000 gas
+    const gasLimit = 150000n;
+    const price = gasPrice ?? 20000000000n; // Default to 20 Gwei if not loaded
+    const feeInWei = price * gasLimit;
+    const feeInEth = Number(feeInWei) / 1e18;
+    if (feeInEth < 0.01) {
+      return `~ $${feeInEth.toFixed(4)}`;
+    }
+    return `~ $${feeInEth.toFixed(2)}`;
+  }, [gasPrice]);
+
   const formatRelativeTime = (timestamp: number) => {
     const diffMs = Math.max(0, Date.now() - timestamp);
     const diffSeconds = Math.floor(diffMs / 1000);
@@ -716,17 +753,24 @@ export function SwapCardEnhanced() {
                   <span className="material-symbols-outlined text-[14px] text-slate-400">keyboard_arrow_down</span>
                 </button>
               </div>
-              <div className="mt-2 flex justify-between">
+              <div className="mt-2 flex justify-between items-center">
                 <span className="text-[11px] font-semibold text-primary">
                   Balance: {isBalanceLoading || isPollingBalances ? '...' : formatSwapBalance(balanceIn)} {inputToken.symbol}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => { setInputAmount(balanceIn); setExactField('input'); }}
-                  className="text-[11px] font-bold uppercase text-primary hover:text-primary/80"
-                >
-                  Max
-                </button>
+                <div className="flex items-center gap-2">
+                  {inputUsdEstimate && (
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {inputUsdEstimate}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setInputAmount(balanceIn); setExactField('input'); }}
+                    className="text-[11px] font-bold uppercase text-primary hover:text-primary/80"
+                  >
+                    Max
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -776,10 +820,15 @@ export function SwapCardEnhanced() {
                   <span className="material-symbols-outlined text-[14px]">keyboard_arrow_down</span>
                 </button>
               </div>
-              <div className="mt-2">
+              <div className="mt-2 flex justify-between items-center">
                 <span className="text-[11px] font-semibold text-primary">
                   Balance: {isBalanceLoading || isPollingBalances ? '...' : formatSwapBalance(balanceOut)} {outputToken.symbol}
                 </span>
+                {outputUsdEstimate && (
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {outputUsdEstimate}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -803,7 +852,7 @@ export function SwapCardEnhanced() {
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Network fee</span>
-                  <span className="font-medium text-slate-200">{inputUsdEstimate || '~ $0.00'}</span>
+                  <span className="font-medium text-slate-200">{networkFeeEstimate}</span>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Minimum received</span>
