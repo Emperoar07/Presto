@@ -1044,26 +1044,24 @@ export function SwapCardEnhanced() {
     mode: AmountDisplayMode,
     onChange: (mode: AmountDisplayMode) => void,
     disabledUsd: boolean,
-  ) => (
-    <div className="flex items-center rounded-[7px] border border-white/[0.07] bg-[#1e293b] p-0.5">
-      {(['token', 'usd'] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          disabled={option === 'usd' && disabledUsd}
-          onClick={() => onChange(option)}
-          className={`h-5 rounded-[5px] px-2 text-[10px] font-bold uppercase transition-colors ${
-            mode === option
-              ? 'bg-primary text-[#0f172a]'
-              : 'text-slate-400 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40'
-          }`}
-          title={option === 'usd' && disabledUsd ? 'USD price unavailable' : `Use ${option === 'usd' ? 'USD' : 'token quantity'}`}
-        >
-          {option === 'usd' ? 'USD' : 'Qty'}
-        </button>
-      ))}
-    </div>
-  );
+  ) => {
+    const isUsd = mode === 'usd';
+    return (
+      <button
+        type="button"
+        disabled={disabledUsd}
+        onClick={() => onChange(isUsd ? 'token' : 'usd')}
+        className={`flex h-5 w-5 items-center justify-center rounded-[6px] border text-[11px] font-semibold transition-all duration-150 ${
+          isUsd
+            ? 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_8px_rgba(37,192,244,0.15)]'
+            : 'bg-white/[0.03] text-slate-400 border-white/[0.07] hover:text-slate-200 hover:border-white/10'
+        } disabled:cursor-not-allowed disabled:opacity-40`}
+        title={disabledUsd ? 'USD price unavailable' : isUsd ? 'Show token quantity' : 'Show USD value'}
+      >
+        $
+      </button>
+    );
+  };
   return (
     <>
       <div className="relative flex items-start justify-center gap-4">

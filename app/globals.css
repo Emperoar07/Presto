@@ -179,3 +179,13 @@ body {
 .neon-glow-light {
   box-shadow: 0 4px 15px rgba(37, 192, 244, 0.2);
 }
+
+/* Hide scrollbars globally but preserve scrolling functionality */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, and Opera */
+}
