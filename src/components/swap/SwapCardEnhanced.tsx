@@ -73,6 +73,25 @@ const formatSwapBalance = (value: string) => {
   });
 };
 
+/** Format a swap rate with enough significant digits so small values are not rounded to zero. */
+const formatSmartRate = (rate: number): string => {
+  if (!Number.isFinite(rate) || rate <= 0) return '0';
+  if (rate >= 1) return rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  // For sub-1 rates, find first non-zero digit and show at least 4 significant digits
+  const str = rate.toFixed(20);
+  const match = str.match(/^0\.0*/);
+  if (!match) return rate.toFixed(6);
+  const leadingZeros = match[0].length - 2; // count zeros after "0."
+  const precision = Math.max(leadingZeros + 4, 6);
+  return rate.toFixed(precision).replace(/0+$/, '').replace(/\.$/, '');
+};
+
+const QuoteDots = () => (
+  <span className="quote-dots">
+    <span /><span /><span />
+  </span>
+);
+
 export function SwapCardEnhanced() {
   const chainId = useChainId();
   const queryClient = useQueryClient();
@@ -1117,13 +1136,17 @@ export function SwapCardEnhanced() {
                 {inputDisplayMode === 'usd' && (
                   <span className="mr-1 text-[22px] font-semibold leading-none text-white/40">$</span>
                 )}
-                <input
-                  type="text"
-                  value={inputAmount}
-                  onChange={(e) => handleInputAmountChange(e.target.value)}
-                  placeholder="0.0"
-                  className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0"
-                />
+                {quoteLoading && exactField === 'output' ? (
+                  <div className="flex-1"><QuoteDots /></div>
+                ) : (
+                  <input
+                    type="text"
+                    value={inputAmount}
+                    onChange={(e) => handleInputAmountChange(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => setShowInputTokenModal(true)}
@@ -1196,13 +1219,17 @@ export function SwapCardEnhanced() {
                 {outputDisplayMode === 'usd' && (
                   <span className="mr-1 text-[22px] font-semibold leading-none text-white/40">$</span>
                 )}
-                <input
-                  type="text"
-                  value={outputAmount}
-                  onChange={(e) => handleOutputAmountChange(e.target.value)}
-                  placeholder="0.0"
-                  className={`w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0 ${quoteLoading && exactField === 'output' ? 'animate-pulse' : ''}`}
-                />
+                {quoteLoading && exactField === 'input' ? (
+                  <div className="flex-1"><QuoteDots /></div>
+                ) : (
+                  <input
+                    type="text"
+                    value={outputAmount}
+                    onChange={(e) => handleOutputAmountChange(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => setShowOutputTokenModal(true)}
@@ -1234,7 +1261,7 @@ export function SwapCardEnhanced() {
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Rate</span>
                   <span className="font-medium text-slate-200">
-                    1 {inputToken.symbol} = {inputTokenAmount && outputTokenAmount && Number(inputTokenAmount) > 0 ? (Number(outputTokenAmount) / Number(inputTokenAmount)).toFixed(6) : '...'} {outputToken.symbol}
+                    1 {inputToken.symbol} = {inputTokenAmount && outputTokenAmount && Number(inputTokenAmount) > 0 ? formatSmartRate(Number(outputTokenAmount) / Number(inputTokenAmount)) : '...'} {outputToken.symbol}
                   </span>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
