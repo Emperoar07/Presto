@@ -161,7 +161,7 @@ function MyPositionRow({
   const reserveHubValue = pool?.reserveValidatorToken ? Number(formatUnits(pool.reserveValidatorToken, hubToken.decimals)) : 0;
   const poolTvlUsd = reserveUserValue + reserveHubValue;
   const estimatedValue = poolTvlUsd > 0 ? (poolTvlUsd * sharePercent) / 100 : 0;
-  // Daily reward = user's share of TVL × APR / 365
+  // Daily reward = user's share of TVL x APR / 365
   const dailyRewardUsyc = estimatedValue > 0 ? (estimatedValue * aprPercent) / 100 / 365 : 0;
 
   return (
@@ -248,7 +248,7 @@ function MyPositionRow({
             className="h-9 rounded-[10px] px-3.5 text-[11px] font-bold disabled:opacity-40 transition-colors btn-press flex items-center justify-center"
             style={{ background: claimableUsyc > 0 ? '#00b87a' : 'rgba(0,184,122,0.2)', color: claimableUsyc > 0 ? '#0f172a' : '#00b87a' }}
           >
-            {isClaiming ? 'Claiming…' : 'Claim USYC'}
+            {isClaiming ? 'Claiming...' : 'Claim USYC'}
           </button>
           <button
             type="button"
@@ -327,6 +327,7 @@ function PoolListRow({
   };
 
   const lpBalance = liquidity ? Number(formatUnits(liquidity, 18)) : 0;
+  const isSynthraRouted = isSynthraRoutedLiquidityToken(token);
   const sharePercent =
     liquidity && totalShares && totalShares > 0n
       ? Number((liquidity * 10000n) / totalShares) / 100
@@ -372,7 +373,7 @@ function PoolListRow({
         <div className="hidden md:block">
           <p className="text-[13px] font-bold text-slate-100">{poolStat.pair}</p>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            {poolStat.hasLiquidity ? 'Stable hub / 0.3%' : 'No liquidity seeded'}
+            {isSynthraRouted ? 'Synthra routed' : poolStat.hasLiquidity ? 'Stable hub / 0.5%' : 'No liquidity seeded'}
           </p>
         </div>
 
@@ -468,6 +469,7 @@ function PositionManagerInline({
 
   const userReserveValue = Number(formatUnits(reserveUserToken, token.decimals));
   const hubReserveValue = Number(formatUnits(reserveHubToken, hubToken.decimals));
+  const isSynthraRouted = isSynthraRoutedLiquidityToken(token);
   const poolRatio = userReserveValue > 0 ? hubReserveValue / userReserveValue : null;
   const numericUserBalance = Number.parseFloat(userTokenBalance || '0');
   const numericHubBalance = Number.parseFloat(hubTokenBalance || '0');
@@ -731,7 +733,7 @@ function PositionManagerInline({
   return (
     <div className="mt-3 overflow-hidden rounded-[12px]" style={{ background: BG, border: BDR_INNER }}>
 
-      {/* ── Stat strip ── */}
+      {/* -- Stat strip -- */}
       <div className="flex border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         {[
           { label: 'LP', value: lpBalance.toFixed(4), color: '#f1f5f9' },
@@ -753,7 +755,7 @@ function PositionManagerInline({
         </div>
       </div>
 
-      {/* ── Action header (tab toggle) ── */}
+      {/* -- Action header (tab toggle) -- */}
       <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: BDR_INNER }}>
         <p className="text-[12px] font-bold text-slate-300">
           {actionMode === 'add' ? 'Top up position' : 'Trim position'}
@@ -775,7 +777,7 @@ function PositionManagerInline({
         </div>
       </div>
 
-      {/* ── Add form ── */}
+      {/* -- Add form -- */}
       {actionMode === 'add' ? (
         <div className="flex flex-wrap items-end gap-3 px-4 py-3">
           {/* wallet balances */}
@@ -822,14 +824,14 @@ function PositionManagerInline({
             style={{ background: 'rgba(37,192,244,0.08)', border: '1px solid rgba(37,192,244,0.2)' }}>
             Max
           </button>
-          <button type="button" onClick={handleAddLiquidity} disabled={isAdding || !addAmount}
+          <button type="button" onClick={handleAddLiquidity} disabled={isAdding || !addAmount || isSynthraRouted}
             className="shrink-0 rounded-[8px] px-4 py-2 text-[13px] font-bold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50"
             style={{ background: '#25c0f4' }}>
-            {isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
+            {isSynthraRouted ? 'Use Swap' : isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
           </button>
         </div>
       ) : (
-        /* ── Remove form ── */
+        /* -- Remove form -- */
         <div className="flex flex-wrap items-end gap-3 px-4 py-3">
           {/* presets */}
           <div className="flex gap-1.5">
@@ -876,7 +878,7 @@ function PositionManagerInline({
   );
 }
 
-// Removed — now using shared usePoolStats from React Query hooks
+// Removed. Now using shared usePoolStats from React Query hooks
 
 function CompactPositionManagerInline({
   token,
@@ -1116,14 +1118,14 @@ function CompactPositionManagerInline({
         return;
       }
       if (isSynthraRouted) {
-        toast.error(`${token.symbol}/${hubToken.symbol} uses Synthra routing for swaps. Local pool adds are disabled until this pool is re-seeded at market price.`);
+        toast.error(`${token.symbol}/${hubToken.symbol} uses Synthra routing for swaps. Use the Swap page for this routed market.`);
         return;
       }
       if (!isTempoChain) {
         const quotedHubAmount = Number.parseFloat(requiredHubAmount || '0');
-        const fallbackHubAmount =
+        const backupHubAmount =
           Number.isFinite(poolRatio) && poolRatio && poolRatio > 0 ? numericAddAmount * poolRatio : 0;
-        const effectiveHubNeeded = quotedHubAmount > 0 ? quotedHubAmount : fallbackHubAmount;
+        const effectiveHubNeeded = quotedHubAmount > 0 ? quotedHubAmount : backupHubAmount;
         if (!Number.isFinite(numericHubBalance) || effectiveHubNeeded > numericHubBalance + 1e-8) {
           toast.error(`Need ${effectiveHubNeeded.toFixed(4)} ${hubToken.symbol} but only ${numericHubBalance.toFixed(4)} is available`);
           return;
@@ -1240,7 +1242,7 @@ function CompactPositionManagerInline({
             </div>
             <div className="min-w-0">
               <p className="text-[13px] font-extrabold text-slate-50">{token.symbol} / {hubToken.symbol}</p>
-              <p className="text-[10px] text-slate-500">Stable hub · 0.3%</p>
+              <p className="text-[10px] text-slate-500">{isSynthraRouted ? 'Synthra routed' : 'Stable hub · 0.5%'}</p>
             </div>
           </div>
 
@@ -1359,10 +1361,10 @@ function CompactPositionManagerInline({
               <button
                 type="button"
                 onClick={handleAddLiquidity}
-                disabled={isAdding || !addAmount}
+                disabled={isAdding || !addAmount || isSynthraRouted}
                 className="rounded-[8px] bg-[#25c0f4] px-3 py-2 text-[12px] font-extrabold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
+                {isSynthraRouted ? 'Use Swap' : isApproving ? 'Approving...' : isAdding ? 'Adding...' : `Add ${token.symbol}`}
               </button>
             </div>
           </div>

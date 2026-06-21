@@ -6,10 +6,11 @@ const USYC_ADDRESS = "0x825Ae482558415310C71B7E03d2BbBe409345903";
 const USYC_FUND_AMOUNT = ethers.parseUnits("4000000", 6);
 
 const PAIRS: { token: string; symbol: string; rateBps: number }[] = [
-  { token: "0x825Ae482558415310C71B7E03d2BbBe409345903", symbol: "USYC", rateBps: 170 },
-  { token: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", symbol: "EURC", rateBps: 150 },
-  { token: "0x175CdB1D338945f0D851A741ccF787D343E57952", symbol: "USDT", rateBps: 150 },
-  { token: "0x911b4000D3422F482F4062a913885f7b035382Df", symbol: "WUSDC", rateBps: 150 },
+  { token: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF", symbol: "cirBTC", rateBps: 100 },
+  { token: "0x825Ae482558415310C71B7E03d2BbBe409345903", symbol: "USYC", rateBps: 50 },
+  { token: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", symbol: "EURC", rateBps: 50 },
+  { token: "0x175CdB1D338945f0D851A741ccF787D343E57952", symbol: "USDT", rateBps: 50 },
+  { token: "0x911b4000D3422F482F4062a913885f7b035382Df", symbol: "WUSDC", rateBps: 50 },
 ];
 
 async function main() {
@@ -20,13 +21,13 @@ async function main() {
   const rewards = await ethers.getContractAt("USYCRewards", REWARDS_ADDRESS);
 
   for (const pair of PAIRS) {
-    const configured = await rewards.rewardRateConfigured(pair.token);
-    if (!configured) {
+    const currentRate = await rewards.rewardRate(pair.token);
+    if (currentRate !== BigInt(pair.rateBps)) {
       const tx = await rewards.setRewardRate(pair.token, pair.rateBps);
       await tx.wait();
       console.log(`  ${pair.symbol} rate set: ${pair.rateBps} bps`);
     } else {
-      console.log(`  ${pair.symbol} rate already set, skipping`);
+      console.log(`  ${pair.symbol} rate already ${pair.rateBps} bps, skipping`);
     }
 
     const enabled = await rewards.poolEnabled(pair.token);

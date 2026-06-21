@@ -5,7 +5,7 @@ import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 const { ethers } = hre;
 
 const YEAR = 365n * 24n * 60n * 60n;
-const RATE_BPS = 150n;
+const RATE_BPS = 50n;
 const REWARD_DECIMAL_SCALE = 10n ** 12n;
 
 async function deployRewardsFixture() {
@@ -36,6 +36,16 @@ async function deployRewardsFixture() {
 }
 
 describe("USYCRewards", function () {
+  it("uses 0.5% as the default reward rate and supports 1% overrides", async function () {
+    const { eurc, rewards } = await loadFixture(deployRewardsFixture);
+    const eurcAddress = await eurc.getAddress();
+
+    expect(await rewards.rewardRate(eurcAddress)).to.equal(50);
+
+    await rewards.setRewardRate(eurcAddress, 100);
+    expect(await rewards.rewardRate(eurcAddress)).to.equal(100);
+  });
+
   it("accrues rewards from LP shares instead of current pool reserves", async function () {
     const { lpProvider, swapper, usyc, usdc, eurc, amm, rewards } = await loadFixture(deployRewardsFixture);
     const ammAddress = await amm.getAddress();

@@ -267,20 +267,20 @@ export default function DocsPage() {
 
             <Section id="lp-rewards" title="LP Rewards">
               <p>
-                Liquidity providers on Arc Testnet earn <strong>USYC</strong> (US Yield Coin) passively based on their share of each pool and how long they hold the position. Rewards accrue continuously from the moment liquidity is first added — there is no lockup or staking step required.
+                Liquidity providers on Arc Testnet earn <strong>USYC</strong> (US Yield Coin) based on their pool share and how long they keep liquidity in a supported pool. Rewards start when liquidity is added. There is no lockup and no separate staking step.
               </p>
 
               <DataTable
                 headers={['Pair', 'Annual Reward Rate', 'Reward Token']}
                 rows={[
                   [
-                    <span key="usyc-pair" className="font-semibold text-slate-100">USYC / USDC</span>,
-                    <span key="usyc-rate" className="font-semibold text-[#00b87a]">1.7% APR</span>,
+                    <span key="cirbtc-pair" className="font-semibold text-slate-100">cirBTC / USDC</span>,
+                    <span key="cirbtc-rate" className="font-semibold text-[#00b87a]">1.0% APR</span>,
                     'USYC',
                   ],
                   [
                     <span key="other-pair" className="font-semibold text-slate-100">All other pairs</span>,
-                    <span key="other-rate" className="font-semibold text-[#00b87a]">1.5% APR</span>,
+                    <span key="other-rate" className="font-semibold text-[#00b87a]">0.5% APR</span>,
                     'USYC',
                   ],
                 ]}
@@ -291,16 +291,24 @@ export default function DocsPage() {
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-[14px] leading-7 text-slate-300">
                   <li>Add liquidity to any supported pair on the Pools page.</li>
                   <li>Rewards begin accruing from that moment based on your pool share and the pool TVL.</li>
-                  <li>Return to the Pools page at any time — each pair panel shows your claimable USYC balance.</li>
+                  <li>Return to the Pools page at any time. Each pair panel shows your claimable USYC balance.</li>
                   <li>Click <strong>Claim USYC</strong> to transfer your accumulated rewards directly to your wallet.</li>
                 </ol>
+              </div>
+
+              <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
+                <p className="text-[13px] font-semibold text-slate-100">cirBTC routing</p>
+                <p className="mt-2 text-[13px] leading-6 text-slate-300">
+                  cirBTC swaps use Synthra SynRoute so users see market based routing for BTC liquidity on Arc.
+                  The Pools page shows the cirBTC reward campaign beside the rest of the Arc liquidity program.
+                </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
                   <p className="text-[13px] font-semibold text-slate-100">Reward accrual formula</p>
                   <p className="mt-2 text-[13px] leading-6 text-slate-300">
-                    Rewards are calculated as: your share of pool TVL × annual rate × time held (in seconds / seconds per year).
+                    Rewards are calculated as your share of pool TVL times the annual rate times the time held.
                     They update in real time and are checkpointed whenever you add or remove liquidity.
                   </p>
                 </div>
@@ -308,8 +316,8 @@ export default function DocsPage() {
                   <p className="text-[13px] font-semibold text-slate-100">Reward contract</p>
                   <p className="mt-2 text-[13px] leading-6 text-slate-300">
                     USYCRewards is a standalone contract separate from the Hub AMM, funded with{' '}
-                    <strong>2,000,000 USYC</strong>. Contract address:{' '}
-                    <code className="text-[11px] text-slate-400">0x297EDe265Bbc697B409fB371386eBD6370553Dec</code>
+                    <strong>4,000,000 USYC</strong>. Contract address:{' '}
+                    <code className="text-[11px] text-slate-400">0x3454fB11Ead7a10806434daE0A7EfFd289ABb908</code>
                   </p>
                 </div>
               </div>

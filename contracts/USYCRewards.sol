@@ -16,11 +16,11 @@ interface IHubAMM {
 /**
  * USYCRewards - time-based LP reward distributor.
  *
- * LPs earn USYC at 1.5%-1.7% APR on their stablecoin LP share value.
+ * LPs earn USYC APR on their stablecoin LP share value.
  * Accrual starts from the block timestamp when the user first snapshots.
  *
- * Rate is stored in basis points: 150 = 1.5%, 170 = 1.7%.
- * Default rate for all pairs is 150 bps. Override per token via setRewardRate().
+ * Rate is stored in basis points: 50 = 0.5%, 100 = 1%.
+ * Default rate for all pairs is 50 bps. Override per token via setRewardRate().
  *
  * The contract must hold enough USYC to cover claimable rewards.
  * Fund it by calling USYC.transfer(address(this), amount) after deployment.
@@ -32,7 +32,7 @@ contract USYCRewards is Ownable, ReentrancyGuard {
     IHubAMM public immutable hubAmm;
 
     uint256 public constant SECONDS_PER_YEAR = 365 days;
-    uint256 public constant DEFAULT_RATE_BPS = 150; // 1.5%
+    uint256 public constant DEFAULT_RATE_BPS = 50; // 0.5%
 
     // token address => annual reward rate in basis points
     mapping(address => uint256) public rewardRateBps;

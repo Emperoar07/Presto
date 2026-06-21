@@ -5,12 +5,13 @@ const USYC_ADDRESS = "0x825Ae482558415310C71B7E03d2BbBe409345903";
 const HUB_AMM_ADDRESS = "0x5794a8284A29493871Fbfa3c4f343D42001424D6";
 const USYC_FUND_AMOUNT = ethers.parseUnits("4000000", 6); // 4,000,000 USYC
 
-// Pair user-token => rate in basis points. USYC pair gets 1.7%, others 1.5%.
+// Pair user-token => annual reward rate in basis points.
 const PAIRS: { token: string; symbol: string; rateBps: number }[] = [
-  { token: "0x825Ae482558415310C71B7E03d2BbBe409345903", symbol: "USYC", rateBps: 170 },
-  { token: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", symbol: "EURC", rateBps: 150 },
-  { token: "0x175CdB1D338945f0D851A741ccF787D343E57952", symbol: "USDT", rateBps: 150 },
-  { token: "0x911b4000D3422F482F4062a913885f7b035382Df", symbol: "WUSDC", rateBps: 150 },
+  { token: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF", symbol: "cirBTC", rateBps: 100 },
+  { token: "0x825Ae482558415310C71B7E03d2BbBe409345903", symbol: "USYC", rateBps: 50 },
+  { token: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", symbol: "EURC", rateBps: 50 },
+  { token: "0x175CdB1D338945f0D851A741ccF787D343E57952", symbol: "USDT", rateBps: 50 },
+  { token: "0x911b4000D3422F482F4062a913885f7b035382Df", symbol: "WUSDC", rateBps: 50 },
 ];
 
 async function main() {

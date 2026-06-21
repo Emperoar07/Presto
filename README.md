@@ -5,11 +5,11 @@ Presto is a testnet DEX for Arc with a live normalized hub AMM, USDC bridge flow
 ## Features
 
 - Instant token swaps via a USDC hub-and-spoke AMM on Arc Testnet
-- Optional SynRoute smart routing for Arc swaps through Synthra's quote and swap API
+- SynRoute smart routing for Arc swaps through Synthra's quote and swap API
 - Bidirectional liquidity management with auto-calculated pair amounts
 - Real-time analytics tracking all time DEX volume, trades, and unique traders from on-chain events
 - USDC bridge workspace powered by Circle CCTP for Arc, Ethereum Sepolia, Base Sepolia, and Solana Devnet routes
-- Manual bridge destination address support where the route allows it
+- Manual bridge destination address support for cross chain sends
 - Send any ERC20 token on Arc Testnet, including custom tokens by pasting a contract address
 - Deploy tokens/memecoins, NFT collections, and smart contracts directly from the browser
 - Token deployment with seed liquidity on Hub AMM and owner mint capability
@@ -33,12 +33,21 @@ Hub AMM (ArcHubAMMNormalized): `0x5794a8284A29493871Fbfa3c4f343D42001424D6`
 
 ## LP Rewards
 
-Liquidity providers primarily earn from pool fees. Optional USYC reward campaigns can be enabled per pair through the standalone `USYCRewards` contract without redeploying the DEX.
+Liquidity providers earn from pool fees and live USYC campaigns. The `USYCRewards` contract keeps the reward program separate from the DEX contracts, so rewards can evolve cleanly as new pairs go live.
 
 | Reward Source | Status |
 |---------------|--------|
 | Pool fees | Primary LP reward path |
-| USYC campaigns | Optional and enabled per pair |
+| USYC campaigns | Live per pair rewards |
+
+Current USYC campaign rates:
+
+| Pair | Annual Reward Rate |
+|------|--------------------|
+| cirBTC / USDC | 1.0% APR |
+| All other supported pairs | 0.5% APR |
+
+cirBTC swaps use Synthra SynRoute for BTC market routing on Arc. The app presents cirBTC beside the rest of the pool program while swaps use the Synthra route under the hood.
 
 **USYCRewards contract:** `0x3454fB11Ead7a10806434daE0A7EfFd289ABb908`
 Funded with **4,000,000 USYC**.
@@ -182,7 +191,7 @@ Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk sca
 
 ## SynRoute
 
-Set `SYNTHRA_API_KEY` to enable SynRoute on Arc Testnet swaps. The frontend calls local API routes under `/api/synroute/*`, and those routes forward requests to `https://trading-api.synthra.org` with the `x-api-key` header. If SynRoute is disabled, unconfigured, or cannot quote a pair, the swap card falls back to the existing Presto on-chain AMM quote and execution path.
+Set `SYNTHRA_API_KEY` for SynRoute on Arc Testnet swaps. The frontend calls local API routes under `/api/synroute/*`, and those routes forward requests to `https://trading-api.synthra.org` with the `x-api-key` header. cirBTC routes use Synthra so the swap card follows market based BTC liquidity on Arc.
 
 `NEXT_PUBLIC_SYNROUTE_APPROVAL_MODE` accepts `erc20` or `permit2`. The default is `erc20` to preserve exact-amount approval behavior.
 
