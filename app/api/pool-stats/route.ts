@@ -36,6 +36,7 @@ const TOKEN_META: Record<string, { color: string; label: string }> = {
   EURC: { color: '#3b82f6', label: 'EU' },
   USDT: { color: '#22c55e', label: 'UT' },
   WUSDC: { color: '#8b5cf6', label: 'WU' },
+  cirBTC: { color: '#f7931a', label: 'CB' },
 };
 
 const _allArcTokens = getTokens(ARC_CHAIN_ID);

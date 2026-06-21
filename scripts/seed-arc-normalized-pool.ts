@@ -17,6 +17,10 @@ const ARC_TOKENS = {
     symbol: "WUSDC",
     address: "0x911b4000D3422F482F4062a913885f7b035382Df",
   },
+  cirbtc: {
+    symbol: "cirBTC",
+    address: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
+  },
 } as const;
 
 type ArcTokenKey = keyof typeof ARC_TOKENS;
@@ -54,10 +58,10 @@ function resolveArcHubAmmAddress(): string {
 
 function getRequestedToken(): ArcTokenKey {
   const requested = (process.env.ARC_SEED_TOKEN ?? process.argv[2] ?? "eurc").toLowerCase();
-  if (requested === "eurc" || requested === "usdt" || requested === "wusdc") {
+  if (requested === "eurc" || requested === "usdt" || requested === "wusdc" || requested === "cirbtc") {
     return requested;
   }
-  throw new Error(`Unsupported ARC_SEED_TOKEN "${requested}". Use eurc, usdt, or wusdc.`);
+  throw new Error(`Unsupported ARC_SEED_TOKEN "${requested}". Use eurc, usdt, wusdc, or cirbtc.`);
 }
 
 async function ensureApproval(

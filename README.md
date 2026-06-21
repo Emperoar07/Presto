@@ -27,6 +27,7 @@ Presto is a testnet DEX for Arc with a live normalized hub AMM, USDC bridge flow
 | USDT | `0x175CdB1D338945f0D851A741ccF787D343E57952` | 18 |
 | WUSDC | `0x911b4000D3422F482F4062a913885f7b035382Df` | 18 |
 | USYC | `0x825Ae482558415310C71B7E03d2BbBe409345903` | 6 |
+| cirBTC | `0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF` | 8 |
 
 Hub AMM (ArcHubAMMNormalized): `0x5794a8284A29493871Fbfa3c4f343D42001424D6`
 
@@ -104,6 +105,7 @@ npx hardhat run scripts/deploy-usyc-rewards.ts --network arc   # deploy + fund 2
 npx hardhat run scripts/fund-usyc-rewards.ts --network arc     # top up existing contract
 npx hardhat run scripts/seed-arc-liquidity.ts --network arc
 npx hardhat run scripts/seed-usyc-liquidity.ts --network arc
+ARC_SEED_TOKEN=cirbtc ARC_SEED_AMOUNT=0.01 npx hardhat run scripts/seed-arc-normalized-pool.ts --network arc
 
 # Testing
 npm test
