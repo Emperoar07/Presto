@@ -5,6 +5,7 @@ Presto is a testnet DEX for Arc with a live normalized hub AMM, USDC bridge flow
 ## Features
 
 - Instant token swaps via a USDC hub-and-spoke AMM on Arc Testnet
+- Optional SynRoute smart routing for Arc swaps through Synthra's quote and swap API
 - Bidirectional liquidity management with auto-calculated pair amounts
 - Real-time analytics tracking all time DEX volume, trades, and unique traders from on-chain events
 - USDC bridge workspace powered by Circle CCTP for Arc, Ethereum Sepolia, Base Sepolia, and Solana Devnet routes
@@ -80,6 +81,9 @@ NEXT_PUBLIC_HUB_AMM_ADDRESS_5042002=0x5794a8284A29493871Fbfa3c4f343D42001424D6
 NEXT_PUBLIC_USYC_REWARDS_ADDRESS=0x3454fB11Ead7a10806434daE0A7EfFd289ABb908
 NEXT_PUBLIC_PRESTO_MARKETS_URL=https://presto-markets.vercel.app
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
+SYNTHRA_API_KEY=your_synthra_api_key
+NEXT_PUBLIC_SYNROUTE_ENABLED=true
+NEXT_PUBLIC_SYNROUTE_APPROVAL_MODE=erc20
 PRIVATE_KEY=your_deployer_private_key
 ```
 
@@ -117,6 +121,7 @@ app/deploy/nft/       ERC721 NFT deployment with mint page generation
 app/deploy/contract/  Generic smart contract deployment from ABI + bytecode
 app/mint/[address]/   Public NFT mint page (standalone, shareable link)
 app/send/             Send any ERC20 token, including custom tokens by address
+app/api/synroute/     Server-side proxy for Synthra SynRoute quote and swap calls
 src/components/       Shared UI and feature components
 src/config/           Chain, token, and contract configuration
 src/hooks/            Chain-aware React hooks and API queries
@@ -172,6 +177,12 @@ Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk sca
 | Base Sepolia | 84532 | Bridge origin |
 | Solana Devnet | N/A | Bridge origin |
 | Hardhat Local | 31337 | Development |
+
+## SynRoute
+
+Set `SYNTHRA_API_KEY` to enable SynRoute on Arc Testnet swaps. The frontend calls local API routes under `/api/synroute/*`, and those routes forward requests to `https://trading-api.synthra.org` with the `x-api-key` header. If SynRoute is disabled, unconfigured, or cannot quote a pair, the swap card falls back to the existing Presto on-chain AMM quote and execution path.
+
+`NEXT_PUBLIC_SYNROUTE_APPROVAL_MODE` accepts `erc20` or `permit2`. The default is `erc20` to preserve exact-amount approval behavior.
 
 ## Docs
 

@@ -39,6 +39,16 @@ import { emitPrestoDataRefresh, refreshPrestoQueries, subscribePrestoDataRefresh
 import { useTokenBalances } from '@/hooks/useApiQueries';
 import { isStableBasketToken } from '@/lib/stableswap';
 import { useTransactionExecution } from '@/hooks/useTransactionExecution';
+import {
+  arcGasHeadroom,
+  buildSynRouteSwap,
+  getSynRouteApprovalMode,
+  getSynRouteQuote,
+  isSynRouteChain,
+  signPermit2,
+  toTransactionValue,
+  toSlippageBps,
+} from '@/lib/synroute';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
@@ -345,6 +355,8 @@ export function SwapCardEnhanced() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<Error | null>(null);
   const [priceImpact, setPriceImpact] = useState<number>(0);
+  const [quoteSource, setQuoteSource] = useState<'local' | 'synroute'>('local');
+  const [synRouteRoute, setSynRouteRoute] = useState('');
   // Track quote request version to cancel stale requests
   const quoteRequestId = useRef(0);
   useEffect(() => {
@@ -357,6 +369,8 @@ export function SwapCardEnhanced() {
           setOutputAmount('');
           setQuoteError(null);
           setPriceImpact(0);
+          setQuoteSource('local');
+          setSynRouteRoute('');
           return;
         }
 
@@ -365,6 +379,34 @@ export function SwapCardEnhanced() {
 
         try {
           const amount = safeParseUnits(inputAmount, inputToken.decimals);
+          if (isSynRouteChain(chainId)) {
+            try {
+              const quote = await getSynRouteQuote({
+                chainId,
+                tokenIn: inputToken.address,
+                tokenOut: outputToken.address,
+                amount: amount.toString(),
+              });
+
+              if (currentRequestId !== quoteRequestId.current) return;
+
+              if (!quote.amountOutDecimals || Number(quote.amountOutDecimals) <= 0) {
+                throw new Error('InsufficientLiquidity');
+              }
+
+              setOutputAmount(quote.amountOutDecimals);
+              setQuoteSource('synroute');
+              setSynRouteRoute(quote.routeString ?? 'SynRoute');
+
+              const synRouteImpact = Number(quote.priceImpact ?? 0);
+              setPriceImpact(Number.isFinite(synRouteImpact) && synRouteImpact > 0.01 ? synRouteImpact : 0);
+              return;
+            } catch (synRouteError) {
+              console.warn('SynRoute quote unavailable, falling back to local quote', synRouteError);
+              setQuoteSource('local');
+              setSynRouteRoute('');
+            }
+          }
 
           // Get quote - use different function based on chain
           let result: bigint;
@@ -405,6 +447,8 @@ export function SwapCardEnhanced() {
           }
 
           setOutputAmount(formatUnits(result, outputToken.decimals));
+          setQuoteSource('local');
+          setSynRouteRoute('');
 
           // Calculate price impact using the correct reserve model per chain
           if (isStableSwapRoute) {
@@ -472,7 +516,7 @@ export function SwapCardEnhanced() {
 
     const timer = setTimeout(fetchQuote, 500); // 500ms debounce — avoids RPC calls mid-typing
     return () => clearTimeout(timer);
-  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain, isArcTestnet, inputReserves, outputReserves, calculateArcSpotOutput, isStableSwapRoute, ARC_STABLESWAP_ADDRESS]);
+  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain, isArcTestnet, inputReserves, outputReserves, calculateArcSpotOutput, isStableSwapRoute, ARC_STABLESWAP_ADDRESS, chainId]);
 
 
   // Swap execution
@@ -498,6 +542,7 @@ export function SwapCardEnhanced() {
       return;
     }
 
+    setIsSwapping(true);
     setSwapStage('approving');
 
     let hash: `0x${string}` | undefined;
@@ -514,11 +559,70 @@ export function SwapCardEnhanced() {
 
       const targetSpender = isStableSwapRoute ? ARC_STABLESWAP_ADDRESS : dexAddress;
       const targetAbi = isStableSwapRoute ? ARC_STABLESWAP_ABI : HUB_AMM_ABI;
+      const shouldUseSynRoute = quoteSource === 'synroute' && isSynRouteChain(chainId);
 
       let txHash: `0x${string}` | undefined;
       await execute(
-        'Swap',
+        shouldUseSynRoute ? 'SynRoute swap' : 'Swap',
         async () => {
+          if (shouldUseSynRoute) {
+            let built = await buildSynRouteSwap({
+              chainId,
+              tokenIn: inputToken.address,
+              tokenOut: outputToken.address,
+              amount: amount.toString(),
+              sender: address,
+              recipient: address,
+              approvalMode: getSynRouteApprovalMode(),
+              slippageBps: toSlippageBps(slippageTolerance),
+            });
+
+            const tokenApproval = built.approval?.tokenApproval ?? built.approval;
+            if (tokenApproval?.needsApproval && tokenApproval.approveTransaction) {
+              const approveTx = tokenApproval.approveTransaction;
+              const approveHash = await walletClient.sendTransaction({
+                account: address,
+                to: approveTx.to,
+                data: approveTx.data,
+                value: toTransactionValue(approveTx.value),
+                chain: null,
+              });
+              await publicClient.waitForTransactionReceipt({ hash: approveHash });
+            }
+
+            const permit2 = built.approval?.permit2;
+            if (permit2?.signatureRequired && permit2.typedData) {
+              const signature = await signPermit2(walletClient, address, permit2);
+              const message = permit2.typedData.message;
+              built = await buildSynRouteSwap({
+                chainId,
+                tokenIn: inputToken.address,
+                tokenOut: outputToken.address,
+                amount: amount.toString(),
+                sender: address,
+                recipient: address,
+                approvalMode: getSynRouteApprovalMode(),
+                slippageBps: toSlippageBps(slippageTolerance),
+                permit2Signature: signature,
+                permit2Amount: message?.details?.amount,
+                permit2Expiration: message?.details?.expiration,
+                permit2Nonce: message?.details?.nonce,
+                permit2SigDeadline: message?.sigDeadline,
+              });
+            }
+
+            if (!built.transaction) throw new Error('No SynRoute swap transaction returned');
+            setSwapStage('swapping');
+            return walletClient.sendTransaction({
+              account: address,
+              to: built.transaction.to,
+              data: built.transaction.data,
+              value: toTransactionValue(built.transaction.value),
+              gas: arcGasHeadroom(built.transaction.gasLimit),
+              chain: null,
+            });
+          }
+
           if (isTempoChain) {
             if (!publicClient) {
               throw new Error('Public client unavailable');
@@ -673,6 +777,13 @@ export function SwapCardEnhanced() {
 
   const inputUsdEstimate = inputAmount && Number(inputAmount) > 0 ? `~ $${Number(inputAmount).toFixed(2)}` : '';
   const outputUsdEstimate = outputAmount && Number(outputAmount) > 0 ? `~ $${Number(outputAmount).toFixed(2)}` : '';
+  const routeLabel = quoteSource === 'synroute'
+    ? (synRouteRoute || 'SynRoute')
+    : isStableSwapRoute
+      ? 'Arc StableSwap'
+      : isTempoChain
+        ? 'Tempo DEX'
+        : 'Presto Hub AMM';
 
   const networkFeeEstimate = useMemo(() => {
     // Typical swap transaction gas limit: 150,000 gas
@@ -706,7 +817,9 @@ export function SwapCardEnhanced() {
           <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
             <div>
               <p className="text-[13px] font-bold text-slate-100">Swap Tokens</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">Instant onchain execution</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                {quoteSource === 'synroute' ? 'SynRoute smart routing' : 'Instant onchain execution'}
+              </p>
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -841,6 +954,12 @@ export function SwapCardEnhanced() {
                   </span>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Route</span>
+                  <span className="max-w-[210px] truncate text-right font-medium text-slate-200" title={routeLabel}>
+                    {routeLabel}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Price impact</span>
                   <span className={`font-medium ${priceImpact < 1 ? 'text-emerald-400' : priceImpact < 3 ? 'text-amber-400' : 'text-rose-400'}`}>
                     {formatPriceImpact(priceImpact)}
@@ -864,7 +983,7 @@ export function SwapCardEnhanced() {
                   <span className="text-slate-500">Approval</span>
                   <span className="flex items-center gap-1 font-medium text-emerald-400">
                     <span className="material-symbols-outlined text-[12px]">verified</span>
-                    Exact amount only
+                    {quoteSource === 'synroute' && getSynRouteApprovalMode() === 'permit2' ? 'Permit2' : 'Exact amount only'}
                   </span>
                 </div>
               </div>
