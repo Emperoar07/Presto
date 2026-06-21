@@ -1196,21 +1196,9 @@ function CompactPositionManagerInline({
     setActionMode('remove');
   };
 
-  const reserveSummary = `${userReserveValue.toFixed(token.decimals > 6 ? 6 : 2)} ${token.symbol} � ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
+  const reserveSummary = `${userReserveValue.toFixed(token.decimals > 6 ? 6 : 2)} ${token.symbol} · ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
   const receiveSummary = estimatedRemoval
-    ? `${estimatedRemoval.userToken.toFixed(token.decimals > 6 ? 6 : 2)} ${token.symbol} � ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
-    : '--';
-  const statItems = [
-    {
-      label: 'Value',
-      value: `${estimatedValue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-    },
-    { label: 'Liquidity', value: poolStat?.liquidity ?? '  const reserveSummary = `${userReserveValue.toFixed(2)} ${token.symbol} · ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
-  const receiveSummary = estimatedRemoval
-    ? `${estimatedRemoval.userToken.toFixed(2)} ${token.symbol} · ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
+    ? `${estimatedRemoval.userToken.toFixed(token.decimals > 6 ? 6 : 2)} ${token.symbol} · ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
     : '--';
   const statItems = [
     {
@@ -1225,33 +1213,7 @@ function CompactPositionManagerInline({
     { label: 'Reserves', value: reserveSummary },
     {
       label: 'Rate',
-      value: poolRatio ? `1 ${token.symbol} ≈ ${poolRatio.toFixed(2)} ${hubToken.symbol}` : '--',
-    },
-  ];' },
-    { label: '24h Vol', value: poolStat?.vol24h ?? '  const reserveSummary = `${userReserveValue.toFixed(2)} ${token.symbol} · ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
-  const receiveSummary = estimatedRemoval
-    ? `${estimatedRemoval.userToken.toFixed(2)} ${token.symbol} · ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
-    : '--';
-  const statItems = [
-    {
-      label: 'Value',
-      value: `$${estimatedValue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-    },
-    { label: 'Liquidity', value: poolStat?.liquidity ?? '$0' },
-    { label: '24h Vol', value: poolStat?.vol24h ?? '$0' },
-    { label: 'Reserves', value: reserveSummary },
-    {
-      label: 'Rate',
-      value: poolRatio ? `1 ${token.symbol} ≈ ${poolRatio.toFixed(2)} ${hubToken.symbol}` : '--',
-    },
-  ];' },
-    { label: 'Reserves', value: reserveSummary },
-    {
-      label: 'Rate',
-      value: displayRatio ? `1 ${token.symbol} � ${displayRatio.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${hubToken.symbol}` : '--',
+      value: displayRatio ? `1 ${token.symbol} ≈ ${displayRatio.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${hubToken.symbol}` : '--',
     },
   ];
 
