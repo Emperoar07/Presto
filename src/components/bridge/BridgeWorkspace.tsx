@@ -164,7 +164,8 @@ function BridgeNetworkSelector({
             {BRIDGE_NETWORKS.map((networkKey) => {
               const network = NETWORKS[networkKey];
               const visual = networkKey === 'arc' ? getNetworkVisual(arcTestnet.id) : null;
-              const disabled = networkKey === disabledKey;
+              const isSolana = networkKey === 'solana-devnet';
+              const disabled = networkKey === disabledKey || isSolana;
 
               return (
                 <Listbox.Option
@@ -193,7 +194,13 @@ function BridgeNetworkSelector({
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold text-white">{network.label}</p>
-                      <p className="text-[11px] text-slate-400">{disabled ? 'Already selected on the other side' : `Route through ${network.shortLabel}`}</p>
+                      <p className="text-[11px] text-slate-400">
+                        {isSolana
+                          ? 'Coming soon'
+                          : disabled
+                            ? 'Already selected on the other side'
+                            : `Route through ${network.shortLabel}`}
+                      </p>
                     </div>
                   </div>
                 </Listbox.Option>
@@ -241,14 +248,18 @@ export function BridgeWorkspace() {
   const { address: evmAddress } = useAccount();
   const { data: connectorClient } = useConnectorClient();
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
-  const [sourceKey, setSourceKey] = useState<BridgeNetworkKey>(() =>
-    isBridgeNetworkKey(initialSourceParam) ? initialSourceParam : 'arc',
-  );
+  const [sourceKey, setSourceKey] = useState<BridgeNetworkKey>(() => {
+    const key = isBridgeNetworkKey(initialSourceParam) ? initialSourceParam : 'arc';
+    return key === 'solana-devnet' ? 'arc' : key;
+  });
   const [destinationKey, setDestinationKey] = useState<BridgeNetworkKey>(() => {
-    if (isBridgeNetworkKey(initialDestinationParam) && initialDestinationParam !== initialSourceParam) {
-      return initialDestinationParam;
+    const key = isBridgeNetworkKey(initialDestinationParam) ? initialDestinationParam : 'ethereum-sepolia';
+    const fallback = key === 'solana-devnet' ? 'ethereum-sepolia' : key;
+    const resolvedSource = isBridgeNetworkKey(initialSourceParam) && initialSourceParam !== 'solana-devnet' ? initialSourceParam : 'arc';
+    if (fallback === resolvedSource) {
+      return resolvedSource === 'arc' ? 'ethereum-sepolia' : 'arc';
     }
-    return 'ethereum-sepolia';
+    return fallback;
   });
   const [amount, setAmount] = useState('');
   const [exactAmountMode, setExactAmountMode] = useState(false);
@@ -268,6 +279,8 @@ export function BridgeWorkspace() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const historyAutoCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bridgeCardRef = useRef<HTMLDivElement>(null);
+  const [bridgeCardHeight, setBridgeCardHeight] = useState<number | null>(null);
 
   const startHistoryAutoClose = useCallback(() => {
     if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current);
@@ -289,6 +302,20 @@ export function BridgeWorkspace() {
     }
     return () => { if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current); };
   }, [historyOpen, startHistoryAutoClose]);
+
+  // Measure the Bridge Card height dynamically to size the History panel
+  useEffect(() => {
+    if (!bridgeCardRef.current) return;
+    const updateHeight = () => {
+      if (bridgeCardRef.current) {
+        setBridgeCardHeight(bridgeCardRef.current.offsetHeight);
+      }
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(bridgeCardRef.current);
+    return () => observer.disconnect();
+  }, [historyOpen]);
 
   const [solanaProviderKey, setSolanaProviderKey] = useState<string | null>(null);
   const [solanaWalletPickerOpen, setSolanaWalletPickerOpen] = useState(false);
@@ -1240,7 +1267,7 @@ export function BridgeWorkspace() {
             <div className="relative flex items-start justify-center gap-4">
             {/* Bridge card */}
             <div className="w-full max-w-[381px] flex-shrink-0">
-            <div className="overflow-hidden rounded-[16px]" style={{ background: '#141e30', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div ref={bridgeCardRef} className="overflow-hidden rounded-[16px]" style={{ background: '#141e30', border: '1px solid rgba(255,255,255,0.07)' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <div>
@@ -1460,16 +1487,19 @@ export function BridgeWorkspace() {
 
             {/* Side slide-out history panel — beside on xl+, below on mobile */}
             <div
-              className={`transition-all duration-300 ease-in-out overflow-hidden h-[524px] ${
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 historyOpen
                   ? 'w-full max-w-[340px] opacity-100 xl:w-[340px]'
                   : 'w-0 max-w-0 opacity-0 xl:w-0'
               }`}
+              style={{
+                height: bridgeCardHeight ? `${bridgeCardHeight}px` : undefined,
+              }}
               onMouseEnter={() => { if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current); }}
               onMouseLeave={() => startHistoryAutoClose()}
               onScroll={() => resetHistoryAutoClose()}
             >
-              <div className="w-[340px]">
+              <div className="w-[340px]" style={{ height: '100%' }}>
                 <BridgeHistoryPanel
                   bridgeHistory={bridgeHistory}
                   claimingItemId={claimingItemId}

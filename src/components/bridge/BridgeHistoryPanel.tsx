@@ -39,7 +39,7 @@ export function BridgeHistoryPanel({
 
   return (
     <div
-      className="flex h-[524px] w-[340px] flex-col overflow-hidden rounded-[14px]"
+      className="flex h-full w-[340px] flex-col overflow-hidden rounded-[14px]"
       style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
     >
       <div className="px-4 pt-3.5 pb-2 flex-shrink-0">

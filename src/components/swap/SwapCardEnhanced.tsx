@@ -94,6 +94,8 @@ export function SwapCardEnhanced() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [swapHistory, setSwapHistory] = useState<LocalActivityRecord[]>([]);
   const historyAutoCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swapCardRef = useRef<HTMLDivElement>(null);
+  const [swapCardHeight, setSwapCardHeight] = useState<number | null>(null);
 
   // Token State
   const [inputTokenAddress, setInputTokenAddress] = useState(tokens[0]?.address);
@@ -128,6 +130,20 @@ export function SwapCardEnhanced() {
       clearInterval(interval);
     };
   }, [publicClient]);
+
+  // Measure the Swap Card height dynamically to size the History panel
+  useEffect(() => {
+    if (!swapCardRef.current) return;
+    const updateHeight = () => {
+      if (swapCardRef.current) {
+        setSwapCardHeight(swapCardRef.current.offsetHeight);
+      }
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(swapCardRef.current);
+    return () => observer.disconnect();
+  }, [historyOpen]);
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -1065,7 +1081,7 @@ export function SwapCardEnhanced() {
   return (
     <>
       <div className="relative flex items-start justify-center gap-4">
-        <div className="relative w-full max-w-[381px] shrink-0 self-stretch">
+        <div ref={swapCardRef} className="relative w-full max-w-[381px] shrink-0">
         <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1e293b] shadow-[0_18px_48px_rgba(2,6,23,0.34)]">
           <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
             <div>
@@ -1322,11 +1338,14 @@ export function SwapCardEnhanced() {
       </div>
 
       <div
-        className={`relative shrink-0 overflow-hidden h-[516px] transition-[width,opacity,transform] duration-300 ease-in-out ${
+        className={`relative shrink-0 overflow-hidden transition-[width,opacity,transform] duration-300 ease-in-out ${
           historyOpen
             ? 'w-[320px] opacity-100 translate-x-0'
             : 'w-0 opacity-0 translate-x-3 pointer-events-none'
         }`}
+        style={{
+          height: swapCardHeight ? `${swapCardHeight}px` : undefined,
+        }}
         onMouseEnter={() => { if (historyAutoCloseRef.current) clearTimeout(historyAutoCloseRef.current); }}
         onMouseLeave={() => startHistoryAutoClose()}
         onScroll={() => resetHistoryAutoClose()}
