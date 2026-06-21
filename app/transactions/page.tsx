@@ -2,8 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTransactions } from '@/hooks/useApiQueries';
+import { useChainId } from 'wagmi';
 import type { BridgeHistoryItem } from '@/components/bridge/types';
-import { BRIDGE_HISTORY_STORAGE_KEY, NETWORKS, isValidBridgeHistoryItem } from '@/components/bridge/constants';
+import {
+  BRIDGE_HISTORY_STORAGE_KEY,
+  NETWORKS,
+  isValidBridgeHistoryItem,
+  getExplorerBase
+} from '@/components/bridge/constants';
+import { getExplorerTxUrl } from '@/lib/explorer';
 import {
   LOCAL_ACTIVITY_STORAGE_KEY,
   type LocalActivityRecord,
@@ -39,6 +46,7 @@ type ActivityItem = {
   icon: string;
   iconBg: string;
   iconColor: string;
+  explorerUrl?: string;
 };
 
 function formatRelativeTime(timestamp: number) {
@@ -58,7 +66,7 @@ function formatRelativeTime(timestamp: number) {
   return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
 }
 
-function buildApiActivity(item: TxItem): ActivityItem {
+function buildApiActivity(item: TxItem, chainId?: number): ActivityItem {
   const normalized = item.type.toLowerCase();
   const category: ActivityCategory = normalized.includes('swap')
     ? 'swaps'
@@ -92,6 +100,7 @@ function buildApiActivity(item: TxItem): ActivityItem {
     icon: visual.icon,
     iconBg: visual.bg,
     iconColor: visual.color,
+    explorerUrl: getExplorerTxUrl(chainId, item.hash),
   };
 }
 
@@ -101,6 +110,10 @@ function buildBridgeActivity(item: BridgeHistoryItem): ActivityItem {
   const failed = effectiveState === 'error';
   const sourceLabel = NETWORKS[item.sourceKey]?.shortLabel ?? item.sourceKey;
   const destinationLabel = NETWORKS[item.destinationKey]?.shortLabel ?? item.destinationKey;
+
+  const primaryHash = item.sourceTxHash || item.steps.find((s) => s.txHash)?.txHash;
+  const explorerBase = getExplorerBase(item.sourceKey);
+  const explorerUrl = primaryHash ? `${explorerBase}${primaryHash}${item.sourceKey === 'solana-devnet' ? '?cluster=devnet' : ''}` : undefined;
 
   return {
     id: `bridge-${item.id}`,
@@ -116,10 +129,11 @@ function buildBridgeActivity(item: BridgeHistoryItem): ActivityItem {
     icon: failed ? 'error' : 'sync_alt',
     iconBg: failed ? 'rgba(244,63,94,0.10)' : success ? 'rgba(167,139,250,0.12)' : 'rgba(245,158,11,0.12)',
     iconColor: failed ? '#f43f5e' : success ? '#a78bfa' : '#fbbf24',
+    explorerUrl,
   };
 }
 
-function buildLocalActivity(item: LocalActivityRecord): ActivityItem {
+function buildLocalActivity(item: LocalActivityRecord, chainId?: number): ActivityItem {
   const success = item.status === 'success';
   const failed = item.status === 'error';
   const visual =
@@ -145,10 +159,12 @@ function buildLocalActivity(item: LocalActivityRecord): ActivityItem {
     icon: visual.icon,
     iconBg: visual.bg,
     iconColor: visual.color,
+    explorerUrl: item.hash ? getExplorerTxUrl(chainId, item.hash) : undefined,
   };
 }
 
 export default function TransactionsPage() {
+  const chainId = useChainId();
   const [filter, setFilter] = useState<'all' | 'swaps' | 'liquidity' | 'bridge' | 'send' | 'deploy'>('all');
   const [bridgeHistory, setBridgeHistory] = useState<BridgeHistoryItem[]>([]);
   const [localActivity, setLocalActivity] = useState<LocalActivityRecord[]>([]);
@@ -194,17 +210,17 @@ export default function TransactionsPage() {
   }, []);
 
   const activityItems = useMemo(() => {
-    const apiItems = (items as TxItem[]).map(buildApiActivity);
+    const apiItems = (items as TxItem[]).map((item) => buildApiActivity(item, chainId));
     const bridgeItems = bridgeHistory.map(buildBridgeActivity);
     const apiHashes = new Set(apiItems.map((item) => item.hash).filter(Boolean));
     const localItems = localActivity
-      .map(buildLocalActivity)
+      .map((item) => buildLocalActivity(item, chainId))
       .filter((item) => {
         if (item.hash && apiHashes.has(item.hash) && item.statusLabel === 'Confirmed') return false;
         return true;
       });
     return [...localItems, ...apiItems, ...bridgeItems].sort((a, b) => b.timestamp - a.timestamp);
-  }, [bridgeHistory, items, localActivity]);
+  }, [bridgeHistory, items, localActivity, chainId]);
 
   const filteredItems = useMemo(() => {
     if (filter === 'all') return activityItems;
@@ -265,7 +281,19 @@ export default function TransactionsPage() {
                 <div className="text-right">
                   <p className={`text-[13px] font-bold ${item.statusTone}`}>{item.statusLabel}</p>
                   <p className="mt-0.5 text-[11px] text-slate-500">{item.timeLabel}</p>
-                  {item.hashLabel ? <p className="mt-0.5 text-[10px] text-slate-600">{item.hashLabel}</p> : null}
+                  {item.hashLabel && item.explorerUrl ? (
+                    <a
+                      href={item.explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <span>{item.hashLabel}</span>
+                      <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                    </a>
+                  ) : item.hashLabel ? (
+                    <p className="mt-0.5 text-[10px] text-slate-600">{item.hashLabel}</p>
+                  ) : null}
                 </div>
               </div>
             ))}

@@ -221,7 +221,7 @@ function MyPositionRow({
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-col rounded-[10px] px-3 py-2 text-[12px]" style={{ background: 'rgba(0,184,122,0.08)', border: '1px solid rgba(0,184,122,0.18)' }}>
+          <div className="flex items-center h-9 rounded-[10px] px-3 text-[11px]" style={{ background: 'rgba(0,184,122,0.08)', border: '1px solid rgba(0,184,122,0.18)' }}>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-[#00b87a]">
                 {claimableUsyc > 0 ? `${claimableUsyc.toFixed(4)} USYC` : '0 USYC'}
@@ -229,8 +229,8 @@ function MyPositionRow({
               <span className="text-slate-500">claimable</span>
             </div>
             {dailyRewardUsyc > 0 && (
-              <span className="mt-0.5 text-[10.5px] text-slate-500">
-                ~{dailyRewardUsyc.toFixed(4)} USYC / day
+              <span className="ml-2 pl-2 border-l border-white/[0.08] text-[9.5px] text-slate-500">
+                ~{dailyRewardUsyc.toFixed(4)} / day
               </span>
             )}
           </div>
@@ -238,7 +238,7 @@ function MyPositionRow({
             type="button"
             onClick={handleClaim}
             disabled={isClaiming || claimableUsyc <= 0}
-            className="rounded-[10px] px-3.5 py-2 text-[12px] font-bold disabled:opacity-40"
+            className="h-9 rounded-[10px] px-3.5 text-[11px] font-bold disabled:opacity-40 transition-colors btn-press flex items-center justify-center"
             style={{ background: claimableUsyc > 0 ? '#00b87a' : 'rgba(0,184,122,0.2)', color: claimableUsyc > 0 ? '#0f172a' : '#00b87a' }}
           >
             {isClaiming ? 'Claiming…' : 'Claim USYC'}
@@ -246,10 +246,13 @@ function MyPositionRow({
           <button
             type="button"
             onClick={() => onManage(token.address)}
-            className="rounded-[10px] px-3.5 py-2 text-[12px] font-bold text-[#0f172a]"
-            style={{ background: '#25c0f4' }}
+            className="w-9 h-9 flex items-center justify-center rounded-[10px] transition-colors btn-press"
+            style={{ background: '#25c0f4', color: '#0f172a' }}
+            title={isActive ? 'Hide Manager' : 'Manage Position'}
           >
-            {isActive ? 'Hide Manager' : 'Manage Position'}
+            <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isActive ? 'rotate-180' : ''}`}>
+              expand_more
+            </span>
           </button>
         </div>
       </div>

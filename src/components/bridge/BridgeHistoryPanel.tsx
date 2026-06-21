@@ -65,6 +65,10 @@ export function BridgeHistoryPanel({
             const iconColor = isSuccess ? '#a78bfa' : isFailed ? '#f43f5e' : '#fbbf24';
             const iconBg = isSuccess ? 'rgba(167,139,250,0.12)' : isFailed ? 'rgba(244,63,94,0.10)' : 'rgba(245,158,11,0.12)';
 
+            const primaryHash = item.sourceTxHash || item.steps.find((s) => s.txHash)?.txHash;
+            const explorerBase = getExplorerBase(item.sourceKey);
+            const explorerUrl = primaryHash ? `${explorerBase}${primaryHash}${item.sourceKey === 'solana-devnet' ? '?cluster=devnet' : ''}` : '';
+
             return (
               <div key={item.id}>
                 <div
@@ -87,6 +91,17 @@ export function BridgeHistoryPanel({
                     <p className="text-[11px] text-slate-500">
                       {amountLabel} · {stateLabel}
                     </p>
+                    {explorerUrl && (
+                      <a
+                        href={explorerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                      >
+                        <span>Explorer</span>
+                        <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                      </a>
+                    )}
                   </div>
 
                   {/* Right: amount or status + time */}

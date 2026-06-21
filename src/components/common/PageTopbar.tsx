@@ -39,16 +39,16 @@ export const PageTopbar = memo(function PageTopbar() {
   return (
     <div className="sticky top-0 z-30 flex h-[58px] items-center border-b border-white/[0.07] bg-[#0f172a]/95 px-4 backdrop-blur-md md:px-7">
       <span className="text-[15px] font-bold text-slate-100">{title}</span>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1.5">
         <a
           href="https://presto-markets.vercel.app/markets?cat=Trending"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-[8px] border border-primary/20 bg-primary/5 px-[10px] py-2 text-[11px] font-semibold text-primary transition-all duration-200 hover:bg-primary/10 hover:border-primary/40 shadow-[0_0_12px_rgba(37,192,244,0.05)] hover:shadow-[0_0_16px_rgba(37,192,244,0.15)]"
+          className="inline-flex items-center gap-1 rounded-[6px] border border-primary/20 bg-primary/5 px-2 py-1 text-[10.5px] font-semibold text-primary transition-all duration-200 hover:bg-primary/10 hover:border-primary/40 shadow-[0_0_8px_rgba(37,192,244,0.05)] hover:shadow-[0_0_12px_rgba(37,192,244,0.15)]"
         >
-          <span className="material-symbols-outlined text-[14px] animate-pulse">trending_up</span>
+          <span className="material-symbols-outlined text-[13px] animate-pulse">trending_up</span>
           Markets
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.05em] text-emerald-400 animate-pulse">
+          <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-0.5 text-[7px] font-extrabold uppercase tracking-[0.05em] text-emerald-400 animate-pulse">
             New
           </span>
         </a>
@@ -57,9 +57,9 @@ export const PageTopbar = memo(function PageTopbar() {
             href={faucetUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-[8px] border border-primary/20 bg-transparent px-[10px] py-2 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/10"
+            className="inline-flex items-center gap-1 rounded-[6px] border border-primary/20 bg-transparent px-2 py-1 text-[10.5px] font-semibold text-primary transition-colors hover:bg-primary/10"
           >
-            <span className="material-symbols-outlined text-[14px]">water_drop</span>
+            <span className="material-symbols-outlined text-[13px]">water_drop</span>
             Faucet
           </a>
         ) : null}

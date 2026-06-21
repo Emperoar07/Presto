@@ -8,6 +8,7 @@ import { formatUnits, parseUnits } from 'viem';
 import { approveToken, getTokenBalancesBatch, toUint128 } from '@/lib/tempoClient';
 import toast from 'react-hot-toast';
 import { TxToast } from '@/components/common/TxToast';
+import { getExplorerTxUrl } from '@/lib/explorer';
 import { SlippageSettings } from './SlippageSettings';
 import {
   calculatePriceImpact,
@@ -40,6 +41,13 @@ import { useTokenBalances } from '@/hooks/useApiQueries';
 import { isStableBasketToken } from '@/lib/stableswap';
 import { useTransactionExecution } from '@/hooks/useTransactionExecution';
 import {
+  fetchTokenPrices,
+  getTokenUsdPrice,
+  tokenToUsdAmount,
+  usdToTokenAmount,
+  type TokenPriceMap,
+} from '@/lib/tokenPrices';
+import {
   arcGasHeadroom,
   buildSynRouteSwap,
   getSynRouteApprovalMode,
@@ -52,6 +60,7 @@ import {
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
+type AmountDisplayMode = 'token' | 'usd';
 
 const formatSwapBalance = (value: string) => {
   const parsed = Number(value);
@@ -73,6 +82,10 @@ export function SwapCardEnhanced() {
   const { execute } = useTransactionExecution();
   const [inputAmount, setInputAmount] = useState('');
   const [outputAmount, setOutputAmount] = useState('');
+  const [inputTokenAmount, setInputTokenAmount] = useState('');
+  const [outputTokenAmount, setOutputTokenAmount] = useState('');
+  const [inputDisplayMode, setInputDisplayMode] = useState<AmountDisplayMode>('token');
+  const [outputDisplayMode, setOutputDisplayMode] = useState<AmountDisplayMode>('token');
   const [exactField, setExactField] = useState<'input' | 'output'>('input');
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapStage, setSwapStage] = useState<'idle' | 'approving' | 'swapping'>('idle');
@@ -147,6 +160,8 @@ export function SwapCardEnhanced() {
   const [balanceIn, setBalanceIn] = useState('0.00');
   const [balanceOut, setBalanceOut] = useState('0.00');
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
+  const [tokenPrices, setTokenPrices] = useState<TokenPriceMap>({});
+  const [priceError, setPriceError] = useState<string | null>(null);
   const {
     data: polledBalances = {},
     isFetching: isPollingBalances,
@@ -221,6 +236,27 @@ export function SwapCardEnhanced() {
   useEffect(() => {
     fetchBalances();
   }, [fetchBalances]);
+
+  useEffect(() => {
+    let active = true;
+    const loadPrices = async () => {
+      try {
+        const prices = await fetchTokenPrices();
+        if (!active) return;
+        setTokenPrices(prices);
+        setPriceError(null);
+      } catch (error) {
+        if (!active) return;
+        setPriceError(error instanceof Error ? error.message : 'Price data unavailable');
+      }
+    };
+    loadPrices();
+    const intervalId = window.setInterval(loadPrices, 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!inputToken || !outputToken) return;
@@ -310,7 +346,79 @@ export function SwapCardEnhanced() {
     }
   };
 
-  const amountIn = exactField === 'input' && inputAmount ? safeParseUnits(inputAmount, inputToken.decimals) : 0n;
+  const normalizeDisplayAmount = useCallback((value: string, token: typeof inputToken, mode: AmountDisplayMode) => {
+    if (mode === 'token') return value;
+    return usdToTokenAmount(value, token, tokenPrices);
+  }, [tokenPrices]);
+
+  const formatDisplayAmount = useCallback((tokenAmount: string, token: typeof inputToken, mode: AmountDisplayMode) => {
+    if (!tokenAmount) return '';
+    if (mode === 'token') return tokenAmount;
+    return tokenToUsdAmount(tokenAmount, token, tokenPrices);
+  }, [tokenPrices]);
+
+  const readLocalQuote = useCallback(async (amount: bigint) => {
+    if (!publicClient || amount <= 0n) return 0n;
+    if (isStableSwapRoute) {
+      return readContractWithFallback<bigint>(publicClient, {
+        address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
+        abi: ARC_STABLESWAP_ABI,
+        functionName: 'getQuote',
+        args: [inputToken.address, outputToken.address, amount],
+      });
+    }
+    if (isTempoChain) {
+      return readContractWithFallback<bigint>(publicClient, {
+        address: dexAddress as `0x${string}`,
+        abi: TEMPO_DEX_ABI,
+        functionName: 'quoteSwapExactAmountIn',
+        args: [inputToken.address, outputToken.address, toUint128(amount)],
+      });
+    }
+    return readContractWithFallback<bigint>(publicClient, {
+      address: dexAddress as `0x${string}`,
+      abi: HUB_AMM_ABI,
+      functionName: 'getQuote',
+      args: [inputToken.address, outputToken.address, amount],
+    });
+  }, [
+    ARC_STABLESWAP_ADDRESS,
+    dexAddress,
+    inputToken.address,
+    isStableSwapRoute,
+    isTempoChain,
+    outputToken.address,
+    publicClient,
+  ]);
+
+  const findInputForExactOutput = useCallback(async (desiredOut: bigint) => {
+    if (desiredOut <= 0n) return null;
+    let low = 1n;
+    let high = safeParseUnits(balanceIn, inputToken.decimals);
+    if (high <= 0n) {
+      high = 10n ** BigInt(inputToken.decimals);
+    }
+
+    let highQuote = await readLocalQuote(high);
+    for (let i = 0; i < 16 && highQuote < desiredOut; i++) {
+      high *= 2n;
+      highQuote = await readLocalQuote(high);
+    }
+    if (highQuote < desiredOut) return null;
+
+    for (let i = 0; i < 48; i++) {
+      const mid = (low + high) / 2n;
+      const quote = await readLocalQuote(mid);
+      if (quote >= desiredOut) {
+        high = mid;
+      } else {
+        low = mid + 1n;
+      }
+    }
+    return high;
+  }, [balanceIn, inputToken.decimals, readLocalQuote]);
+
+  const amountIn = exactField === 'input' && inputTokenAmount ? safeParseUnits(inputTokenAmount, inputToken.decimals) : 0n;
 
   const calculateArcSpotOutput = useCallback((amount: bigint) => {
     if (amount <= 0n) return 0n;
@@ -1067,9 +1175,6 @@ export function SwapCardEnhanced() {
         >
           <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
             <p className="text-[13px] font-bold text-slate-50">Swap History</p>
-            <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-              {swapHistory.length} entries
-            </span>
           </div>
           <div className="flex-1 overflow-y-auto">
             {swapHistory.length === 0 ? (
@@ -1098,6 +1203,17 @@ export function SwapCardEnhanced() {
                       <div className="min-w-0 flex-1">
                         <p className="text-[12.5px] font-semibold text-slate-100">{item.title}</p>
                         <p className="text-[11px] text-slate-500">{item.subtitle}</p>
+                        {item.hash && (
+                          <a
+                            href={getExplorerTxUrl(chainId, item.hash)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                          >
+                            <span>Explorer</span>
+                            <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                          </a>
+                        )}
                       </div>
                       <div className="flex-shrink-0 text-right">
                         <p className={`text-[12px] font-bold ${isSuccess ? 'text-emerald-400' : isError ? 'text-rose-400' : 'text-amber-400'}`}>

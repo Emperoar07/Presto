@@ -5,6 +5,8 @@ export const SYNROUTE_ARC_CHAIN_ID = 5042002;
 export type SynRouteApprovalMode = 'erc20' | 'permit2';
 
 export type SynRouteQuote = {
+  amountIn?: string;
+  amountInDecimals?: string;
   amountOut?: string;
   amountOutDecimals: string;
   routeString?: string;
@@ -58,6 +60,7 @@ type SynRouteBaseRequest = {
   tokenIn: string;
   tokenOut: string;
   amount: string;
+  tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
 };
 
 type SynRouteSwapRequest = SynRouteBaseRequest & {
@@ -104,7 +107,7 @@ export function toSlippageBps(slippagePercent: number) {
 export function getSynRouteQuote(request: SynRouteBaseRequest) {
   return postSynRoute<SynRouteQuote>('quote', {
     ...request,
-    tradeType: 'EXACT_INPUT',
+    tradeType: request.tradeType ?? 'EXACT_INPUT',
   });
 }
 
