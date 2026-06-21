@@ -18,9 +18,16 @@ import {
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
 import { emitPrestoDataRefresh, refreshPrestoQueries } from '@/lib/appDataRefresh';
+import { fetchTokenPrices, getTokenUsdPrice, type TokenPriceMap } from '@/lib/tokenPrices';
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
+
+const SYNTHRA_ROUTED_LIQUIDITY_SYMBOLS = new Set(['cirbtc']);
+
+function isSynthraRoutedLiquidityToken(token: Token) {
+  return SYNTHRA_ROUTED_LIQUIDITY_SYMBOLS.has(token.symbol.toLowerCase());
+}
 
 type PoolStat = {
   pair: string;
@@ -923,22 +930,32 @@ function CompactPositionManagerInline({
   const [requiredHubAmount, setRequiredHubAmount] = useState('0');
   const [userTokenBalance, setUserTokenBalance] = useState('0');
   const [hubTokenBalance, setHubTokenBalance] = useState('0');
+  const [tokenPrices, setTokenPrices] = useState<TokenPriceMap>({});
   const [isApproving, setIsApproving] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
   const userReserveValue = Number(formatUnits(reserveUserToken, token.decimals));
   const hubReserveValue = Number(formatUnits(reserveHubToken, hubToken.decimals));
+  const isSynthraRouted = isSynthraRoutedLiquidityToken(token);
+  const marketHubRatio = (() => {
+    const tokenPrice = getTokenUsdPrice(token, tokenPrices);
+    const hubPrice = getTokenUsdPrice(hubToken, tokenPrices);
+    if (!tokenPrice || !hubPrice) return null;
+    return tokenPrice / hubPrice;
+  })();
   const poolRatio = userReserveValue > 0 ? hubReserveValue / userReserveValue : null;
   const inverseRatio = hubReserveValue > 0 ? userReserveValue / hubReserveValue : null;
   const numericUserBalance = Number.parseFloat(userTokenBalance || '0');
   const numericHubBalance = Number.parseFloat(hubTokenBalance || '0');
+  const displayRatio = isSynthraRouted ? marketHubRatio : poolRatio;
+  const displayInverseRatio = displayRatio && displayRatio > 0 ? 1 / displayRatio : null;
 
   const handleTokenAmountChange = (value: string) => {
     setAddAmountRaw(value);
     setAddInputSource('token');
     const num = Number.parseFloat(value);
-    if (Number.isFinite(num) && num > 0 && poolRatio && Number.isFinite(poolRatio)) {
-      setHubAddAmountRaw((num * poolRatio).toFixed(6));
+    if (Number.isFinite(num) && num > 0 && displayRatio && Number.isFinite(displayRatio)) {
+      setHubAddAmountRaw((num * displayRatio).toFixed(6));
     } else {
       setHubAddAmountRaw('');
     }
@@ -948,8 +965,8 @@ function CompactPositionManagerInline({
     setHubAddAmountRaw(value);
     setAddInputSource('hub');
     const num = Number.parseFloat(value);
-    if (Number.isFinite(num) && num > 0 && inverseRatio && Number.isFinite(inverseRatio)) {
-      setAddAmountRaw((num * inverseRatio).toFixed(6));
+    if (Number.isFinite(num) && num > 0 && displayInverseRatio && Number.isFinite(displayInverseRatio)) {
+      setAddAmountRaw((num * displayInverseRatio).toFixed(Math.min(token.decimals, 8)));
     } else {
       setAddAmountRaw('');
     }
@@ -960,6 +977,11 @@ function CompactPositionManagerInline({
     if (isTempoChain) return hubTokenBalance;
     if (!Number.isFinite(numericUserBalance) || numericUserBalance <= 0) return '0';
     if (!Number.isFinite(numericHubBalance) || numericHubBalance <= 0) return '0';
+    if (isSynthraRouted) {
+      if (!displayRatio || displayRatio <= 0) return '0';
+      const affordableByHub = numericHubBalance / displayRatio;
+      return formatEditableAmount(Math.min(numericUserBalance, affordableByHub), token.decimals);
+    }
     if (!Number.isFinite(userReserveValue) || !Number.isFinite(hubReserveValue) || userReserveValue <= 0 || hubReserveValue <= 0) {
       return formatEditableAmount(numericUserBalance, token.decimals);
     }
@@ -986,8 +1008,28 @@ function CompactPositionManagerInline({
   }, [address, hubToken.address, hubToken.decimals, publicClient, token.address, token.decimals, isAdding, burnLiquidity.isPending]);
 
   useEffect(() => {
+    if (!isSynthraRouted) return;
+    let active = true;
+    const loadPrices = async () => {
+      try {
+        const prices = await fetchTokenPrices();
+        if (active) setTokenPrices(prices);
+      } catch (error) {
+        console.error('Failed to fetch liquidity market prices', error);
+      }
+    };
+
+    loadPrices();
+    const intervalId = window.setInterval(loadPrices, 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [isSynthraRouted]);
+
+  useEffect(() => {
     const fetchRequirement = async () => {
-      if (!publicClient || isTempoChain || !addAmount || Number(addAmount) <= 0) {
+      if (!publicClient || isTempoChain || isSynthraRouted || !addAmount || Number(addAmount) <= 0) {
         setRequiredHubAmount('0');
         return;
       }
@@ -1008,7 +1050,7 @@ function CompactPositionManagerInline({
     };
 
     fetchRequirement();
-  }, [addAmount, chainId, hubToken.address, hubToken.decimals, isTempoChain, publicClient, token.address, token.decimals]);
+  }, [addAmount, chainId, hubToken.address, hubToken.decimals, isSynthraRouted, isTempoChain, publicClient, token.address, token.decimals]);
 
   const estimatedLpTokens = (() => {
     if (!addAmount) return null;
@@ -1071,6 +1113,10 @@ function CompactPositionManagerInline({
       }
       if (!Number.isFinite(availableInputBalance) || numericAddAmount > availableInputBalance + 1e-8) {
         toast.error(`Insufficient ${isTempoChain ? hubToken.symbol : token.symbol} balance`);
+        return;
+      }
+      if (isSynthraRouted) {
+        toast.error(`${token.symbol}/${hubToken.symbol} uses Synthra routing for swaps. Local pool adds are disabled until this pool is re-seeded at market price.`);
         return;
       }
       if (!isTempoChain) {
@@ -1150,7 +1196,19 @@ function CompactPositionManagerInline({
     setActionMode('remove');
   };
 
-  const reserveSummary = `${userReserveValue.toFixed(2)} ${token.symbol} · ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
+  const reserveSummary = `${userReserveValue.toFixed(token.decimals > 6 ? 6 : 2)} ${token.symbol} � ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
+  const receiveSummary = estimatedRemoval
+    ? `${estimatedRemoval.userToken.toFixed(token.decimals > 6 ? 6 : 2)} ${token.symbol} � ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
+    : '--';
+  const statItems = [
+    {
+      label: 'Value',
+      value: `${estimatedValue.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+    },
+    { label: 'Liquidity', value: poolStat?.liquidity ?? '  const reserveSummary = `${userReserveValue.toFixed(2)} ${token.symbol} · ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
   const receiveSummary = estimatedRemoval
     ? `${estimatedRemoval.userToken.toFixed(2)} ${token.symbol} · ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
     : '--';
@@ -1168,6 +1226,32 @@ function CompactPositionManagerInline({
     {
       label: 'Rate',
       value: poolRatio ? `1 ${token.symbol} ≈ ${poolRatio.toFixed(2)} ${hubToken.symbol}` : '--',
+    },
+  ];' },
+    { label: '24h Vol', value: poolStat?.vol24h ?? '  const reserveSummary = `${userReserveValue.toFixed(2)} ${token.symbol} · ${hubReserveValue.toFixed(2)} ${hubToken.symbol}`;
+  const receiveSummary = estimatedRemoval
+    ? `${estimatedRemoval.userToken.toFixed(2)} ${token.symbol} · ${estimatedRemoval.hubToken.toFixed(2)} ${hubToken.symbol}`
+    : '--';
+  const statItems = [
+    {
+      label: 'Value',
+      value: `$${estimatedValue.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+    },
+    { label: 'Liquidity', value: poolStat?.liquidity ?? '$0' },
+    { label: '24h Vol', value: poolStat?.vol24h ?? '$0' },
+    { label: 'Reserves', value: reserveSummary },
+    {
+      label: 'Rate',
+      value: poolRatio ? `1 ${token.symbol} ≈ ${poolRatio.toFixed(2)} ${hubToken.symbol}` : '--',
+    },
+  ];' },
+    { label: 'Reserves', value: reserveSummary },
+    {
+      label: 'Rate',
+      value: displayRatio ? `1 ${token.symbol} � ${displayRatio.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${hubToken.symbol}` : '--',
     },
   ];
 
