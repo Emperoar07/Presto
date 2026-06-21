@@ -39,14 +39,14 @@ export function BridgeHistoryPanel({
 
   return (
     <div
-      className="overflow-hidden rounded-[14px]"
+      className="flex h-[524px] w-[340px] flex-col overflow-hidden rounded-[14px]"
       style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
     >
-      <div className="px-4 pt-3.5 pb-2">
+      <div className="px-4 pt-3.5 pb-2 flex-shrink-0">
         <p className="text-[13px] font-bold text-slate-50">Transfer History</p>
       </div>
 
-      <div className="h-[240px] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {bridgeHistory.length === 0 ? (
           <div className="px-4 py-6 text-center text-[12px] text-slate-500">
             No bridge transfers yet.

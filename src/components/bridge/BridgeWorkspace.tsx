@@ -1460,7 +1460,7 @@ export function BridgeWorkspace() {
 
             {/* Side slide-out history panel — beside on xl+, below on mobile */}
             <div
-              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              className={`transition-all duration-300 ease-in-out overflow-hidden h-[524px] ${
                 historyOpen
                   ? 'w-full max-w-[340px] opacity-100 xl:w-[340px]'
                   : 'w-0 max-w-0 opacity-0 xl:w-0'

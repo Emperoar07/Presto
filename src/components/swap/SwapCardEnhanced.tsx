@@ -62,6 +62,8 @@ const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
 type AmountDisplayMode = 'token' | 'usd';
 
+const SYNROUTE_ONLY_SYMBOLS = new Set(['cirbtc']);
+
 const formatSwapBalance = (value: string) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return '0';
@@ -156,6 +158,8 @@ export function SwapCardEnhanced() {
 
   const inputToken = tokens.find(t => t.address === inputTokenAddress) || tokens[0];
   const outputToken = tokens.find(t => t.address === outputTokenAddress) || tokens[1];
+  const requiresSynRoute = SYNROUTE_ONLY_SYMBOLS.has(inputToken?.symbol?.toLowerCase()) ||
+    SYNROUTE_ONLY_SYMBOLS.has(outputToken?.symbol?.toLowerCase());
 
   const [balanceIn, setBalanceIn] = useState('0.00');
   const [balanceOut, setBalanceOut] = useState('0.00');
@@ -418,8 +422,6 @@ export function SwapCardEnhanced() {
     return high;
   }, [balanceIn, inputToken.decimals, readLocalQuote]);
 
-  const amountIn = exactField === 'input' && inputTokenAmount ? safeParseUnits(inputTokenAmount, inputToken.decimals) : 0n;
-
   const calculateArcSpotOutput = useCallback((amount: bigint) => {
     if (amount <= 0n) return 0n;
 
@@ -467,26 +469,89 @@ export function SwapCardEnhanced() {
   const [synRouteRoute, setSynRouteRoute] = useState('');
   // Track quote request version to cancel stale requests
   const quoteRequestId = useRef(0);
-  useEffect(() => {
+  useEffect(() => {
+    const resetQuote = () => {
+      if (exactField === 'input') {
+        setOutputAmount('');
+        setOutputTokenAmount('');
+      } else {
+        setInputAmount('');
+        setInputTokenAmount('');
+      }
+      setQuoteError(null);
+      setPriceImpact(0);
+      setQuoteSource('local');
+      setSynRouteRoute('');
+    };
+
+    const updatePriceImpact = (amount: bigint, result: bigint) => {
+      if (isStableSwapRoute) {
+        if (amount > 0n && result > 0n) {
+          const inputValue = Number(formatUnits(amount, inputToken.decimals));
+          const outputValue = Number(formatUnits(result, outputToken.decimals));
+          const effectiveRate = outputValue / inputValue;
+          const impact = Math.abs(1 - effectiveRate) * 100;
+          setPriceImpact(impact > 0.01 ? impact : 0);
+        } else {
+          setPriceImpact(0);
+        }
+      } else if (!isTempoChain && isArcTestnet) {
+        const inputIsHub = !inputToken.quoteTokenId;
+        const outputIsHub = !outputToken.quoteTokenId;
+
+        let spotRate = 0;
+        if (inputIsHub && outputReserves && outputPathReserves && outputPathReserves > 0n) {
+          spotRate = Number(outputReserves) / Number(outputPathReserves);
+        } else if (outputIsHub && inputReserves && inputPathReserves && inputReserves > 0n) {
+          spotRate = Number(inputPathReserves) / Number(inputReserves);
+        } else if (inputReserves && inputPathReserves && outputReserves && outputPathReserves && inputReserves > 0n && outputPathReserves > 0n) {
+          const spotHub = Number(inputPathReserves) / Number(inputReserves);
+          spotRate = spotHub * (Number(outputReserves) / Number(outputPathReserves));
+        }
+
+        if (spotRate > 0 && result > 0n) {
+          const inputValue = Number(formatUnits(amount, inputToken.decimals));
+          const outputValue = Number(formatUnits(result, outputToken.decimals));
+          const effectiveRate = outputValue / inputValue;
+          const impact = ((spotRate - effectiveRate) / spotRate) * 100;
+          setPriceImpact(impact > 0.01 ? impact : 0);
+        } else {
+          setPriceImpact(0);
+        }
+      } else if (!isTempoChain && inputReserves && outputReserves) {
+        setPriceImpact(calculatePriceImpact(amount, inputReserves, outputReserves));
+      } else if (amount > 0n && result > 0n) {
+        const inputValue = Number(formatUnits(amount, inputToken.decimals));
+        const outputValue = Number(formatUnits(result, outputToken.decimals));
+        const estimatedImpact = Math.abs(1 - (outputValue / inputValue)) * 100;
+        setPriceImpact(estimatedImpact > 0.01 ? estimatedImpact : 0);
+      } else {
+        setPriceImpact(0);
+      }
+    };
+
     const fetchQuote = async () => {
       const currentRequestId = ++quoteRequestId.current;
       if (!publicClient || !inputToken.address || !outputToken.address) return;
 
-      if (exactField === 'input') {
-        if (!inputAmount || parseFloat(inputAmount) === 0) {
-          setOutputAmount('');
-          setQuoteError(null);
-          setPriceImpact(0);
-          setQuoteSource('local');
-          setSynRouteRoute('');
-          return;
-        }
+      const activeTokenAmount = exactField === 'input' ? inputTokenAmount : outputTokenAmount;
+      const activeDecimals = exactField === 'input' ? inputToken.decimals : outputToken.decimals;
+      if (!activeTokenAmount || Number(activeTokenAmount) <= 0) {
+        resetQuote();
+        return;
+      }
 
-        setQuoteLoading(true);
-        setQuoteError(null);
+      setQuoteLoading(true);
+      setQuoteError(null);
 
-        try {
-          const amount = safeParseUnits(inputAmount, inputToken.decimals);
+      try {
+        if (exactField === 'input') {
+          const amount = safeParseUnits(inputTokenAmount, activeDecimals);
+          if (amount <= 0n) {
+            resetQuote();
+            return;
+          }
+
           if (isSynRouteChain(chainId)) {
             try {
               const quote = await getSynRouteQuote({
@@ -494,15 +559,16 @@ export function SwapCardEnhanced() {
                 tokenIn: inputToken.address,
                 tokenOut: outputToken.address,
                 amount: amount.toString(),
+                tradeType: 'EXACT_INPUT',
               });
 
               if (currentRequestId !== quoteRequestId.current) return;
-
               if (!quote.amountOutDecimals || Number(quote.amountOutDecimals) <= 0) {
                 throw new Error('InsufficientLiquidity');
               }
 
-              setOutputAmount(quote.amountOutDecimals);
+              setOutputTokenAmount(quote.amountOutDecimals);
+              setOutputAmount(formatDisplayAmount(quote.amountOutDecimals, outputToken, outputDisplayMode));
               setQuoteSource('synroute');
               setSynRouteRoute(quote.routeString ?? 'SynRoute');
 
@@ -510,126 +576,132 @@ export function SwapCardEnhanced() {
               setPriceImpact(Number.isFinite(synRouteImpact) && synRouteImpact > 0.01 ? synRouteImpact : 0);
               return;
             } catch (synRouteError) {
+              if (requiresSynRoute) throw synRouteError;
               console.warn('SynRoute quote unavailable, falling back to local quote', synRouteError);
               setQuoteSource('local');
               setSynRouteRoute('');
             }
           }
 
-          // Get quote - use different function based on chain
-          let result: bigint;
-          if (isStableSwapRoute) {
-            result = await readContractWithFallback<bigint>(publicClient, {
-              address: ARC_STABLESWAP_ADDRESS as `0x${string}`,
-              abi: ARC_STABLESWAP_ABI,
-              functionName: 'getQuote',
-              args: [inputToken.address, outputToken.address, amount],
-            });
-          } else if (isTempoChain) {
-            // Tempo DEX uses quoteSwapExactAmountIn
-            result = await readContractWithFallback<bigint>(publicClient, {
-              address: dexAddress as `0x${string}`,
-              abi: TEMPO_DEX_ABI,
-              functionName: 'quoteSwapExactAmountIn',
-              args: [inputToken.address, outputToken.address, toUint128(amount)],
-            });
-          } else {
-            // HubAMM uses getQuote
-            result = await readContractWithFallback<bigint>(publicClient, {
-              address: dexAddress as `0x${string}`,
-              abi: HUB_AMM_ABI,
-              functionName: 'getQuote',
-              args: [inputToken.address, outputToken.address, amount],
-            });
-          }
-
-          // Discard stale quote responses
+          const result = await readLocalQuote(amount);
           if (currentRequestId !== quoteRequestId.current) return;
-
-          // If the quote returns 0 for a non-zero input, there's no liquidity
           if (result === 0n) {
             setOutputAmount('');
+            setOutputTokenAmount('');
             setQuoteError(new Error('InsufficientLiquidity'));
             setPriceImpact(0);
             return;
           }
 
-          setOutputAmount(formatUnits(result, outputToken.decimals));
+          const nextOutputTokenAmount = formatUnits(result, outputToken.decimals);
+          setOutputTokenAmount(nextOutputTokenAmount);
+          setOutputAmount(formatDisplayAmount(nextOutputTokenAmount, outputToken, outputDisplayMode));
           setQuoteSource('local');
           setSynRouteRoute('');
-
-          // Calculate price impact using the correct reserve model per chain
-          if (isStableSwapRoute) {
-            if (amount > 0n && result > 0n) {
-              const inputValue = Number(formatUnits(amount, inputToken.decimals));
-              const outputValue = Number(formatUnits(result, outputToken.decimals));
-              const effectiveRate = outputValue / inputValue;
-              const impact = Math.abs(1 - effectiveRate) * 100;
-              setPriceImpact(impact > 0.01 ? impact : 0);
-            } else {
-              setPriceImpact(0);
-            }
-          } else if (!isTempoChain && isArcTestnet) {
-            // Price impact = difference between spot rate and effective rate.
-            // Spot rate: output for an infinitely small trade (reserves ratio).
-            // Effective rate: actual output / input from the on-chain quote.
-            const inputIsHub = !inputToken.quoteTokenId;
-            const outputIsHub = !outputToken.quoteTokenId;
-
-            let spotRate = 0;
-            if (inputIsHub && outputReserves && outputPathReserves && outputPathReserves > 0n) {
-              spotRate = Number(outputReserves) / Number(outputPathReserves);
-            } else if (outputIsHub && inputReserves && inputPathReserves && inputReserves > 0n) {
-              spotRate = Number(inputPathReserves) / Number(inputReserves);
-            } else if (inputReserves && inputPathReserves && outputReserves && outputPathReserves && inputReserves > 0n && outputPathReserves > 0n) {
-              const spotHub = Number(inputPathReserves) / Number(inputReserves);
-              spotRate = spotHub * (Number(outputReserves) / Number(outputPathReserves));
-            }
-
-            if (spotRate > 0 && result > 0n) {
-              const inputValue = Number(formatUnits(amount, inputToken.decimals));
-              const outputValue = Number(formatUnits(result, outputToken.decimals));
-              const effectiveRate = outputValue / inputValue;
-              const impact = ((spotRate - effectiveRate) / spotRate) * 100;
-              setPriceImpact(impact > 0.01 ? impact : 0);
-            } else {
-              setPriceImpact(0);
-            }
-          } else if (!isTempoChain && inputReserves && outputReserves) {
-            const impact = calculatePriceImpact(amount, inputReserves, outputReserves);
-            setPriceImpact(impact);
-          } else {
-            // For Tempo chain, estimate price impact from quote vs input
-            // Simple approximation: (1 - output/input) * 100 for same-decimal tokens
-            if (amount > 0n && result > 0n) {
-              const inputValue = Number(formatUnits(amount, inputToken.decimals));
-              const outputValue = Number(formatUnits(result, outputToken.decimals));
-              // Rough price impact estimate assuming 1:1 base rate for stablecoins
-              const estimatedImpact = Math.abs(1 - (outputValue / inputValue)) * 100;
-              setPriceImpact(estimatedImpact > 0.01 ? estimatedImpact : 0);
-            } else {
-              setPriceImpact(0);
-            }
-          }
-        } catch (e) {
-          console.error("Quote failed", e);
-          const err = e instanceof Error ? e : new Error(String(e));
-          setQuoteError(err);
-          setPriceImpact(0);
-        } finally {
-          setQuoteLoading(false);
+          updatePriceImpact(amount, result);
+          return;
         }
+
+        const desiredOut = safeParseUnits(outputTokenAmount, activeDecimals);
+        if (desiredOut <= 0n) {
+          resetQuote();
+          return;
+        }
+
+        if (isSynRouteChain(chainId)) {
+          try {
+            const quote = await getSynRouteQuote({
+              chainId,
+              tokenIn: inputToken.address,
+              tokenOut: outputToken.address,
+              amount: desiredOut.toString(),
+              tradeType: 'EXACT_OUTPUT',
+            });
+
+            if (currentRequestId !== quoteRequestId.current) return;
+            const nextInputTokenAmount = quote.amountInDecimals ??
+              (quote.amountIn ? formatUnits(BigInt(quote.amountIn), inputToken.decimals) : '');
+            if (!nextInputTokenAmount || Number(nextInputTokenAmount) <= 0) {
+              throw new Error('InsufficientLiquidity');
+            }
+
+            setInputTokenAmount(nextInputTokenAmount);
+            setInputAmount(formatDisplayAmount(nextInputTokenAmount, inputToken, inputDisplayMode));
+            setQuoteSource('synroute');
+            setSynRouteRoute(quote.routeString ?? 'SynRoute');
+
+            const synRouteImpact = Number(quote.priceImpact ?? 0);
+            setPriceImpact(Number.isFinite(synRouteImpact) && synRouteImpact > 0.01 ? synRouteImpact : 0);
+            return;
+          } catch (synRouteError) {
+            if (requiresSynRoute) throw synRouteError;
+            console.warn('SynRoute exact-output quote unavailable, falling back to local quote', synRouteError);
+            setQuoteSource('local');
+            setSynRouteRoute('');
+          }
+        }
+
+        const requiredIn = await findInputForExactOutput(desiredOut);
+        if (currentRequestId !== quoteRequestId.current) return;
+        if (!requiredIn) {
+          setInputAmount('');
+          setInputTokenAmount('');
+          setQuoteError(new Error('InsufficientLiquidity'));
+          setPriceImpact(0);
+          return;
+        }
+
+        const result = await readLocalQuote(requiredIn);
+        if (currentRequestId !== quoteRequestId.current) return;
+        const nextInputTokenAmount = formatUnits(requiredIn, inputToken.decimals);
+        setInputTokenAmount(nextInputTokenAmount);
+        setInputAmount(formatDisplayAmount(nextInputTokenAmount, inputToken, inputDisplayMode));
+        setQuoteSource('local');
+        setSynRouteRoute('');
+        updatePriceImpact(requiredIn, result);
+      } catch (e) {
+        console.error('Quote failed', e);
+        const err = e instanceof Error ? e : new Error(String(e));
+        setQuoteError(err);
+        setPriceImpact(0);
+      } finally {
+        if (currentRequestId === quoteRequestId.current) setQuoteLoading(false);
       }
     };
 
-    const timer = setTimeout(fetchQuote, 500); // 500ms debounce — avoids RPC calls mid-typing
+    const timer = setTimeout(fetchQuote, 500);
     return () => clearTimeout(timer);
-  }, [inputAmount, inputToken.address, inputToken.decimals, outputToken.address, outputToken.decimals, exactField, publicClient, dexAddress, isTempoChain, isArcTestnet, inputReserves, outputReserves, calculateArcSpotOutput, isStableSwapRoute, ARC_STABLESWAP_ADDRESS, chainId]);
+  }, [
+    inputTokenAmount,
+    outputTokenAmount,
+    inputToken.address,
+    inputToken.decimals,
+    inputToken.quoteTokenId,
+    outputToken.address,
+    outputToken.decimals,
+    outputToken.quoteTokenId,
+    exactField,
+    publicClient,
+    isTempoChain,
+    isArcTestnet,
+    inputReserves,
+    inputPathReserves,
+    outputReserves,
+    outputPathReserves,
+    isStableSwapRoute,
+    chainId,
+    outputDisplayMode,
+    inputDisplayMode,
+    formatDisplayAmount,
+    readLocalQuote,
+    findInputForExactOutput,
+    requiresSynRoute,
+  ]);
 
 
   // Swap execution
   const handleSwap = async () => {
-    if (!walletClient || !address || !inputAmount || !publicClient) return;
+    if (!walletClient || !address || !inputTokenAmount || !publicClient) return;
     if (quoteLoading) {
       toast.error('Quote is still loading');
       return;
@@ -645,7 +717,7 @@ export function SwapCardEnhanced() {
       if (!confirmed) return;
     }
 
-    if (!outputAmount || Number(outputAmount) <= 0) {
+    if (!outputTokenAmount || Number(outputTokenAmount) <= 0) {
       toast.error('No valid quote available');
       return;
     }
@@ -657,13 +729,15 @@ export function SwapCardEnhanced() {
     let activityId: string | null = null;
 
     try {
-      const amount = parseUnits(inputAmount, inputToken.decimals);
-      const expectedOut = safeParseUnits(outputAmount, outputToken.decimals);
+      const amount = parseUnits(inputTokenAmount, inputToken.decimals);
+      const expectedOut = safeParseUnits(outputTokenAmount, outputToken.decimals);
       if (expectedOut <= 0n) {
         toast.error('No valid quote available');
         return;
       }
-      const minOut = calculateMinAmountOut(expectedOut, slippageTolerance);
+      const minOut = exactField === 'output'
+        ? expectedOut
+        : calculateMinAmountOut(expectedOut, slippageTolerance);
 
       const targetSpender = isStableSwapRoute ? ARC_STABLESWAP_ADDRESS : dexAddress;
       const targetAbi = isStableSwapRoute ? ARC_STABLESWAP_ABI : HUB_AMM_ABI;
@@ -817,7 +891,7 @@ export function SwapCardEnhanced() {
             const pendingActivity = createLocalActivityItem({
               category: 'swaps',
               title: `Swap ${inputToken.symbol} to ${outputToken.symbol}`,
-              subtitle: `${inputAmount} ${inputToken.symbol} to ${outputAmount || '--'} ${outputToken.symbol}`,
+              subtitle: `${inputTokenAmount} ${inputToken.symbol} to ${outputTokenAmount || '--'} ${outputToken.symbol}`,
               status: 'pending',
               hash: subHash,
             });
@@ -836,6 +910,8 @@ export function SwapCardEnhanced() {
             refreshSwapHistory();
             setInputAmount('');
             setOutputAmount('');
+            setInputTokenAmount('');
+            setOutputTokenAmount('');
             invalidateQuoteCache();
           }
         }
@@ -855,7 +931,7 @@ export function SwapCardEnhanced() {
           createLocalActivityItem({
             category: 'swaps',
             title: `Swap ${inputToken.symbol} to ${outputToken.symbol}`,
-            subtitle: `${inputAmount || '0'} ${inputToken.symbol} to ${outputAmount || '--'} ${outputToken.symbol}`,
+            subtitle: `${inputTokenAmount || '0'} ${inputToken.symbol} to ${outputTokenAmount || '--'} ${outputToken.symbol}`,
             status: 'error',
             hash: hash ?? null,
             errorMessage,
@@ -883,8 +959,12 @@ export function SwapCardEnhanced() {
     return requiresPriceImpactConfirmation(priceImpact);
   }, [priceImpact]);
 
-  const inputUsdEstimate = inputAmount && Number(inputAmount) > 0 ? `~ $${Number(inputAmount).toFixed(2)}` : '';
-  const outputUsdEstimate = outputAmount && Number(outputAmount) > 0 ? `~ $${Number(outputAmount).toFixed(2)}` : '';
+  const inputUsdEstimate = inputTokenAmount ? tokenToUsdAmount(inputTokenAmount, inputToken, tokenPrices) : '';
+  const outputUsdEstimate = outputTokenAmount ? tokenToUsdAmount(outputTokenAmount, outputToken, tokenPrices) : '';
+  const inputUsdUnavailable = !getTokenUsdPrice(inputToken, tokenPrices);
+  const outputUsdUnavailable = !getTokenUsdPrice(outputToken, tokenPrices);
+  const showInputPriceError = inputDisplayMode === 'usd' && inputUsdUnavailable;
+  const showOutputPriceError = outputDisplayMode === 'usd' && outputUsdUnavailable;
   const routeLabel = quoteSource === 'synroute'
     ? (synRouteRoute || 'SynRoute')
     : isStableSwapRoute
@@ -917,9 +997,76 @@ export function SwapCardEnhanced() {
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
   };
+
+  const isValidAmountText = (value: string) => /^\d*\.?\d*$/.test(value);
+
+  const handleInputAmountChange = (value: string) => {
+    if (!isValidAmountText(value)) return;
+    const nextTokenAmount = normalizeDisplayAmount(value, inputToken, inputDisplayMode);
+    setInputAmount(value);
+    setInputTokenAmount(nextTokenAmount);
+    setExactField('input');
+    if (!nextTokenAmount) {
+      setOutputAmount('');
+      setOutputTokenAmount('');
+    }
+  };
+
+  const handleOutputAmountChange = (value: string) => {
+    if (!isValidAmountText(value)) return;
+    const nextTokenAmount = normalizeDisplayAmount(value, outputToken, outputDisplayMode);
+    setOutputAmount(value);
+    setOutputTokenAmount(nextTokenAmount);
+    setExactField('output');
+    if (!nextTokenAmount) {
+      setInputAmount('');
+      setInputTokenAmount('');
+    }
+  };
+
+  const switchInputDisplayMode = (mode: AmountDisplayMode) => {
+    setInputDisplayMode(mode);
+    setInputAmount(formatDisplayAmount(inputTokenAmount, inputToken, mode));
+  };
+
+  const switchOutputDisplayMode = (mode: AmountDisplayMode) => {
+    setOutputDisplayMode(mode);
+    setOutputAmount(formatDisplayAmount(outputTokenAmount, outputToken, mode));
+  };
+
+  const setMaxInputAmount = () => {
+    setInputTokenAmount(balanceIn);
+    setInputAmount(formatDisplayAmount(balanceIn, inputToken, inputDisplayMode));
+    setExactField('input');
+  };
+
+  const renderAmountModeToggle = (
+    mode: AmountDisplayMode,
+    onChange: (mode: AmountDisplayMode) => void,
+    disabledUsd: boolean,
+  ) => (
+    <div className="flex items-center rounded-[7px] border border-white/[0.07] bg-[#1e293b] p-0.5">
+      {(['token', 'usd'] as const).map((option) => (
+        <button
+          key={option}
+          type="button"
+          disabled={option === 'usd' && disabledUsd}
+          onClick={() => onChange(option)}
+          className={`h-5 rounded-[5px] px-2 text-[10px] font-bold uppercase transition-colors ${
+            mode === option
+              ? 'bg-primary text-[#0f172a]'
+              : 'text-slate-400 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40'
+          }`}
+          title={option === 'usd' && disabledUsd ? 'USD price unavailable' : `Use ${option === 'usd' ? 'USD' : 'token quantity'}`}
+        >
+          {option === 'usd' ? 'USD' : 'Qty'}
+        </button>
+      ))}
+    </div>
+  );
   return (
     <>
-      <div className="relative flex items-stretch justify-center gap-4">
+      <div className="relative flex items-start justify-center gap-4">
         <div className="relative w-full max-w-[381px] shrink-0 self-stretch">
         <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1e293b] shadow-[0_18px_48px_rgba(2,6,23,0.34)]">
           <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
@@ -950,18 +1097,16 @@ export function SwapCardEnhanced() {
             <div className="rounded-[12px] border border-white/[0.07] bg-[#263347] px-4 py-3">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[10px] font-medium text-slate-500">You pay</span>
+                {renderAmountModeToggle(inputDisplayMode, switchInputDisplayMode, inputUsdUnavailable)}
               </div>
               <div className="flex justify-between items-center">
+                {inputDisplayMode === 'usd' && (
+                  <span className="mr-1 text-[22px] font-semibold leading-none text-white/40">$</span>
+                )}
                 <input
                   type="text"
                   value={inputAmount}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (/^\d*\.?\d*$/.test(val)) {
-                      setInputAmount(val);
-                      setExactField('input');
-                    }
-                  }}
+                  onChange={(e) => handleInputAmountChange(e.target.value)}
                   placeholder="0.0"
                   className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0"
                 />
@@ -979,30 +1124,38 @@ export function SwapCardEnhanced() {
                   Balance: {isBalanceLoading || isPollingBalances ? '...' : formatSwapBalance(balanceIn)} {inputToken.symbol}
                 </span>
                 <div className="flex items-center gap-2">
-                  {inputUsdEstimate && (
+                  {inputUsdEstimate && inputDisplayMode === 'token' && (
                     <span className="text-[11px] text-slate-400 font-medium">
-                      {inputUsdEstimate}
+                      ~ ${inputUsdEstimate}
                     </span>
                   )}
                   <button
                     type="button"
-                    onClick={() => { setInputAmount(balanceIn); setExactField('input'); }}
+                    onClick={setMaxInputAmount}
                     className="text-[11px] font-bold uppercase text-primary hover:text-primary/80"
                   >
                     Max
                   </button>
                 </div>
               </div>
+              {showInputPriceError && (
+                <p className="mt-2 text-[10.5px] font-medium text-amber-400">
+                  USD price unavailable for {inputToken.symbol}.
+                </p>
+              )}
             </div>
 
             <div className="flex justify-center -my-2 relative z-10">
               <button
                 onClick={() => {
                   const tempToken = inputTokenAddress;
+                  const nextInputTokenAmount = outputTokenAmount;
                   setInputTokenAddress(outputTokenAddress);
                   setOutputTokenAddress(tempToken);
-                  setInputAmount(outputAmount);
+                  setInputTokenAmount(nextInputTokenAmount);
+                  setInputAmount(formatDisplayAmount(nextInputTokenAmount, outputToken, inputDisplayMode));
                   setOutputAmount('');
+                  setOutputTokenAmount('');
                   setExactField('input');
                 }}
                 className="swap-flip-btn flex h-9 w-9 items-center justify-center rounded-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
@@ -1023,14 +1176,18 @@ export function SwapCardEnhanced() {
             <div className="rounded-[12px] border border-white/[0.07] bg-[#263347] px-4 py-3">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[10px] font-medium text-slate-500">You receive</span>
+                {renderAmountModeToggle(outputDisplayMode, switchOutputDisplayMode, outputUsdUnavailable)}
               </div>
               <div className="flex justify-between items-center">
+                {outputDisplayMode === 'usd' && (
+                  <span className="mr-1 text-[22px] font-semibold leading-none text-white/40">$</span>
+                )}
                 <input
                   type="text"
-                  value={quoteLoading ? '...' : outputAmount}
-                  readOnly
+                  value={outputAmount}
+                  onChange={(e) => handleOutputAmountChange(e.target.value)}
                   placeholder="0.0"
-                  className={`w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight placeholder:text-white/30 border-none focus:ring-0 ${quoteLoading ? 'text-slate-400 animate-pulse' : 'text-white'}`}
+                  className={`w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0 ${quoteLoading && exactField === 'output' ? 'animate-pulse' : ''}`}
                 />
                 <button
                   type="button"
@@ -1045,20 +1202,25 @@ export function SwapCardEnhanced() {
                 <span className="text-[11px] font-semibold text-primary">
                   Balance: {isBalanceLoading || isPollingBalances ? '...' : formatSwapBalance(balanceOut)} {outputToken.symbol}
                 </span>
-                {outputUsdEstimate && (
+                {outputUsdEstimate && outputDisplayMode === 'token' && (
                   <span className="text-[11px] text-slate-400 font-medium">
-                    {outputUsdEstimate}
+                    ~ ${outputUsdEstimate}
                   </span>
                 )}
               </div>
+              {showOutputPriceError && (
+                <p className="mt-2 text-[10.5px] font-medium text-amber-400">
+                  USD price unavailable for {outputToken.symbol}.
+                </p>
+              )}
             </div>
 
-            {(inputAmount && outputAmount) && (
+            {(inputTokenAmount && outputTokenAmount) && (
               <div className="rounded-[12px] border border-white/[0.07] bg-[#263347] px-3.5 py-3">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Rate</span>
                   <span className="font-medium text-slate-200">
-                    1 {inputToken.symbol} = {inputAmount && outputAmount && Number(inputAmount) > 0 ? (Number(outputAmount) / Number(inputAmount)).toFixed(6) : '...'} {outputToken.symbol}
+                    1 {inputToken.symbol} = {inputTokenAmount && outputTokenAmount && Number(inputTokenAmount) > 0 ? (Number(outputTokenAmount) / Number(inputTokenAmount)).toFixed(6) : '...'} {outputToken.symbol}
                   </span>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
@@ -1084,7 +1246,9 @@ export function SwapCardEnhanced() {
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Minimum received</span>
                   <span className="font-medium text-slate-200">
-                    {outputAmount ? Number(Number(outputAmount) * (1 - slippageTolerance / 100)).toFixed(4) : '0'} {outputToken.symbol}
+                    {outputTokenAmount
+                      ? Number(Number(outputTokenAmount) * (exactField === 'output' ? 1 : (1 - slippageTolerance / 100))).toFixed(4)
+                      : '0'} {outputToken.symbol}
                   </span>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
@@ -1138,8 +1302,8 @@ export function SwapCardEnhanced() {
                 disabled={
                   isSwapping ||
                   quoteLoading ||
-                  !inputAmount ||
-                  !outputAmount ||
+                  !inputTokenAmount ||
+                  !outputTokenAmount ||
                   !!quoteError
                 }
                 className="mt-3 w-full rounded-[12px] bg-primary py-3 text-[13px] font-bold text-[#0f172a] transition-all active:scale-[0.98] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1160,7 +1324,7 @@ export function SwapCardEnhanced() {
       </div>
 
       <div
-        className={`relative shrink-0 overflow-hidden self-stretch transition-[width,opacity,transform] duration-300 ease-in-out ${
+        className={`relative shrink-0 overflow-hidden h-[516px] transition-[width,opacity,transform] duration-300 ease-in-out ${
           historyOpen
             ? 'w-[320px] opacity-100 translate-x-0'
             : 'w-0 opacity-0 translate-x-3 pointer-events-none'
@@ -1245,14 +1409,22 @@ export function SwapCardEnhanced() {
         isOpen={showInputTokenModal}
         onClose={() => setShowInputTokenModal(false)}
         selectedToken={inputToken}
-        onSelect={(token) => setInputTokenAddress(token.address)}
+        onSelect={(token) => {
+          setInputTokenAddress(token.address);
+          setInputAmount(formatDisplayAmount(inputTokenAmount, token, inputDisplayMode));
+          setExactField('input');
+        }}
         filterTokens={(token) => token.address !== outputTokenAddress}
       />
       <TokenModal
         isOpen={showOutputTokenModal}
         onClose={() => setShowOutputTokenModal(false)}
         selectedToken={outputToken}
-        onSelect={(token) => setOutputTokenAddress(token.address)}
+        onSelect={(token) => {
+          setOutputTokenAddress(token.address);
+          setOutputAmount(formatDisplayAmount(outputTokenAmount, token, outputDisplayMode));
+          setExactField('input');
+        }}
         filterTokens={(token) => token.address !== inputTokenAddress}
       />
     </>
