@@ -268,7 +268,11 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
       let totalVolumeRaw = BigInt(cached?.totalVolumeRaw ?? (cached ? '0' : '1842000000000'));
       let totalSwaps = cached?.totalSwaps ?? (cached ? 0 : 15482);
 
-      const fromBlock = cached ? BigInt(cached.latestBlock) + 1n : (latestBlock > 44000000n ? 44000001n : latestBlock);
+      const MAX_COLD_START_BLOCKS = 50000n;
+      let fromBlock = cached ? BigInt(cached.latestBlock) + 1n : (latestBlock > 44000000n ? 44000001n : latestBlock);
+      if (!cached && latestBlock - fromBlock > MAX_COLD_START_BLOCKS) {
+        fromBlock = latestBlock - MAX_COLD_START_BLOCKS;
+      }
       const { swapLogs, addLogs } = await getLogsInChunks(client, hubAmm, fromBlock, latestBlock);
 
       for (const log of swapLogs) {
