@@ -17,7 +17,7 @@ let router: AlphaRouter;
 function getRouter() {
   if (!router) {
     provider = new ethers.JsonRpcProvider(RPC_URL);
-    router = new AlphaRouter({ chainId: ARC_TESTNET_CHAIN_ID, provider });
+    router = new AlphaRouter({ chainId: ARC_TESTNET_CHAIN_ID, provider: provider as any });
   }
   return router;
 }
