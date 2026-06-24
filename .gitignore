@@ -27,3 +27,6 @@ tsconfig.tsbuildinfo
 repomix-output.xml
 data/backfill-positions.json
 .vercel
+
+# graph visualization tool output
+graphify-out/
