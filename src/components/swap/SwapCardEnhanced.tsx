@@ -1493,14 +1493,6 @@ export function SwapCardEnhanced() {
                             }`}
                           >
                             <span className="flex items-center gap-1.5">
-                              {/* Selection Radio Indicator */}
-                              <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border transition-all ${
-                                isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-slate-600 bg-transparent'
-                              }`}>
-                                {isSelected && (
-                                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                                )}
-                              </span>
                               <span
                                 className={`h-1.5 w-1.5 rounded-full ${
                                   bestRoute.source === 'uniswap'
@@ -1546,14 +1538,6 @@ export function SwapCardEnhanced() {
                                 }`}
                               >
                                 <span className="flex items-center gap-1.5">
-                                  {/* Selection Radio Indicator */}
-                                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border transition-all ${
-                                    isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-slate-700 bg-transparent'
-                                  }`}>
-                                    {isSelected && (
-                                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                                    )}
-                                  </span>
                                   <span
                                     className={`h-1.5 w-1.5 rounded-full ${
                                       r.source === 'uniswap'
