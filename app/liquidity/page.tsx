@@ -1432,7 +1432,7 @@ const USDC_COLOR = '#3b82f6';
 const USDC_LABEL = 'US';
 
 export default function LiquidityPage() {
-  const [activeTab, setActiveTab] = useState<'pools' | 'positions' | 'fork'>('pools');
+  const [activeTab, setActiveTab] = useState<'pools' | 'positions'>('pools');
   const [selectedPoolToken, setSelectedPoolToken] = useState<string | undefined>(undefined);
   const { data, isLoading: loading } = usePoolStats();
   const { address } = useAccount();
@@ -1452,7 +1452,7 @@ export default function LiquidityPage() {
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
 
       <div className="mb-[18px] flex w-fit gap-1 rounded-[10px] p-1" style={{ background: '#263347' }}>
-        {(['pools', 'positions', 'fork'] as const).map((tab) => (
+        {(['pools', 'positions'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1461,7 +1461,7 @@ export default function LiquidityPage() {
             }`}
             style={activeTab === tab ? { background: SURF } : {}}
           >
-            {tab === 'pools' ? 'All Pools' : tab === 'positions' ? 'My Positions' : 'Uniswap V2'}
+            {tab === 'pools' ? 'All Pools' : 'My Positions'}
           </button>
         ))}
       </div>
@@ -1513,6 +1513,7 @@ export default function LiquidityPage() {
               })}
             </div>
           )}
+          <UniswapForkPools />
         </div>
       )}
 
@@ -1544,7 +1545,6 @@ export default function LiquidityPage() {
         </div>
       )}
 
-      {activeTab === 'fork' && <UniswapForkPools />}
     </div>
   );
 }
