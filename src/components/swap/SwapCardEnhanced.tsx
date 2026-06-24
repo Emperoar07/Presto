@@ -937,8 +937,8 @@ export function SwapCardEnhanced() {
             const requiredAllowance = amount;
             setSwapStage('approving');
             await approveToken(
-              publicClient,
               walletClient,
+              publicClient,
               address,
               inputToken.address,
               uniswapTx.to,
