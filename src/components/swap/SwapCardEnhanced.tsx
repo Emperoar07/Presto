@@ -57,6 +57,7 @@ import {
   toTransactionValue,
   toSlippageBps,
 } from '@/lib/synroute';
+import { getUniswapQuote, isUniswapSupportedChain, type UniswapQuoteResponse } from '@/lib/uniswapRouter';
 
 const DEFAULT_SLIPPAGE = 0.5; // 0.5%
 const DEFAULT_DEADLINE = 20; // 20 minutes
@@ -500,8 +501,9 @@ export function SwapCardEnhanced() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<Error | null>(null);
   const [priceImpact, setPriceImpact] = useState<number>(0);
-  const [quoteSource, setQuoteSource] = useState<'local' | 'synroute'>('local');
+  const [quoteSource, setQuoteSource] = useState<'local' | 'synroute' | 'uniswap'>('local');
   const [synRouteRoute, setSynRouteRoute] = useState('');
+  const [uniswapTx, setUniswapTx] = useState<UniswapQuoteResponse['transaction']>(null);
   // Track quote request version to cancel stale requests
   const quoteRequestId = useRef(0);
   useEffect(() => {
@@ -517,6 +519,7 @@ export function SwapCardEnhanced() {
       setPriceImpact(0);
       setQuoteSource('local');
       setSynRouteRoute('');
+      setUniswapTx(null);
     };
 
     const updatePriceImpact = (amount: bigint, result: bigint) => {
@@ -608,6 +611,45 @@ export function SwapCardEnhanced() {
               setSynRouteRoute(quote.routeString ?? 'SynRoute');
 
               const synRouteImpact = Number(quote.priceImpact ?? 0);
+              let bestAmountOut = BigInt(quote.amountOut ?? quote.amountOutDecimals ?? 0);
+              let bestSource: 'synroute' | 'uniswap' = 'synroute';
+              
+              if (isUniswapSupportedChain(chainId)) {
+                try {
+                  const uniQuote = await getUniswapQuote({
+                    chainId,
+                    tokenIn: inputToken.address,
+                    tokenOut: outputToken.address,
+                    amount: amount.toString(),
+                    tokenInDecimals: inputToken.decimals,
+                    tokenOutDecimals: outputToken.decimals,
+                    tradeType: 'EXACT_INPUT',
+                    recipient: address,
+                    slippageBps: toSlippageBps(slippageTolerance),
+                  });
+                  const uniOut = BigInt(uniQuote.amountOut);
+                  if (uniOut > bestAmountOut) {
+                    bestAmountOut = uniOut;
+                    bestSource = 'uniswap';
+                    const uniOutDecimals = formatUnits(uniOut, outputToken.decimals);
+                    setOutputTokenAmount(uniOutDecimals);
+                    setOutputAmount(formatDisplayAmount(uniOutDecimals, outputToken, outputDisplayMode));
+                    setQuoteSource('uniswap');
+                    setUniswapTx(uniQuote.transaction);
+                    setSynRouteRoute(uniQuote.routeString ?? 'Uniswap');
+                    setPriceImpact(Number(uniQuote.priceImpact) > 0.01 ? Number(uniQuote.priceImpact) : 0);
+                    return;
+                  }
+                } catch (e) {
+                  console.warn('Uniswap quote failed', e);
+                }
+              }
+
+              setOutputTokenAmount(quote.amountOutDecimals);
+              setOutputAmount(formatDisplayAmount(quote.amountOutDecimals, outputToken, outputDisplayMode));
+              setQuoteSource('synroute');
+              setUniswapTx(null);
+              setSynRouteRoute(quote.routeString ?? 'SynRoute');
               setPriceImpact(Number.isFinite(synRouteImpact) && synRouteImpact > 0.01 ? synRouteImpact : 0);
               return;
             } catch (synRouteError) {
@@ -615,6 +657,7 @@ export function SwapCardEnhanced() {
               console.warn('SynRoute quote unavailable, falling back to local quote', synRouteError);
               setQuoteSource('local');
               setSynRouteRoute('');
+              setUniswapTx(null);
             }
           }
 
@@ -628,12 +671,47 @@ export function SwapCardEnhanced() {
             return;
           }
 
-          const nextOutputTokenAmount = formatUnits(result, outputToken.decimals);
+          let bestAmountOut = result;
+          let bestSource: 'local' | 'uniswap' = 'local';
+
+          if (isUniswapSupportedChain(chainId)) {
+            try {
+              const uniQuote = await getUniswapQuote({
+                chainId,
+                tokenIn: inputToken.address,
+                tokenOut: outputToken.address,
+                amount: amount.toString(),
+                tokenInDecimals: inputToken.decimals,
+                tokenOutDecimals: outputToken.decimals,
+                tradeType: 'EXACT_INPUT',
+                recipient: address,
+                slippageBps: toSlippageBps(slippageTolerance),
+              });
+              const uniOut = BigInt(uniQuote.amountOut);
+              if (uniOut > bestAmountOut) {
+                bestAmountOut = uniOut;
+                bestSource = 'uniswap';
+                const uniOutDecimals = formatUnits(uniOut, outputToken.decimals);
+                setOutputTokenAmount(uniOutDecimals);
+                setOutputAmount(formatDisplayAmount(uniOutDecimals, outputToken, outputDisplayMode));
+                setQuoteSource('uniswap');
+                setUniswapTx(uniQuote.transaction);
+                setSynRouteRoute(uniQuote.routeString ?? 'Uniswap');
+                setPriceImpact(Number(uniQuote.priceImpact) > 0.01 ? Number(uniQuote.priceImpact) : 0);
+                return;
+              }
+            } catch (e) {
+              console.warn('Uniswap quote failed', e);
+            }
+          }
+
+          const nextOutputTokenAmount = formatUnits(bestAmountOut, outputToken.decimals);
           setOutputTokenAmount(nextOutputTokenAmount);
           setOutputAmount(formatDisplayAmount(nextOutputTokenAmount, outputToken, outputDisplayMode));
           setQuoteSource('local');
           setSynRouteRoute('');
-          updatePriceImpact(amount, result);
+          setUniswapTx(null);
+          updatePriceImpact(amount, bestAmountOut);
           return;
         }
 
@@ -660,12 +738,47 @@ export function SwapCardEnhanced() {
               throw new Error('InsufficientLiquidity');
             }
 
+            const synRouteImpact = Number(quote.priceImpact ?? 0);
+            let bestAmountIn = BigInt(quote.amountIn ?? parseUnits(quote.amountInDecimals ?? '0', inputToken.decimals) ?? 0);
+            let bestSource: 'synroute' | 'uniswap' = 'synroute';
+
+            if (isUniswapSupportedChain(chainId)) {
+              try {
+                const uniQuote = await getUniswapQuote({
+                  chainId,
+                  tokenIn: inputToken.address,
+                  tokenOut: outputToken.address,
+                  amount: desiredOut.toString(),
+                  tokenInDecimals: inputToken.decimals,
+                  tokenOutDecimals: outputToken.decimals,
+                  tradeType: 'EXACT_OUTPUT',
+                  recipient: address,
+                  slippageBps: toSlippageBps(slippageTolerance),
+                });
+                const uniIn = BigInt(uniQuote.amountIn);
+                // For EXACT_OUTPUT, we want the lowest amountIn!
+                if (uniIn > 0n && uniIn < bestAmountIn) {
+                  bestAmountIn = uniIn;
+                  bestSource = 'uniswap';
+                  const uniInDecimals = formatUnits(uniIn, inputToken.decimals);
+                  setInputTokenAmount(uniInDecimals);
+                  setInputAmount(formatDisplayAmount(uniInDecimals, inputToken, inputDisplayMode));
+                  setQuoteSource('uniswap');
+                  setUniswapTx(uniQuote.transaction);
+                  setSynRouteRoute(uniQuote.routeString ?? 'Uniswap');
+                  setPriceImpact(Number(uniQuote.priceImpact) > 0.01 ? Number(uniQuote.priceImpact) : 0);
+                  return;
+                }
+              } catch (e) {
+                console.warn('Uniswap exact-output quote failed', e);
+              }
+            }
+
             setInputTokenAmount(nextInputTokenAmount);
             setInputAmount(formatDisplayAmount(nextInputTokenAmount, inputToken, inputDisplayMode));
             setQuoteSource('synroute');
             setSynRouteRoute(quote.routeString ?? 'SynRoute');
-
-            const synRouteImpact = Number(quote.priceImpact ?? 0);
+            setUniswapTx(null);
             setPriceImpact(Number.isFinite(synRouteImpact) && synRouteImpact > 0.01 ? synRouteImpact : 0);
             return;
           } catch (synRouteError) {
@@ -688,12 +801,48 @@ export function SwapCardEnhanced() {
 
         const result = await readLocalQuote(requiredIn);
         if (currentRequestId !== quoteRequestId.current) return;
-        const nextInputTokenAmount = formatUnits(requiredIn, inputToken.decimals);
+        
+        let bestAmountIn = requiredIn;
+        let bestSource: 'local' | 'uniswap' = 'local';
+
+        if (isUniswapSupportedChain(chainId)) {
+          try {
+            const uniQuote = await getUniswapQuote({
+              chainId,
+              tokenIn: inputToken.address,
+              tokenOut: outputToken.address,
+              amount: desiredOut.toString(),
+              tokenInDecimals: inputToken.decimals,
+              tokenOutDecimals: outputToken.decimals,
+              tradeType: 'EXACT_OUTPUT',
+              recipient: address,
+              slippageBps: toSlippageBps(slippageTolerance),
+            });
+            const uniIn = BigInt(uniQuote.amountIn);
+            if (uniIn > 0n && uniIn < bestAmountIn) {
+              bestAmountIn = uniIn;
+              bestSource = 'uniswap';
+              const uniInDecimals = formatUnits(uniIn, inputToken.decimals);
+              setInputTokenAmount(uniInDecimals);
+              setInputAmount(formatDisplayAmount(uniInDecimals, inputToken, inputDisplayMode));
+              setQuoteSource('uniswap');
+              setUniswapTx(uniQuote.transaction);
+              setSynRouteRoute(uniQuote.routeString ?? 'Uniswap');
+              setPriceImpact(Number(uniQuote.priceImpact) > 0.01 ? Number(uniQuote.priceImpact) : 0);
+              return;
+            }
+          } catch (e) {
+            console.warn('Uniswap exact-output quote failed', e);
+          }
+        }
+
+        const nextInputTokenAmount = formatUnits(bestAmountIn, inputToken.decimals);
         setInputTokenAmount(nextInputTokenAmount);
         setInputAmount(formatDisplayAmount(nextInputTokenAmount, inputToken, inputDisplayMode));
         setQuoteSource('local');
         setSynRouteRoute('');
-        updatePriceImpact(requiredIn, result);
+        setUniswapTx(null);
+        updatePriceImpact(bestAmountIn, result);
       } catch (e) {
         console.error('Quote failed', e);
         const err = e instanceof Error ? e : new Error(String(e));
@@ -777,11 +926,38 @@ export function SwapCardEnhanced() {
       const targetSpender = isStableSwapRoute ? ARC_STABLESWAP_ADDRESS : dexAddress;
       const targetAbi = isStableSwapRoute ? ARC_STABLESWAP_ABI : HUB_AMM_ABI;
       const shouldUseSynRoute = quoteSource === 'synroute' && isSynRouteChain(chainId);
+      const shouldUseUniswap = quoteSource === 'uniswap' && uniswapTx;
 
       let txHash: `0x${string}` | undefined;
       await execute(
-        shouldUseSynRoute ? 'SynRoute swap' : 'Swap',
+        shouldUseSynRoute ? 'SynRoute swap' : (shouldUseUniswap ? 'Uniswap trade' : 'Swap'),
         async () => {
+          if (shouldUseUniswap && uniswapTx) {
+            // 1. Check approval for the Universal Router (uniswapTx.to)
+            const requiredAllowance = amount;
+            setSwapStage('approving');
+            await approveToken(
+              publicClient,
+              walletClient,
+              address,
+              inputToken.address,
+              uniswapTx.to,
+              requiredAllowance
+            );
+
+            // 2. Send transaction
+            setSwapStage('swapping');
+            const swapHash = await walletClient.sendTransaction({
+              account: address,
+              to: uniswapTx.to,
+              data: uniswapTx.data,
+              value: uniswapTx.value ? BigInt(uniswapTx.value) : 0n,
+            });
+            
+            txHash = swapHash;
+            return;
+          }
+
           if (shouldUseSynRoute) {
             let built = await buildSynRouteSwap({
               chainId,
@@ -1000,13 +1176,15 @@ export function SwapCardEnhanced() {
   const outputUsdUnavailable = !getTokenUsdPrice(outputToken, tokenPrices);
   const showInputPriceError = inputDisplayMode === 'usd' && inputUsdUnavailable;
   const showOutputPriceError = outputDisplayMode === 'usd' && outputUsdUnavailable;
-  const routeLabel = quoteSource === 'synroute'
-    ? (synRouteRoute || 'SynRoute')
-    : isStableSwapRoute
-      ? 'Arc StableSwap'
-      : isTempoChain
-        ? 'Tempo DEX'
-        : 'Presto Hub AMM';
+  const routeLabel = quoteSource === 'uniswap'
+    ? (synRouteRoute || 'Uniswap')
+    : quoteSource === 'synroute'
+      ? (synRouteRoute || 'SynRoute')
+      : isStableSwapRoute
+        ? 'Arc StableSwap'
+        : isTempoChain
+          ? 'Tempo DEX'
+          : 'Presto Hub AMM';
 
   const networkFeeEstimate = useMemo(() => {
     // Typical swap transaction gas limit: 150,000 gas
@@ -1104,9 +1282,16 @@ export function SwapCardEnhanced() {
         <div className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#1e293b] shadow-[0_18px_48px_rgba(2,6,23,0.34)]">
           <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
             <div>
-              <p className="text-[13px] font-bold text-slate-100">Swap Tokens</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[13px] font-bold text-slate-100">Swap Tokens</p>
+                {quoteSource === 'uniswap' && (
+                  <span className="rounded bg-[#ff007a]/20 px-1.5 py-0.5 text-[9px] font-bold text-[#ff007a] uppercase tracking-wider">
+                    Uniswap
+                  </span>
+                )}
+              </div>
               <p className="mt-0.5 text-[11px] text-slate-400">
-                {quoteSource === 'synroute' ? 'SynRoute smart routing' : 'Instant onchain execution'}
+                {quoteSource === 'uniswap' ? 'Uniswap smart routing' : quoteSource === 'synroute' ? 'SynRoute smart routing' : 'Instant onchain execution'}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
