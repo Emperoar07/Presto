@@ -44,6 +44,24 @@ export const UNISWAP_V2_ROUTER_SWAP_ABI = parseAbi([
   "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] path, address to, uint deadline) external returns (uint[] memory amounts)",
 ]);
 
+/** Uniswap V2 router add/remove liquidity entrypoints (fork pools). */
+export const UNISWAP_V2_ROUTER_LIQUIDITY_ABI = parseAbi([
+  "function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB, uint liquidity)",
+  "function removeLiquidity(address tokenA, address tokenB, uint liquidity, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB)",
+]);
+
+/** Uniswap V2 factory + pair reads for fork pools. */
+export const UNISWAP_V2_FACTORY_ABI = parseAbi([
+  "function getPair(address tokenA, address tokenB) external view returns (address pair)",
+]);
+
+export const UNISWAP_V2_PAIR_ABI = parseAbi([
+  "function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+  "function token0() external view returns (address)",
+  "function totalSupply() external view returns (uint256)",
+  "function balanceOf(address owner) external view returns (uint256)",
+]);
+
 export const STABLE_VAULT_ABI = [
   "function swap(address tokenIn, address tokenOut, uint256 amountIn) external",
   "function withdraw(address token, uint256 amount) external",
