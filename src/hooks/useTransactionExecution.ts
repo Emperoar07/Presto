@@ -1,10 +1,12 @@
 'use client';
 
+import React from 'react';
 import { useAccount, useChainId, usePublicClient } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import { refreshPrestoQueries, emitPrestoDataRefresh } from '@/lib/appDataRefresh';
 import toast from 'react-hot-toast';
 import { logError } from '@/lib/errorHandling';
+import { TxToast } from '@/components/common/TxToast';
 
 export type TxExecutionOptions = {
   onSuccess?: (hash: `0x${string}`) => void | Promise<void>;
@@ -29,17 +31,29 @@ export function useTransactionExecution() {
     }
 
     const reason = options.reason ?? 'manual';
-    const toastId = toast.loading(`Submitting ${txName}...`);
+    
+    // Create custom pending toast using TxToast
+    const toastId = toast.custom(
+      () => React.createElement(TxToast, { title: `Submitting ${txName}...`, status: 'pending' }),
+      { duration: Infinity }
+    );
+
+    let txHash: `0x${string}` | undefined;
 
     try {
       // Execute the contract write call to get transaction hash
       const hash = await txFn();
+      txHash = hash;
 
       if (options.onSubmitted) {
         await options.onSubmitted(hash);
       }
 
-      toast.loading(`Waiting for ${txName} confirmation...`, { id: toastId });
+      // Update the custom toast to show pending with transaction hash and explorer link
+      toast.custom(
+        () => React.createElement(TxToast, { hash, title: `Waiting for ${txName} confirmation...`, status: 'pending' }),
+        { id: toastId, duration: Infinity }
+      );
 
       // Wait for the transaction receipt
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -53,7 +67,11 @@ export function useTransactionExecution() {
       // Emit event for other components and tabs
       emitPrestoDataRefresh(reason);
 
-      toast.success(`${txName} completed successfully!`, { id: toastId });
+      // Transition to success state and auto-dismiss after 5 seconds
+      toast.custom(
+        () => React.createElement(TxToast, { hash, title: `${txName} completed successfully!`, status: 'success' }),
+        { id: toastId, duration: 5000 }
+      );
 
       if (options.onSuccess) {
         await options.onSuccess(hash);
@@ -72,7 +90,15 @@ export function useTransactionExecution() {
       if (isUserCancel) {
         toast.dismiss(toastId);
       } else {
-        toast.error(`${txName} failed: ${errMsg.slice(0, 80)}${errMsg.length > 80 ? '...' : ''}`, { id: toastId });
+        // Transition to error state and auto-dismiss after 6 seconds
+        toast.custom(
+          () => React.createElement(TxToast, { 
+            hash: txHash, 
+            title: `${txName} failed: ${errMsg.slice(0, 60)}${errMsg.length > 60 ? '...' : ''}`, 
+            status: 'error' 
+          }),
+          { id: toastId, duration: 6000 }
+        );
       }
       throw error;
     }

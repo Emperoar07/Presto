@@ -1103,7 +1103,6 @@ export function SwapCardEnhanced() {
             activityId = pendingActivity.id;
             upsertLocalActivityHistoryItem(pendingActivity);
             refreshSwapHistory();
-            toast.custom(() => <TxToast hash={subHash} title="Swap submitted" />);
           },
           onSuccess: async (sucHash) => {
             if (activityId) {
