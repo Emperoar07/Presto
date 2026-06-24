@@ -5,10 +5,10 @@ import { createPublicClient, http } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { ethers } from 'ethers';
 
-const BASE_SEPOLIA_CHAIN_ID = 84532 as any;
+const ARC_TESTNET_CHAIN_ID = 5042002 as any;
 
 // In a real app we'd get this from environment
-const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
+const RPC_URL = process.env.ARC_TESTNET_RPC_URL || 'https://testnet.rpc.zora.energy'; // Replace with actual Arc RPC if available
 
 // Simple cache to avoid instantiating provider repeatedly
 let provider: ethers.JsonRpcProvider;
@@ -17,7 +17,7 @@ let router: AlphaRouter;
 function getRouter() {
   if (!router) {
     provider = new ethers.JsonRpcProvider(RPC_URL);
-    router = new AlphaRouter({ chainId: BASE_SEPOLIA_CHAIN_ID, provider });
+    router = new AlphaRouter({ chainId: ARC_TESTNET_CHAIN_ID, provider });
   }
   return router;
 }
@@ -30,8 +30,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
-    // Only Base Sepolia supported
-    const chainId = BASE_SEPOLIA_CHAIN_ID;
+    // Arc Testnet supported
+    const chainId = ARC_TESTNET_CHAIN_ID;
     
     // We only support exactly these addresses for demo purposes, but in reality we'd fetch decimals
     const WETH_ADDRESS = '0x4200000000000000000000000000000000000006'.toLowerCase();

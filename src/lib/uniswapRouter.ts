@@ -51,6 +51,6 @@ export async function getUniswapQuote(request: UniswapQuoteRequest): Promise<Uni
 }
 
 export function isUniswapSupportedChain(chainId: number): boolean {
-  // Currently only Base Sepolia is supported for Uniswap routing in this integration
-  return chainId === 84532;
+  // Currently only Arc Testnet is supported for Uniswap routing in this integration
+  return chainId === 5042002;
 }
