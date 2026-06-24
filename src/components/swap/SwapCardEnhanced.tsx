@@ -517,6 +517,9 @@ export function SwapCardEnhanced() {
   const [synRouteRoute, setSynRouteRoute] = useState('');
   const [uniswapRoute, setUniswapRoute] = useState<{ router: `0x${string}`; path: `0x${string}`[] } | null>(null);
   const [routeQuotes, setRouteQuotes] = useState<RouteOption[]>([]);
+  // User-pinned route (overrides best-price auto-selection). null = auto/best.
+  const [preferredSource, setPreferredSource] = useState<RouteOption['source'] | null>(null);
+  const [isRoutesDropdownOpen, setIsRoutesDropdownOpen] = useState(false);
   // Track quote request version to cancel stale requests
   const quoteRequestId = useRef(0);
   useEffect(() => {
@@ -684,27 +687,28 @@ export function SwapCardEnhanced() {
             return;
           }
 
-          // Best exact-input route = highest output.
+          // Best exact-input route = highest output (the default/auto choice).
           options.sort((a, b) => (b.raw > a.raw ? 1 : b.raw < a.raw ? -1 : 0));
           options[0].isBest = true;
-          const best = options[0];
+          // Honor a user-pinned route when it's available this cycle; otherwise use best.
+          const active = (preferredSource && options.find((o) => o.source === preferredSource)) || options[0];
 
-          const bestOutDecimals = formatUnits(best.raw, outputToken.decimals);
-          setOutputTokenAmount(bestOutDecimals);
-          setOutputAmount(formatDisplayAmount(bestOutDecimals, outputToken, outputDisplayMode));
-          setQuoteSource(best.source);
-          setSynRouteRoute(best.source === 'local' ? '' : best.label);
+          const activeOutDecimals = formatUnits(active.raw, outputToken.decimals);
+          setOutputTokenAmount(activeOutDecimals);
+          setOutputAmount(formatDisplayAmount(activeOutDecimals, outputToken, outputDisplayMode));
+          setQuoteSource(active.source);
+          setSynRouteRoute(active.source === 'local' ? '' : active.label);
           setRouteQuotes(options);
 
-          if (best.source === 'uniswap' && uniData?.router && uniData?.path) {
+          if (active.source === 'uniswap' && uniData?.router && uniData?.path) {
             setUniswapRoute({ router: uniData.router, path: uniData.path });
             setPriceImpact(Number(uniData.priceImpact) > 0.01 ? Number(uniData.priceImpact) : 0);
-          } else if (best.source === 'synroute') {
+          } else if (active.source === 'synroute') {
             setUniswapRoute(null);
             setPriceImpact(Number.isFinite(synImpact) && synImpact > 0.01 ? synImpact : 0);
           } else {
             setUniswapRoute(null);
-            updatePriceImpact(amount, best.raw);
+            updatePriceImpact(amount, active.raw);
           }
           return;
         }
@@ -795,29 +799,30 @@ export function SwapCardEnhanced() {
           return;
         }
 
-        // Best exact-output route = lowest input.
+        // Best exact-output route = lowest input (the default/auto choice).
         outOptions.sort((a, b) => (a.raw > b.raw ? 1 : a.raw < b.raw ? -1 : 0));
         outOptions[0].isBest = true;
-        const bestOut = outOptions[0];
+        // Honor a user-pinned route when it's available this cycle; otherwise use best.
+        const activeOut = (preferredSource && outOptions.find((o) => o.source === preferredSource)) || outOptions[0];
 
-        const bestInDecimals = formatUnits(bestOut.raw, inputToken.decimals);
-        setInputTokenAmount(bestInDecimals);
-        setInputAmount(formatDisplayAmount(bestInDecimals, inputToken, inputDisplayMode));
-        setQuoteSource(bestOut.source);
-        setSynRouteRoute(bestOut.source === 'local' ? '' : bestOut.label);
+        const activeInDecimals = formatUnits(activeOut.raw, inputToken.decimals);
+        setInputTokenAmount(activeInDecimals);
+        setInputAmount(formatDisplayAmount(activeInDecimals, inputToken, inputDisplayMode));
+        setQuoteSource(activeOut.source);
+        setSynRouteRoute(activeOut.source === 'local' ? '' : activeOut.label);
         setRouteQuotes(outOptions);
 
-        if (bestOut.source === 'uniswap' && uniInData?.router && uniInData?.path) {
+        if (activeOut.source === 'uniswap' && uniInData?.router && uniInData?.path) {
           setUniswapRoute({ router: uniInData.router, path: uniInData.path });
           setPriceImpact(Number(uniInData.priceImpact) > 0.01 ? Number(uniInData.priceImpact) : 0);
-        } else if (bestOut.source === 'synroute') {
+        } else if (activeOut.source === 'synroute') {
           setUniswapRoute(null);
           setPriceImpact(Number.isFinite(synInImpact) && synInImpact > 0.01 ? synInImpact : 0);
         } else {
           setUniswapRoute(null);
           const localResult = localInAmount ? await readLocalQuote(localInAmount) : 0n;
           if (currentRequestId !== quoteRequestId.current) return;
-          updatePriceImpact(bestOut.raw, localResult);
+          updatePriceImpact(activeOut.raw, localResult);
         }
       } catch (e) {
         console.error('Quote failed', e);
@@ -858,7 +863,13 @@ export function SwapCardEnhanced() {
     requiresSynRoute,
     address,
     slippageTolerance,
+    preferredSource,
   ]);
+
+  // Reset any manual route pin when the pair changes (the pin may not apply to the new pair).
+  useEffect(() => {
+    setPreferredSource(null);
+  }, [inputToken.address, outputToken.address]);
 
 
   // Swap execution
@@ -1438,60 +1449,141 @@ export function SwapCardEnhanced() {
                     {routeLabel}
                   </span>
                 </div>
-                {routeQuotes.length > 1 && (
-                  <div className="mt-2 rounded-[10px] border border-white/[0.06] bg-white/[0.02] p-2">
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                        Routes ({routeQuotes.length})
-                      </span>
-                      <span className="text-[9px] text-slate-500">
-                        best {exactField === 'input' ? 'output' : 'input'}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {routeQuotes.map((r) => {
-                        const unitSymbol = exactField === 'input' ? outputToken.symbol : inputToken.symbol;
-                        const num = Number(r.display);
+                {routeQuotes.length > 0 && (() => {
+                  const unitSymbol = exactField === 'input' ? outputToken.symbol : inputToken.symbol;
+                  const bestRoute = routeQuotes.find((r) => r.isBest) || routeQuotes[0];
+                  const alternativeRoutes = routeQuotes.filter((r) => r !== bestRoute);
+
+                  return (
+                    <div className="mt-2 rounded-[10px] border border-white/[0.06] bg-white/[0.02] p-2">
+                      {/* Header row with Routes count and dropdown toggle */}
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          Routes ({routeQuotes.length})
+                        </span>
+                        {alternativeRoutes.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setIsRoutesDropdownOpen(!isRoutesDropdownOpen)}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/85 transition-colors focus:outline-none"
+                          >
+                            <span>{isRoutesDropdownOpen ? 'Hide Alternatives' : `${alternativeRoutes.length} Alternatives`}</span>
+                            <svg
+                              className={`h-3 w-3 transition-transform duration-200 ${isRoutesDropdownOpen ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Best Route - Always displayed outside the dropdown */}
+                      {bestRoute && (() => {
+                        const isSelected = quoteSource === bestRoute.source;
+                        const num = Number(bestRoute.display);
                         const amountText = Number.isFinite(num)
                           ? parseFloat(num.toPrecision(6)).toString()
-                          : r.display;
+                          : bestRoute.display;
+
                         return (
-                          <div
-                            key={r.source}
-                            className={`flex items-center justify-between rounded-[7px] px-2 py-1 text-[11px] ${
-                              r.isBest
-                                ? 'border border-primary/30 bg-primary/10'
-                                : 'border border-transparent'
+                          <button
+                            type="button"
+                            onClick={() => setPreferredSource(null)}
+                            className={`w-full text-left flex items-center justify-between rounded-[7px] px-2.5 py-1.5 text-[11px] transition-all ${
+                              isSelected
+                                ? 'border border-primary/40 bg-primary/10 hover:bg-primary/15 shadow-sm shadow-primary/5'
+                                : 'border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03]'
                             }`}
                           >
                             <span className="flex items-center gap-1.5">
+                              {/* Selection Radio Indicator */}
+                              <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border transition-all ${
+                                isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-slate-600 bg-transparent'
+                              }`}>
+                                {isSelected && (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                )}
+                              </span>
                               <span
                                 className={`h-1.5 w-1.5 rounded-full ${
-                                  r.source === 'uniswap'
+                                  bestRoute.source === 'uniswap'
                                     ? 'bg-[#ff007a]'
-                                    : r.source === 'synroute'
+                                    : bestRoute.source === 'synroute'
                                       ? 'bg-violet-400'
                                       : 'bg-primary'
                                 }`}
                               />
-                              <span className="max-w-[120px] truncate font-medium text-slate-200" title={r.label}>
-                                {r.label}
+                              <span className="max-w-[110px] truncate font-semibold text-slate-200" title={bestRoute.label}>
+                                {bestRoute.label}
                               </span>
-                              {r.isBest && (
-                                <span className="rounded bg-primary/20 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-primary">
-                                  Best
-                                </span>
-                              )}
+                              <span className="rounded bg-primary/25 px-1 py-0.5 text-[8px] font-extrabold uppercase tracking-wider text-primary">
+                                Best
+                              </span>
                             </span>
-                            <span className={`font-medium ${r.isBest ? 'text-primary' : 'text-slate-400'}`}>
+                            <span className={`font-semibold ${isSelected ? 'text-primary' : 'text-slate-300'}`}>
                               {amountText} {unitSymbol}
                             </span>
-                          </div>
+                          </button>
                         );
-                      })}
+                      })()}
+
+                      {/* Dropdown containing alternative routes */}
+                      {isRoutesDropdownOpen && alternativeRoutes.length > 0 && (
+                        <div className="mt-1.5 space-y-1 border-t border-white/[0.05] pt-1.5 transition-all duration-200">
+                          {alternativeRoutes.map((r) => {
+                            const isSelected = quoteSource === r.source;
+                            const num = Number(r.display);
+                            const amountText = Number.isFinite(num)
+                              ? parseFloat(num.toPrecision(6)).toString()
+                              : r.display;
+
+                            return (
+                              <button
+                                key={r.source}
+                                type="button"
+                                onClick={() => setPreferredSource(r.source)}
+                                className={`w-full text-left flex items-center justify-between rounded-[7px] px-2.5 py-1.5 text-[11px] transition-all ${
+                                  isSelected
+                                    ? 'border border-primary/40 bg-primary/10 hover:bg-primary/15 shadow-sm shadow-primary/5'
+                                    : 'border border-transparent bg-transparent hover:bg-white/[0.02]'
+                                }`}
+                              >
+                                <span className="flex items-center gap-1.5">
+                                  {/* Selection Radio Indicator */}
+                                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border transition-all ${
+                                    isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-slate-700 bg-transparent'
+                                  }`}>
+                                    {isSelected && (
+                                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                    )}
+                                  </span>
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${
+                                      r.source === 'uniswap'
+                                        ? 'bg-[#ff007a]'
+                                        : r.source === 'synroute'
+                                          ? 'bg-violet-400'
+                                          : 'bg-primary'
+                                    }`}
+                                  />
+                                  <span className="max-w-[120px] truncate font-medium text-slate-400" title={r.label}>
+                                    {r.label}
+                                  </span>
+                                </span>
+                                <span className={`font-medium ${isSelected ? 'text-primary' : 'text-slate-400'}`}>
+                                  {amountText} {unitSymbol}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
                 <div className="mt-1.5 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Price impact</span>
                   <span className={`font-medium ${priceImpact < 1 ? 'text-emerald-400' : priceImpact < 3 ? 'text-amber-400' : 'text-rose-400'}`}>
