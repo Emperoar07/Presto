@@ -1441,7 +1441,11 @@ export default function LiquidityPage() {
 
   const pools: PoolStat[] = data?.pools ?? [];
   const activePools: PoolStat[] = pools.filter((pool: PoolStat) => pool.hasLiquidity);
-  const availablePositionTokens = tokens.filter((token) => !isHubToken(token, chainId));
+  // Synthra-routed tokens (e.g. cirBTC) have no usable local pool — swaps go through
+  // Synthra, so we drop their pool route from the liquidity UI entirely (both tabs).
+  const availablePositionTokens = tokens.filter(
+    (token) => !isHubToken(token, chainId) && !isSynthraRoutedLiquidityToken(token)
+  );
 
   return (
     <div className="w-full px-4 py-5 md:px-7 md:py-7" style={{ maxWidth: 1140 }}>
