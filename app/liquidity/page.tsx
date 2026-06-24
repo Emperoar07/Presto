@@ -1561,6 +1561,7 @@ export default function LiquidityPage() {
                   }
                 />
               ))}
+              <UniswapForkPools variant="positions" />
             </div>
           </div>
         </div>

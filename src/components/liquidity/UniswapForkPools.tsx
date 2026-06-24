@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatUnits, parseUnits, type Address, type PublicClient } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
@@ -40,7 +40,7 @@ type ForkPool = {
 const fmtUsd = (n: number) => (n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}`);
 const trimNum = (n: number, max = 6) => Number(n.toFixed(max)).toString();
 
-export function UniswapForkPools() {
+export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'positions' } = {}) {
   const { address } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
@@ -49,7 +49,14 @@ export function UniswapForkPools() {
   const fork = getUniswapV2Addresses(chainId);
   const hub = getHubToken(chainId);
 
+  // Known synchronously, so rows can render instantly while reserves hydrate.
+  const candidates = useMemo(
+    () => (fork && hub ? getTokens(chainId).filter((t) => !isHubToken(t, chainId) && FORK_LIQUIDITY_SYMBOLS.has(t.symbol.toLowerCase())) : []),
+    [fork, hub, chainId]
+  );
+
   const [pools, setPools] = useState<ForkPool[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [openPair, setOpenPair] = useState<string | null>(null);
   const [mode, setMode] = useState<'add' | 'remove'>('add');
   const [addToken, setAddToken] = useState('');
@@ -99,6 +106,7 @@ export function UniswapForkPools() {
       );
       if (id !== reqId.current) return; // a newer load superseded this one
       setPools(results.filter((p): p is ForkPool => p !== null));
+      setLoaded(true);
     } catch (e) {
       // Keep the last good rows on transient RPC errors (e.g. rate limits).
       console.error('Failed to load fork pools', e);
@@ -107,7 +115,7 @@ export function UniswapForkPools() {
 
   useEffect(() => { loadPools(); }, [loadPools, refreshKey]);
 
-  if (!fork || !hub || pools.length === 0) return null;
+  if (!fork || !hub) return null;
 
   const ratioHubPerToken = (pool: ForkPool) => {
     const rt = Number(formatUnits(pool.reserveToken, pool.token.decimals));
@@ -187,9 +195,7 @@ export function UniswapForkPools() {
     } finally { setBusy(false); }
   };
 
-  return (
-    <>
-      {pools.map((pool) => {
+  const renderPool = (pool: ForkPool) => {
         const isOpen = openPair === pool.pair;
         const sharePct = pool.totalSupply > 0n ? (Number(pool.userLp) / Number(pool.totalSupply)) * 100 : 0;
         const reserveTokenDisp = Number(formatUnits(pool.reserveToken, pool.token.decimals));
@@ -397,7 +403,46 @@ export function UniswapForkPools() {
             )}
           </div>
         );
-      })}
-    </>
+  };
+
+  const renderSkeleton = (token: Token) => (
+    <div key={token.address} className="border-b border-white/[0.04] last:border-b-0">
+      <div className="flex w-full items-center justify-between gap-3 px-4 py-3.5 md:grid md:gap-3.5 md:px-5" style={{ gridTemplateColumns: 'auto 1fr 140px 140px 124px' }}>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="relative flex h-6 w-10 flex-shrink-0">
+            {[{ bg: '#f7931a', lbl: 'cB' }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
+              <div key={idx} className="absolute flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
+                style={{ background: ic.bg, left: idx === 0 ? 0 : 14, zIndex: idx === 0 ? 1 : 0, border: `2px solid ${SURF}` }}>{ic.lbl}</div>
+            ))}
+          </div>
+          <div className="min-w-0 md:hidden">
+            <p className="text-[13px] font-bold text-slate-100">{token.symbol} / {hub.symbol}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">Loading…</p>
+          </div>
+        </div>
+        <div className="hidden md:block">
+          <p className="text-[13px] font-bold text-slate-100">{token.symbol} / {hub.symbol}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3%</p>
+        </div>
+        <div className="hidden md:block"><p className="text-[13px] font-semibold text-slate-500">—</p><p className="text-[11px] text-slate-500">Liquidity</p></div>
+        <div className="hidden md:block"><p className="text-[13px] font-semibold text-slate-500">—</p><p className="text-[11px] text-slate-500">Your share</p></div>
+        <div className="flex items-center justify-end gap-3"><span className="hidden rounded-[10px] bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-slate-500 md:inline-block">Loading…</span></div>
+      </div>
+    </div>
   );
+
+  // My Positions only shows pools where the user actually has LP.
+  if (variant === 'positions') {
+    const pos = pools.filter((p) => p.userLp > 0n);
+    if (pos.length === 0) return null;
+    return <>{pos.map(renderPool)}</>;
+  }
+
+  // All Pools: render rows instantly (skeleton) until reserves hydrate.
+  if (!loaded) {
+    if (candidates.length === 0) return null;
+    return <>{candidates.map(renderSkeleton)}</>;
+  }
+  if (pools.length === 0) return null;
+  return <>{pools.map(renderPool)}</>;
 }
