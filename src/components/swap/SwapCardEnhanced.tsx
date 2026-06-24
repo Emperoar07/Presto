@@ -1443,12 +1443,7 @@ export function SwapCardEnhanced() {
                     1 {inputToken.symbol} = {inputTokenAmount && outputTokenAmount && Number(inputTokenAmount) > 0 ? formatSmartRate(Number(outputTokenAmount) / Number(inputTokenAmount)) : '...'} {outputToken.symbol}
                   </span>
                 </div>
-                <div className="mt-1.5 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Route</span>
-                  <span className="max-w-[210px] truncate text-right font-medium text-slate-200" title={routeLabel}>
-                    {routeLabel}
-                  </span>
-                </div>
+
                 {routeQuotes.length > 0 && (() => {
                   const unitSymbol = exactField === 'input' ? outputToken.symbol : inputToken.symbol;
                   const bestRoute = routeQuotes.find((r) => r.isBest) || routeQuotes[0];
