@@ -5,7 +5,7 @@ import { createPublicClient, http } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { ethers } from 'ethers';
 
-const BASE_SEPOLIA_CHAIN_ID = 84532;
+const BASE_SEPOLIA_CHAIN_ID = 84532 as any;
 
 // In a real app we'd get this from environment
 const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
