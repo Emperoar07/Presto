@@ -75,7 +75,11 @@
   },
   "overrides": {
     "glob": "10.5.0",
-    "ethereum-cryptography": "0.2.5"
+    "ethereum-cryptography": "0.2.5",
+    "ws": "8.21.0",
+    "tmp": "0.2.7",
+    "lodash": "4.18.1",
+    "serialize-javascript": "7.0.6"
   },
   "type": "module"
 }
