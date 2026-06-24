@@ -1323,7 +1323,7 @@ export function SwapCardEnhanced() {
                     value={inputAmount}
                     onChange={(e) => handleInputAmountChange(e.target.value)}
                     placeholder="0.0"
-                    className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0"
+                    className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:outline-none focus:ring-0"
                   />
                 )}
                 <button
@@ -1406,7 +1406,7 @@ export function SwapCardEnhanced() {
                     value={outputAmount}
                     onChange={(e) => handleOutputAmountChange(e.target.value)}
                     placeholder="0.0"
-                    className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:ring-0"
+                    className="w-full bg-transparent p-0 text-[24px] font-semibold leading-none tracking-tight text-white placeholder:text-white/30 border-none focus:outline-none focus:ring-0"
                   />
                 )}
                 <button
