@@ -260,8 +260,8 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
                 <p className="text-[11px] text-slate-500">Liquidity</p>
               </div>
               <div className="hidden md:block">
-                <p className="text-[13px] font-semibold text-slate-100">{sharePct > 0 ? `${sharePct.toFixed(2)}%` : '—'}</p>
-                <p className="text-[11px] text-slate-500">Your share</p>
+                <p className="text-[13px] font-semibold text-slate-100">—</p>
+                <p className="text-[11px] text-slate-500">24h Vol</p>
               </div>
               <div className="flex items-center justify-end gap-3">
                 <span className="hidden rounded-[10px] bg-[#25c0f4] px-3 py-2 text-[12px] font-bold text-[#0f172a] md:inline-block">
@@ -425,7 +425,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
           <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3%</p>
         </div>
         <div className="hidden md:block"><p className="text-[13px] font-semibold text-slate-500">—</p><p className="text-[11px] text-slate-500">Liquidity</p></div>
-        <div className="hidden md:block"><p className="text-[13px] font-semibold text-slate-500">—</p><p className="text-[11px] text-slate-500">Your share</p></div>
+        <div className="hidden md:block"><p className="text-[13px] font-semibold text-slate-500">—</p><p className="text-[11px] text-slate-500">24h Vol</p></div>
         <div className="flex items-center justify-end gap-3"><span className="hidden rounded-[10px] bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-slate-500 md:inline-block">Loading…</span></div>
       </div>
     </div>
