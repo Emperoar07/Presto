@@ -1,4 +1,5 @@
-import { type SynRouteQuote, type SynRouteTransaction } from './synroute';
+import { type SynRouteTransaction } from './synroute';
+import { getUniswapV2Addresses } from '@/config/contracts';
 
 export type UniswapQuoteRequest = {
   chainId: number;
@@ -17,6 +18,10 @@ export type UniswapQuoteResponse = {
   amountOut: string;
   priceImpact: string;
   transaction: SynRouteTransaction | null;
+  /** Router + path for client-side execution (V2 swapExactTokensForTokens). */
+  router?: `0x${string}`;
+  path?: `0x${string}`[];
+  pair?: `0x${string}`;
   gasEstimate?: string;
   routeString?: string;
 };
@@ -51,6 +56,6 @@ export async function getUniswapQuote(request: UniswapQuoteRequest): Promise<Uni
 }
 
 export function isUniswapSupportedChain(chainId: number): boolean {
-  // Currently only Arc Testnet is supported for Uniswap routing in this integration
-  return chainId === 5042002;
+  // Supported when a Uniswap V2 fork is configured for the chain.
+  return getUniswapV2Addresses(chainId) !== null;
 }

@@ -1,0 +1,12 @@
+{
+  "chainId": "5042002",
+  "network": "arc-testnet",
+  "deployer": "0x659eEAF9Be1fB881959D883385D03B0Ef5D778E0",
+  "deployedAt": "2026-06-24T06:22:49.699Z",
+  "UniswapV2Factory": "0xd70dd32d5Ee254F92ed1B259B6a8c22dA5CCb754",
+  "UniswapV2Router02": "0x2c820034B1ccb6739d7F8E25c572Cb6Bb5ed7211",
+  "WETH": "0x911b4000D3422F482F4062a913885f7b035382Df",
+  "pools": {
+    "USDC/WUSDC": "0x129dA171A464351018fca72EAf3efdAD056cE5bC"
+  }
+}

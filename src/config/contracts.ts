@@ -39,6 +39,11 @@ export const PAIR_ABI = [
   "function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)"
 ];
 
+/** Uniswap V2 router swap entrypoint used for client-side execution. */
+export const UNISWAP_V2_ROUTER_SWAP_ABI = parseAbi([
+  "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] path, address to, uint deadline) external returns (uint[] memory amounts)",
+]);
+
 export const STABLE_VAULT_ABI = [
   "function swap(address tokenIn, address tokenOut, uint256 amountIn) external",
   "function withdraw(address token, uint256 amount) external",
@@ -147,6 +152,9 @@ type ContractAddresses = {
   ARC_STABLESWAP_ADDRESS: `0x${string}`;
   WETH_ADDRESS: `0x${string}`;
   UNISWAP_UNIVERSAL_ROUTER?: `0x${string}`;
+  // Uniswap V2 fork used as an additional aggregator route
+  UNISWAP_V2_FACTORY?: `0x${string}`;
+  UNISWAP_V2_ROUTER?: `0x${string}`;
 };
 
 // Default contract addresses per chain
@@ -182,7 +190,10 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
     STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
     HUB_AMM_ADDRESS: "0x5794a8284A29493871Fbfa3c4f343D42001424D6",
     ARC_STABLESWAP_ADDRESS: ZERO_ADDRESS,
-    WETH_ADDRESS: ZERO_ADDRESS
+    WETH_ADDRESS: "0x911b4000D3422F482F4062a913885f7b035382Df", // WUSDC (wrapped native)
+    // Uniswap V2 fork deployed via scripts/deploy-uniswap-arc.ts
+    UNISWAP_V2_FACTORY: "0xd70dd32d5Ee254F92ed1B259B6a8c22dA5CCb754",
+    UNISWAP_V2_ROUTER: "0x2c820034B1ccb6739d7F8E25c572Cb6Bb5ed7211"
   }
 };
 
@@ -214,12 +225,35 @@ export const getContractAddresses = (chainId?: number): ContractAddresses => {
     || getEnvAddress('NEXT_PUBLIC_HUB_AMM_ADDRESS');
   const arcStableSwapOverride = getEnvAddress(`NEXT_PUBLIC_ARC_STABLESWAP_ADDRESS_${id}`)
     || getEnvAddress('NEXT_PUBLIC_ARC_STABLESWAP_ADDRESS');
+  const uniV2FactoryOverride = getEnvAddress(`NEXT_PUBLIC_UNISWAP_V2_FACTORY_${id}`)
+    || getEnvAddress('NEXT_PUBLIC_UNISWAP_V2_FACTORY');
+  const uniV2RouterOverride = getEnvAddress(`NEXT_PUBLIC_UNISWAP_V2_ROUTER_${id}`)
+    || getEnvAddress('NEXT_PUBLIC_UNISWAP_V2_ROUTER');
 
   return {
     ...defaults,
     ...(hubAmmOverride && { HUB_AMM_ADDRESS: hubAmmOverride }),
-    ...(arcStableSwapOverride && { ARC_STABLESWAP_ADDRESS: arcStableSwapOverride })
+    ...(arcStableSwapOverride && { ARC_STABLESWAP_ADDRESS: arcStableSwapOverride }),
+    ...(uniV2FactoryOverride && { UNISWAP_V2_FACTORY: uniV2FactoryOverride }),
+    ...(uniV2RouterOverride && { UNISWAP_V2_ROUTER: uniV2RouterOverride })
   };
+};
+
+/**
+ * Uniswap V2 fork addresses for a chain, if configured.
+ * Returns null when no fork is deployed for the chain.
+ */
+export const getUniswapV2Addresses = (
+  chainId?: number
+): { factory: `0x${string}`; router: `0x${string}` } | null => {
+  const { UNISWAP_V2_FACTORY, UNISWAP_V2_ROUTER } = getContractAddresses(chainId);
+  if (
+    UNISWAP_V2_FACTORY && UNISWAP_V2_FACTORY !== ZERO_ADDRESS &&
+    UNISWAP_V2_ROUTER && UNISWAP_V2_ROUTER !== ZERO_ADDRESS
+  ) {
+    return { factory: UNISWAP_V2_FACTORY, router: UNISWAP_V2_ROUTER };
+  }
+  return null;
 };
 
 // Export for backward compatibility
