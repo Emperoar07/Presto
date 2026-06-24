@@ -918,8 +918,9 @@ export function SwapCardEnhanced() {
       const shouldUseUniswap = quoteSource === 'uniswap' && !!uniswapRoute;
 
       let txHash: `0x${string}` | undefined;
+      // Toast copy stays route-agnostic — users just see "Swap ..." regardless of the route used.
       await execute(
-        shouldUseSynRoute ? 'SynRoute swap' : (shouldUseUniswap ? 'Uniswap trade' : 'Swap'),
+        'Swap',
         async () => {
           if (shouldUseUniswap && uniswapRoute) {
             // 1. Approve the Uniswap V2 router to pull the input token.

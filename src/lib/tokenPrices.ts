@@ -9,13 +9,13 @@ export function getStaticTokenUsdPrice(token: Pick<Token, 'symbol'>): number | n
   return null;
 }
 
-export function getTokenUsdPrice(token: Pick<Token, 'symbol'>, prices: TokenPriceMap): number | null {
+export function getTokenUsdPrice(token: Pick<Token, 'symbol'>, _prices: TokenPriceMap): number | null {
   const staticPrice = getStaticTokenUsdPrice(token);
   if (staticPrice != null) return staticPrice;
-  if (token.symbol.toLowerCase() === 'cirbtc') {
-    const btcPrice = prices.BTC;
-    return Number.isFinite(btcPrice) && btcPrice > 0 ? btcPrice : null;
-  }
+  // NOTE: cirBTC is a testnet token whose on-chain/route pricing is unrelated to the
+  // real BTC market. Applying the real BTC price here produced wildly misleading USD
+  // estimates (e.g. "$100 in -> $3.78 out") that don't reflect the actual testnet quote,
+  // so we intentionally return null (no USD estimate) rather than a fake market value.
   return null;
 }
 
