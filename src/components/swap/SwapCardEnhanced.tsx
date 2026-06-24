@@ -955,7 +955,7 @@ export function SwapCardEnhanced() {
             });
             
             txHash = swapHash;
-            return;
+            return swapHash;
           }
 
           if (shouldUseSynRoute) {
