@@ -1181,16 +1181,15 @@ export function SwapCardEnhanced() {
           : 'Presto Hub AMM';
 
   const networkFeeEstimate = useMemo(() => {
-    // Typical swap transaction gas limit: 150,000 gas
-    const gasLimit = 150000n;
+    const gasLimit = isArcTestnet && quoteSource === 'synroute' ? arcGasHeadroom(undefined) : 150000n;
     const price = gasPrice ?? 20000000000n; // Default to 20 Gwei if not loaded
     const feeInWei = price * gasLimit;
-    const feeInEth = Number(feeInWei) / 1e18;
-    if (feeInEth < 0.01) {
-      return `~ $${feeInEth.toFixed(4)}`;
+    const feeInNative = Number(formatUnits(feeInWei, 18));
+    if (isArcTestnet) {
+      return `~ ${feeInNative < 0.01 ? feeInNative.toFixed(4) : feeInNative.toFixed(2)} USDC`;
     }
-    return `~ $${feeInEth.toFixed(2)}`;
-  }, [gasPrice]);
+    return `~ $${feeInNative < 0.01 ? feeInNative.toFixed(4) : feeInNative.toFixed(2)}`;
+  }, [gasPrice, isArcTestnet, quoteSource]);
 
   const formatRelativeTime = (timestamp: number) => {
     const diffMs = Math.max(0, Date.now() - timestamp);

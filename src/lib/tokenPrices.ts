@@ -12,10 +12,7 @@ export function getStaticTokenUsdPrice(token: Pick<Token, 'symbol'>): number | n
 export function getTokenUsdPrice(token: Pick<Token, 'symbol'>, _prices: TokenPriceMap): number | null {
   const staticPrice = getStaticTokenUsdPrice(token);
   if (staticPrice != null) return staticPrice;
-  // NOTE: cirBTC is a testnet token whose on-chain/route pricing is unrelated to the
-  // real BTC market. Applying the real BTC price here produced wildly misleading USD
-  // estimates (e.g. "$100 in -> $3.78 out") that don't reflect the actual testnet quote,
-  // so we intentionally return null (no USD estimate) rather than a fake market value.
+  if (token.symbol.toUpperCase() === 'CIRBTC') return _prices.BTC ?? null;
   return null;
 }
 
@@ -39,4 +36,3 @@ export function usdToTokenAmount(usdAmount: string, token: Pick<Token, 'symbol' 
   const tokenAmount = amount / price;
   return tokenAmount.toFixed(Math.min(token.decimals, 12)).replace(/\.?0+$/, '');
 }
-

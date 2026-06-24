@@ -44,10 +44,9 @@ Current USYC campaign rates:
 
 | Pair | Annual Reward Rate |
 |------|--------------------|
-| cirBTC / USDC | 1.0% APR |
-| All other supported pairs | 0.5% APR |
+| Supported Hub AMM pairs | 0.5% APR |
 
-cirBTC swaps use Synthra SynRoute for BTC market routing on Arc. The app presents cirBTC beside the rest of the pool program while swaps use the Synthra route under the hood.
+cirBTC swaps use Synthra SynRoute for BTC market routing on Arc. cirBTC liquidity is shown through the Arc Uniswap V2 fork because it should not be priced as a 1:1 Hub AMM stable pair.
 
 **USYCRewards contract:** `0x3454fB11Ead7a10806434daE0A7EfFd289ABb908`
 Funded with **4,000,000 USYC**.
@@ -94,6 +93,7 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 SYNTHRA_API_KEY=your_synthra_api_key
 NEXT_PUBLIC_SYNROUTE_ENABLED=true
 NEXT_PUBLIC_SYNROUTE_APPROVAL_MODE=erc20
+NEXT_PUBLIC_BRIDGE_DEBUG=false
 PRIVATE_KEY=your_deployer_private_key
 ```
 
@@ -191,7 +191,7 @@ Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk sca
 
 ## SynRoute
 
-Set `SYNTHRA_API_KEY` for SynRoute on Arc Testnet swaps. The frontend calls local API routes under `/api/synroute/*`, and those routes forward requests to `https://trading-api.synthra.org` with the `x-api-key` header. cirBTC routes use Synthra so the swap card follows market based BTC liquidity on Arc.
+Set `SYNTHRA_API_KEY` for SynRoute on Arc Testnet swaps. The frontend calls local API routes under `/api/synroute/*`, and those routes forward validated requests to `https://trading-api.synthra.org` with the `x-api-key` header. Keep this key server-side; do not add a public `NEXT_PUBLIC_SYNTHRA_API_KEY`.
 
 `NEXT_PUBLIC_SYNROUTE_APPROVAL_MODE` accepts `erc20` or `permit2`. The default is `erc20` to preserve exact-amount approval behavior.
 

@@ -274,12 +274,7 @@ export default function DocsPage() {
                 headers={['Pair', 'Annual Reward Rate', 'Reward Token']}
                 rows={[
                   [
-                    <span key="cirbtc-pair" className="font-semibold text-slate-100">cirBTC / USDC</span>,
-                    <span key="cirbtc-rate" className="font-semibold text-[#00b87a]">1.0% APR</span>,
-                    'USYC',
-                  ],
-                  [
-                    <span key="other-pair" className="font-semibold text-slate-100">All other pairs</span>,
+                    <span key="other-pair" className="font-semibold text-slate-100">Supported Hub AMM pairs</span>,
                     <span key="other-rate" className="font-semibold text-[#00b87a]">0.5% APR</span>,
                     'USYC',
                   ],
@@ -300,7 +295,7 @@ export default function DocsPage() {
                 <p className="text-[13px] font-semibold text-slate-100">cirBTC routing</p>
                 <p className="mt-2 text-[13px] leading-6 text-slate-300">
                   cirBTC swaps use Synthra SynRoute so users see market based routing for BTC liquidity on Arc.
-                  The Pools page shows the cirBTC reward campaign beside the rest of the Arc liquidity program.
+                  The Pools page shows cirBTC through the Arc Uniswap V2 fork, while USYC rewards stay attached to Hub AMM pool shares.
                 </p>
               </div>
 
@@ -349,6 +344,7 @@ export default function DocsPage() {
                 <li>Transfer history is accessible via the clock icon in the bridge header, which slides open a history panel beside the bridge card.</li>
                 <li>The history panel auto-closes after 20 seconds of inactivity.</li>
                 <li>Bridge transfers are tracked in the Activity page under the Bridge tab.</li>
+                <li>Detailed Bridge Kit event logs are opt-in through <code>NEXT_PUBLIC_BRIDGE_DEBUG=true</code>.</li>
               </ul>
             </Section>
 

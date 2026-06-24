@@ -23,6 +23,7 @@ import { UniswapForkPools } from '@/components/liquidity/UniswapForkPools';
 
 const SURF = '#1e293b';
 const BDR = '1px solid rgba(255,255,255,0.07)';
+const DEFAULT_LIQUIDITY_SLIPPAGE_BPS = 50n;
 
 const SYNTHRA_ROUTED_LIQUIDITY_SYMBOLS = new Set(['cirbtc']);
 
@@ -56,6 +57,8 @@ type BurnLiquidityArgs = {
   userTokenAddress: `0x${string}`;
   validatorTokenAddress: `0x${string}`;
   liquidityAmount: bigint;
+  minUserOut?: bigint;
+  minValidatorOut?: bigint;
   to: `0x${string}`;
   feeToken: `0x${string}`;
 };
@@ -115,7 +118,7 @@ function MyPositionRow({
     ? Hooks.amm.useClaimRewards()
     : { claimAsync: null, isPending: false };
 
-  const rewardCampaignActive = Boolean(rewardsEnabled);
+  const rewardCampaignActive = Boolean(rewardsEnabled) && !isSynthraRoutedLiquidityToken(token);
   const claimableUsyc = rewardCampaignActive && claimableRaw ? Number(claimableRaw) / 1e6 : 0;
   const aprPercent = rewardCampaignActive && rewardRateRaw ? Number(rewardRateRaw) / 100 : 0;
 
@@ -658,10 +661,19 @@ function PositionManagerInline({
     if (!address || !removeAmount) return;
     let activityId: string | null = null;
     let hash: `0x${string}` | undefined;
+    const liquidityAmount = parseUnits(removeAmount, 18);
+    const minUserOut = totalShares > 0n
+      ? ((reserveUserToken * liquidityAmount) / totalShares * (10000n - DEFAULT_LIQUIDITY_SLIPPAGE_BPS)) / 10000n
+      : 0n;
+    const minValidatorOut = totalShares > 0n
+      ? ((reserveHubToken * liquidityAmount) / totalShares * (10000n - DEFAULT_LIQUIDITY_SLIPPAGE_BPS)) / 10000n
+      : 0n;
     const payload = {
       userTokenAddress: token.address as `0x${string}`,
       validatorTokenAddress: hubToken.address as `0x${string}`,
-      liquidityAmount: parseUnits(removeAmount, 18),
+      liquidityAmount,
+      minUserOut,
+      minValidatorOut,
       to: address as `0x${string}`,
       feeToken: hubToken.address as `0x${string}`,
     };
@@ -1162,10 +1174,19 @@ function CompactPositionManagerInline({
 
   const handleRemoveLiquidity = async () => {
     if (!address || !removeAmount) return;
+    const liquidityAmount = parseUnits(removeAmount, 18);
+    const minUserOut = totalShares > 0n
+      ? ((reserveUserToken * liquidityAmount) / totalShares * (10000n - DEFAULT_LIQUIDITY_SLIPPAGE_BPS)) / 10000n
+      : 0n;
+    const minValidatorOut = totalShares > 0n
+      ? ((reserveHubToken * liquidityAmount) / totalShares * (10000n - DEFAULT_LIQUIDITY_SLIPPAGE_BPS)) / 10000n
+      : 0n;
     const payload = {
       userTokenAddress: token.address as `0x${string}`,
       validatorTokenAddress: hubToken.address as `0x${string}`,
-      liquidityAmount: parseUnits(removeAmount, 18),
+      liquidityAmount,
+      minUserOut,
+      minValidatorOut,
       to: address as `0x${string}`,
       feeToken: hubToken.address as `0x${string}`,
     };

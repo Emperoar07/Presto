@@ -500,7 +500,7 @@ export const Hooks = {
              const chainId = useChainId();
              const isTempoChain = isTempoNativeChain(chainId);
              const arcHubAddress = getContractAddresses(chainId).HUB_AMM_ADDRESS;
-             const buildConfig = (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
+             const buildConfig = (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; minUserOut?: bigint; minValidatorOut?: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
                 if (isTempoChain) {
                     return {
                        address: getFeeManagerAddressForChain(chainId) as `0x${string}`,
@@ -511,21 +511,28 @@ export const Hooks = {
                  }
 
                  const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (20 * 60));
-                 return {
-                    address: arcHubAddress as `0x${string}`,
-                    abi: HUB_AMM_ABI,
-                    functionName: 'removeLiquidity' as const,
-                    args: [args.userTokenAddress, args.validatorTokenAddress, args.liquidityAmount, 0n, 0n, deadlineTimestamp] as const,
-                 };
-             };
-             return {
-                 mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
-                     writeContract(buildConfig(args) as any);
-                 },
-                 mutateAsync: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; to: `0x${string}`; feeToken: `0x${string}` }) =>
-                    writeContractAsync(buildConfig(args) as any),
-                 isPending
-             };
+                  return {
+                     address: arcHubAddress as `0x${string}`,
+                     abi: HUB_AMM_ABI,
+                     functionName: 'removeLiquidity' as const,
+                     args: [
+                        args.userTokenAddress,
+                        args.validatorTokenAddress,
+                        args.liquidityAmount,
+                        args.minUserOut ?? 1n,
+                        args.minValidatorOut ?? 1n,
+                        deadlineTimestamp,
+                     ] as const,
+                  };
+              };
+              return {
+                  mutate: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; minUserOut?: bigint; minValidatorOut?: bigint; to: `0x${string}`; feeToken: `0x${string}` }) => {
+                      writeContract(buildConfig(args) as any);
+                  },
+                  mutateAsync: (args: { userTokenAddress: `0x${string}`; validatorTokenAddress: `0x${string}`; liquidityAmount: bigint; minUserOut?: bigint; minValidatorOut?: bigint; to: `0x${string}`; feeToken: `0x${string}` }) =>
+                     writeContractAsync(buildConfig(args) as any),
+                  isPending
+              };
         },
         useWatchFeeSwap: ({ userToken, validatorToken, onLogs }: { userToken: `0x${string}`; validatorToken: `0x${string}`; onLogs: (logs: unknown[]) => void }) => {
             const chainId = useChainId();

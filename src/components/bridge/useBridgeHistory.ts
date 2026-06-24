@@ -12,6 +12,14 @@ import {
   isValidBridgeHistoryItem,
 } from './constants';
 
+const BRIDGE_DEBUG = process.env.NEXT_PUBLIC_BRIDGE_DEBUG === 'true';
+const bridgeDebug = (...args: unknown[]) => {
+  if (BRIDGE_DEBUG) console.log(...args);
+};
+const bridgeDebugError = (...args: unknown[]) => {
+  if (BRIDGE_DEBUG) console.error(...args);
+};
+
 // ---------------------------------------------------------------------------
 // Reconciliation helpers
 // ---------------------------------------------------------------------------
@@ -224,14 +232,14 @@ export function useBridgeHistory(deps: {
   // Claim via kit.retry() — used by both auto-claim and manual claim
   const executeRetry = useCallback(async (item: BridgeHistoryItem) => {
     if (!item.rawResult) return;
-    console.log('[bridge-retry] Building kit and adapters for', item.sourceKey, '→', item.destinationKey);
+    bridgeDebug('[bridge-retry] Building kit and adapters for', item.sourceKey, '->', item.destinationKey);
 
     const [{ kit }, fromAdapter, toAdapter] = await Promise.all([
       buildBridgeKit(),
       createAdapterFor(item.sourceKey, false, true), // source is not destination during claim, so isRetry = true
       createAdapterFor(item.destinationKey, true, false), // destination is required to sign the mint, so isRetry = false
     ]);
-    console.log('[bridge-retry] Adapters created. Calling kit.retry()...');
+    bridgeDebug('[bridge-retry] Adapters created. Calling kit.retry()...');
 
     if (NETWORKS[item.destinationKey].ecosystem === 'solana' && !toAdapter) {
       throw new Error('A Solana wallet like Phantom is required and must be connected to claim this transaction on Solana.');
@@ -243,22 +251,22 @@ export function useBridgeHistory(deps: {
       from: fromAdapter,
       to: toAdapter,
     })) as BridgeSummary;
-    try { console.log('[bridge-retry] kit.retry() returned:', JSON.parse(JSON.stringify(retryResult, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.log('[bridge-retry] kit.retry() returned:', retryResult); }
+    try { bridgeDebug('[bridge-retry] kit.retry() returned:', JSON.parse(JSON.stringify(retryResult, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebug('[bridge-retry] kit.retry() returned:', retryResult); }
     if (Array.isArray((retryResult as any).steps)) {
       (retryResult as any).steps.forEach((step: any, i: number) => {
-        try { console.log(`[bridge-retry] step[${i}]:`, JSON.parse(JSON.stringify(step, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.log(`[bridge-retry] step[${i}]:`, step); }
+        try { bridgeDebug(`[bridge-retry] step[${i}]:`, JSON.parse(JSON.stringify(step, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebug(`[bridge-retry] step[${i}]:`, step); }
         if (step.state === 'error') {
           const err = step.error;
           if (err) {
             const flat: Record<string, unknown> = {};
             for (const k of Object.getOwnPropertyNames(err)) { try { flat[k] = (err as any)[k]; } catch {} }
             for (const k of Object.keys(err)) { try { flat[k] = (err as any)[k]; } catch {} }
-            try { console.error(`[bridge-retry] step[${i}] ERROR:`, JSON.parse(JSON.stringify(flat, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.error(`[bridge-retry] step[${i}] ERROR (raw):`, err); }
-            if (err.cause) console.error(`[bridge-retry] step[${i}] cause:`, err.cause);
-            if ((err as any).logs) console.error(`[bridge-retry] step[${i}] logs:`, (err as any).logs);
-            if ((err as any).context) console.error(`[bridge-retry] step[${i}] context:`, (err as any).context);
+            try { bridgeDebugError(`[bridge-retry] step[${i}] ERROR:`, JSON.parse(JSON.stringify(flat, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebugError(`[bridge-retry] step[${i}] ERROR (raw):`, err); }
+            if (err.cause) bridgeDebugError(`[bridge-retry] step[${i}] cause:`, err.cause);
+            if ((err as any).logs) bridgeDebugError(`[bridge-retry] step[${i}] logs:`, (err as any).logs);
+            if ((err as any).context) bridgeDebugError(`[bridge-retry] step[${i}] context:`, (err as any).context);
           }
-          console.error(`[bridge-retry] step[${i}] errorMessage:`, step.errorMessage);
+          bridgeDebugError(`[bridge-retry] step[${i}] errorMessage:`, step.errorMessage);
         }
       });
     }

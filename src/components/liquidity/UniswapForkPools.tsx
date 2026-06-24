@@ -164,13 +164,18 @@ export function UniswapForkPools() {
     let liquidity = parseUnits(removeLp, 18);
     if (liquidity > pool.userLp) liquidity = pool.userLp;
     if (liquidity <= 0n) return toast.error('No LP position');
+    if (pool.totalSupply <= 0n) return toast.error('Pool has no liquidity');
+    const expectedTokenOut = (pool.reserveToken * liquidity) / pool.totalSupply;
+    const expectedHubOut = (pool.reserveHub * liquidity) / pool.totalSupply;
+    const tokenMin = expectedTokenOut - (expectedTokenOut * SLIPPAGE_BPS) / 10000n;
+    const hubMin = expectedHubOut - (expectedHubOut * SLIPPAGE_BPS) / 10000n;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
     setBusy(true);
     try {
       await approveToken(walletClient, publicClient, address, pool.pair, fork.router, liquidity);
       const hash = await walletClient.writeContract({
         address: fork.router, abi: UNISWAP_V2_ROUTER_LIQUIDITY_ABI, functionName: 'removeLiquidity',
-        args: [pool.token.address, pool.hub.address, liquidity, 0n, 0n, address, deadline],
+        args: [pool.token.address, pool.hub.address, liquidity, tokenMin, hubMin, address, deadline],
         account: address, chain: null,
       });
       toast.custom(() => <TxToast hash={hash} title="Liquidity removed" />);

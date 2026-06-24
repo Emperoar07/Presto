@@ -53,6 +53,13 @@ const IRIS_ORIGINS = [
   'https://iris-api-sandbox.circle.com',
   'https://iris-api.circle.com',
 ];
+const BRIDGE_DEBUG = process.env.NEXT_PUBLIC_BRIDGE_DEBUG === 'true';
+const bridgeDebug = (...args: unknown[]) => {
+  if (BRIDGE_DEBUG) console.log(...args);
+};
+const bridgeDebugError = (...args: unknown[]) => {
+  if (BRIDGE_DEBUG) console.error(...args);
+};
 
 if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
   const _originalFetch = globalThis.fetch;
@@ -64,7 +71,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function')
       for (const origin of IRIS_ORIGINS) {
         if (url.startsWith(origin)) {
           const proxyUrl = url.replace(origin, '/api/iris-proxy');
-          console.log('[iris-proxy] intercepting', url, '→', proxyUrl);
+          bridgeDebug('[iris-proxy] intercepting', url, '->', proxyUrl);
           const newInput = typeof input === 'string' ? proxyUrl : input instanceof URL ? new URL(proxyUrl, window.location.origin) : new Request(proxyUrl, input);
           return _originalFetch.call(globalThis, newInput, init);
         }
@@ -455,7 +462,7 @@ export function BridgeWorkspace() {
         await disconnectSolanaAdapter();
       },
       signTransaction: async (transaction) => {
-        console.log('[solana-provider] signTransaction requested');
+        bridgeDebug('[solana-provider] signTransaction requested');
         // Circle's adapter calls this via signVersionedTransaction path.
         // The adapter's executeSerializedTransaction / executeTransaction
         // handles sending via RPC after we return the signed tx.
@@ -472,18 +479,18 @@ export function BridgeWorkspace() {
           } else {
             tx = transaction as VersionedTransaction;
           }
-          console.log('[solana-provider] deserialized transaction successfully. Requesting wallet signature...');
+          bridgeDebug('[solana-provider] deserialized transaction successfully. Requesting wallet signature...');
           const signed = await signSolanaTransaction(tx);
-          console.log('[solana-provider] transaction signed successfully');
+          bridgeDebug('[solana-provider] transaction signed successfully');
           return signed;
         } catch (err) {
-          console.error('[solana-provider] signTransaction failed:', err);
+          bridgeDebugError('[solana-provider] signTransaction failed:', err);
           throw err;
         }
       },
       signAllTransactions: signAllSolanaTransactions
         ? async (transactions) => {
-            console.log('[solana-provider] signAllTransactions requested, count:', transactions.length);
+            bridgeDebug('[solana-provider] signAllTransactions requested, count:', transactions.length);
             try {
               const deserialized = (transactions as unknown[]).map((t) => {
                 if (typeof t === 'string') return VersionedTransaction.deserialize(base64ToUint8Array(t));
@@ -491,23 +498,23 @@ export function BridgeWorkspace() {
                 return t as VersionedTransaction;
               });
               const signed = await signAllSolanaTransactions(deserialized);
-              console.log('[solana-provider] all transactions signed successfully');
+              bridgeDebug('[solana-provider] all transactions signed successfully');
               return signed;
             } catch (err) {
-              console.error('[solana-provider] signAllTransactions failed:', err);
+              bridgeDebugError('[solana-provider] signAllTransactions failed:', err);
               throw err;
             }
           }
         : undefined,
       signMessage: signSolanaMessage
         ? async (message) => {
-            console.log('[solana-provider] signMessage requested');
+            bridgeDebug('[solana-provider] signMessage requested');
             try {
               const signature = await signSolanaMessage(message);
-              console.log('[solana-provider] message signed successfully');
+              bridgeDebug('[solana-provider] message signed successfully');
               return { signature };
             } catch (err) {
-              console.error('[solana-provider] signMessage failed:', err);
+              bridgeDebugError('[solana-provider] signMessage failed:', err);
               throw err;
             }
           }
@@ -630,9 +637,9 @@ export function BridgeWorkspace() {
         if (!preloadedViemAdapter) {
           preloadedViemAdapter = await import('@circle-fin/adapter-viem-v2');
         }
-        console.log('[bridge] preloaded SDK modules successfully');
+        bridgeDebug('[bridge] preloaded SDK modules successfully');
       } catch (e) {
-        console.error('[bridge] failed to preload SDK modules:', e);
+        bridgeDebugError('[bridge] failed to preload SDK modules:', e);
       }
     };
     void preloadModules();
@@ -905,7 +912,7 @@ export function BridgeWorkspace() {
         },
       })) as EstimateSummary;
 
-      console.log('[bridge] estimate result:', { amount: result.amount, fees: result.fees, gasFees: result.gasFees });
+      bridgeDebug('[bridge] estimate result:', { amount: result.amount, fees: result.fees, gasFees: result.gasFees });
       setEstimate(result);
       setStatusMessage('Route ready.');
     } catch (error) {
@@ -960,17 +967,17 @@ export function BridgeWorkspace() {
         steps: [],
       });
 
-      console.log('[bridge] Building kit and adapters for', sourceKey, '→', destinationKey);
+      bridgeDebug('[bridge] Building kit and adapters for', sourceKey, '->', destinationKey);
       const [{ kit, transferSpeed }, fromAdapter, toAdapter] = await Promise.all([
         buildBridgeKit(),
         createAdapterFor(sourceKey, false),
         createAdapterFor(destinationKey, true),
       ]);
-      console.log('[bridge] Adapters created. sourceAddress:', sourceAddress, 'destAddress:', resolvedDestinationAddress);
+      bridgeDebug('[bridge] Adapters created.');
 
       kit.on('*', (payload: any) => {
         const method = 'method' in payload && typeof payload.method === 'string' ? payload.method : 'bridge';
-        try { console.log('[bridge] event:', method, JSON.parse(JSON.stringify(payload, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.log('[bridge] event:', method, payload); }
+        try { bridgeDebug('[bridge] event:', method, JSON.parse(JSON.stringify(payload, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebug('[bridge] event:', method, payload); }
         setEventLog((current) => {
           if (current.includes(method)) return current;
           return [...current, method];
@@ -984,7 +991,7 @@ export function BridgeWorkspace() {
       });
 
       const sdkAmount = effectiveBridgeAmount;
-      console.log('[bridge] Calling kit.bridge() with:', {
+      bridgeDebug('[bridge] Calling kit.bridge() with:', {
         from: { chain: sourceNetwork.bridgeChain, ecosystem: sourceNetwork.ecosystem },
         to: { chain: destinationNetwork.bridgeChain, ecosystem: destinationNetwork.ecosystem, recipientAddress: '(connected destination wallet)' },
         amount: sdkAmount,
@@ -999,11 +1006,11 @@ export function BridgeWorkspace() {
           transferSpeed,
         },
       })) as BridgeSummary;
-      try { console.log('[bridge] kit.bridge() returned:', JSON.parse(JSON.stringify(result, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.log('[bridge] kit.bridge() returned:', result); }
+      try { bridgeDebug('[bridge] kit.bridge() returned:', JSON.parse(JSON.stringify(result, (_k, v) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebug('[bridge] kit.bridge() returned:', result); }
       // Log each step's details for debugging
       if (Array.isArray((result as any).steps)) {
         (result as any).steps.forEach((step: any, i: number) => {
-          try { console.log(`[bridge] step[${i}]:`, JSON.parse(JSON.stringify(step, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.log(`[bridge] step[${i}]:`, step); }
+          try { bridgeDebug(`[bridge] step[${i}]:`, JSON.parse(JSON.stringify(step, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebug(`[bridge] step[${i}]:`, step); }
           if (step.state === 'error') {
             const err = step.error;
             if (err) {
@@ -1011,24 +1018,24 @@ export function BridgeWorkspace() {
               // Error instances have non-enumerable props — extract them manually
               for (const k of Object.getOwnPropertyNames(err)) { try { flat[k] = (err as any)[k]; } catch {} }
               for (const k of Object.keys(err)) { try { flat[k] = (err as any)[k]; } catch {} }
-              try { console.error(`[bridge] step[${i}] ERROR:`, JSON.parse(JSON.stringify(flat, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { console.error(`[bridge] step[${i}] ERROR (raw):`, err); }
+              try { bridgeDebugError(`[bridge] step[${i}] ERROR:`, JSON.parse(JSON.stringify(flat, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebugError(`[bridge] step[${i}] ERROR (raw):`, err); }
               if (err.cause) {
-                console.error(`[bridge] step[${i}] cause:`, err.cause);
+                bridgeDebugError(`[bridge] step[${i}] cause:`, err.cause);
                 // Extract Solana simulation logs from trace
                 const trace = (err.cause as any)?.trace;
                 if (trace) {
-                  if (trace.logs) console.error(`[bridge] step[${i}] SIMULATION LOGS:\n`, trace.logs);
-                  if (trace.error) console.error(`[bridge] step[${i}] SIMULATION ERROR:`, trace.error);
-                  if (trace.errorDetails) console.error(`[bridge] step[${i}] ERROR DETAILS:`, trace.errorDetails);
-                  if (trace.walletAddress) console.error(`[bridge] step[${i}] wallet:`, trace.walletAddress);
-                  if (trace.network) console.error(`[bridge] step[${i}] network:`, trace.network);
-                  if (trace.currentBalanceSol) console.error(`[bridge] step[${i}] SOL balance:`, trace.currentBalanceSol);
+                  if (trace.logs) bridgeDebugError(`[bridge] step[${i}] SIMULATION LOGS:\n`, trace.logs);
+                  if (trace.error) bridgeDebugError(`[bridge] step[${i}] SIMULATION ERROR:`, trace.error);
+                  if (trace.errorDetails) bridgeDebugError(`[bridge] step[${i}] ERROR DETAILS:`, trace.errorDetails);
+                  if (trace.walletAddress) bridgeDebugError(`[bridge] step[${i}] wallet:`, trace.walletAddress);
+                  if (trace.network) bridgeDebugError(`[bridge] step[${i}] network:`, trace.network);
+                  if (trace.currentBalanceSol) bridgeDebugError(`[bridge] step[${i}] SOL balance:`, trace.currentBalanceSol);
                 }
               }
-              if ((err as any).logs) console.error(`[bridge] step[${i}] logs:`, (err as any).logs);
-              if ((err as any).context) console.error(`[bridge] step[${i}] context:`, (err as any).context);
+              if ((err as any).logs) bridgeDebugError(`[bridge] step[${i}] logs:`, (err as any).logs);
+              if ((err as any).context) bridgeDebugError(`[bridge] step[${i}] context:`, (err as any).context);
             }
-            console.error(`[bridge] step[${i}] errorMessage:`, step.errorMessage);
+            bridgeDebugError(`[bridge] step[${i}] errorMessage:`, step.errorMessage);
           }
         });
       }
@@ -1060,7 +1067,7 @@ export function BridgeWorkspace() {
         rawResult: result.state !== 'success' ? (result as unknown as Record<string, unknown>) : null,
       });
     } catch (error) {
-      console.error('[bridge] Bridge failed:', error);
+      bridgeDebugError('[bridge] Bridge failed:', error);
       setBridgeResult(null);
       setStatusMessage(null);
       setErrorMessage(error instanceof Error ? error.message : 'Bridge execution failed.');

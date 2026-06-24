@@ -22,6 +22,8 @@ import {
   upsertLocalActivityHistoryItem,
 } from '@/lib/activityHistory';
 
+const DEFAULT_LIQUIDITY_SLIPPAGE_BPS = 50n;
+
 function formatEditableAmount(value: number, decimals: number) {
   if (!Number.isFinite(value) || value <= 0) return '0';
   return value
@@ -48,6 +50,8 @@ type BurnLiquidityArgs = {
   userTokenAddress: `0x${string}`;
   validatorTokenAddress: `0x${string}`;
   liquidityAmount: bigint;
+  minUserOut?: bigint;
+  minValidatorOut?: bigint;
   to: `0x${string}`;
   feeToken: `0x${string}`;
 };
@@ -487,10 +491,19 @@ export function ManageFeeLiquidity({
     if (!address || !removeAmount) return;
     let activityId: string | null = null;
     let hash: `0x${string}` | undefined;
+    const liquidityAmount = parseUnits(removeAmount, 18);
+    const minUserOut = !isTempoChain && lpTotalShares > 0n
+      ? ((poolReservesUser * liquidityAmount) / lpTotalShares * (10000n - DEFAULT_LIQUIDITY_SLIPPAGE_BPS)) / 10000n
+      : 0n;
+    const minValidatorOut = !isTempoChain && lpTotalShares > 0n
+      ? ((poolReservesValidator * liquidityAmount) / lpTotalShares * (10000n - DEFAULT_LIQUIDITY_SLIPPAGE_BPS)) / 10000n
+      : 0n;
     const payload = {
       userTokenAddress: userToken as `0x${string}`,
       validatorTokenAddress: validatorToken as `0x${string}`,
-      liquidityAmount: parseUnits(removeAmount, 18),
+      liquidityAmount,
+      minUserOut,
+      minValidatorOut,
       to: address as `0x${string}`,
       feeToken: validatorToken as `0x${string}`,
     };
