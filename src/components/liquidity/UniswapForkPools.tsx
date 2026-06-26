@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatUnits, parseUnits, type Address, type PublicClient } from 'viem';
+import { formatUnits, parseUnits, type Abi, type Address, type PublicClient } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
+import { approveCall, contractCall, sendAtomicBatch, walletSupportsAtomicBatch } from '@/lib/batchCalls';
 import {
   getUniswapV2Addresses,
   UNISWAP_V2_FACTORY_ABI,
@@ -148,15 +149,25 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     const tokenMin = tokenDesired - (tokenDesired * SLIPPAGE_BPS) / 10000n;
     const hubMin = hubDesired - (hubDesired * SLIPPAGE_BPS) / 10000n;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+    const addArgs = [pool.token.address, pool.hub.address, tokenDesired, hubDesired, tokenMin, hubMin, address, deadline] as const;
     setBusy(true);
     try {
-      await approveToken(walletClient, publicClient, address, pool.token.address, fork.router, tokenDesired);
-      await approveToken(walletClient, publicClient, address, pool.hub.address, fork.router, hubDesired);
-      const hash = await walletClient.writeContract({
-        address: fork.router, abi: UNISWAP_V2_ROUTER_LIQUIDITY_ABI, functionName: 'addLiquidity',
-        args: [pool.token.address, pool.hub.address, tokenDesired, hubDesired, tokenMin, hubMin, address, deadline],
-        account: address, chain: null,
-      });
+      let hash: `0x${string}`;
+      // Batch [approve, approve, addLiquidity] into one confirmation when the wallet supports it.
+      if (await walletSupportsAtomicBatch(walletClient, address, chainId)) {
+        hash = await sendAtomicBatch(walletClient, address, [
+          approveCall(pool.token.address, fork.router, tokenDesired),
+          approveCall(pool.hub.address, fork.router, hubDesired),
+          contractCall(fork.router, UNISWAP_V2_ROUTER_LIQUIDITY_ABI as Abi, 'addLiquidity', addArgs),
+        ]);
+      } else {
+        await approveToken(walletClient, publicClient, address, pool.token.address, fork.router, tokenDesired);
+        await approveToken(walletClient, publicClient, address, pool.hub.address, fork.router, hubDesired);
+        hash = await walletClient.writeContract({
+          address: fork.router, abi: UNISWAP_V2_ROUTER_LIQUIDITY_ABI, functionName: 'addLiquidity',
+          args: addArgs, account: address, chain: null,
+        });
+      }
       toast.custom(() => <TxToast hash={hash} title="Liquidity added" />);
       await publicClient.waitForTransactionReceipt({ hash });
       setAddToken(''); setAddHub('');

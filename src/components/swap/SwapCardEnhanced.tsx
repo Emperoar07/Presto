@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getTokens } from '@/config/tokens';
 import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContracts } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { formatUnits, parseUnits, encodeFunctionData } from 'viem';
+import { formatUnits, parseUnits, encodeFunctionData, type Abi } from 'viem';
+import { approveCall, contractCall, sendAtomicBatch, walletSupportsAtomicBatch } from '@/lib/batchCalls';
 import { approveToken, getTokenBalancesBatch, toUint128 } from '@/lib/tempoClient';
 import toast from 'react-hot-toast';
 import { TxToast } from '@/components/common/TxToast';
@@ -923,32 +924,34 @@ export function SwapCardEnhanced() {
         'Swap',
         async () => {
           if (shouldUseUniswap && uniswapRoute) {
-            // 1. Approve the Uniswap V2 router to pull the input token.
-            setSwapStage('approving');
-            await approveToken(
-              walletClient,
-              publicClient,
-              address,
-              inputToken.address,
-              uniswapRoute.router,
-              amount
-            );
-
-            // 2. Build + send swapExactTokensForTokens.
-            setSwapStage('swapping');
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-            const data = encodeFunctionData({
+            const swapData = encodeFunctionData({
               abi: UNISWAP_V2_ROUTER_SWAP_ABI,
               functionName: 'swapExactTokensForTokens',
               args: [amount, minOut, uniswapRoute.path, address, deadline],
             });
+
+            // Batch [approve, swap] into one confirmation when the wallet supports it.
+            if (await walletSupportsAtomicBatch(walletClient, address, chainId)) {
+              setSwapStage('swapping');
+              const h = await sendAtomicBatch(walletClient, address, [
+                approveCall(inputToken.address, uniswapRoute.router, amount),
+                { to: uniswapRoute.router, data: swapData },
+              ]);
+              txHash = h;
+              return h;
+            }
+
+            // Fallback: sequential approve + swap.
+            setSwapStage('approving');
+            await approveToken(walletClient, publicClient, address, inputToken.address, uniswapRoute.router, amount);
+            setSwapStage('swapping');
             const swapHash = await walletClient.sendTransaction({
               account: address,
               to: uniswapRoute.router,
-              data,
+              data: swapData,
               chain: null,
             });
-
             txHash = swapHash;
             return swapHash;
           }
@@ -1053,6 +1056,18 @@ export function SwapCardEnhanced() {
           } else {
             // HubAMM or StableSwap uses swap with deadline
             const deadlineTimestamp = BigInt(Math.floor(Date.now() / 1000) + (deadline * 60));
+            const swapArgs = [inputToken.address, outputToken.address, amount, minOut, deadlineTimestamp] as const;
+
+            // Batch [approve, swap] into one confirmation when the wallet supports it.
+            if (await walletSupportsAtomicBatch(walletClient, address, chainId)) {
+              setSwapStage('swapping');
+              const h = await sendAtomicBatch(walletClient, address, [
+                approveCall(inputToken.address, targetSpender as `0x${string}`, amount),
+                contractCall(targetSpender as `0x${string}`, targetAbi as Abi, 'swap', swapArgs),
+              ]);
+              txHash = h;
+              return h;
+            }
 
             await approveToken(
               walletClient,
@@ -1071,13 +1086,7 @@ export function SwapCardEnhanced() {
                 address: targetSpender as `0x${string}`,
                 abi: targetAbi,
                 functionName: 'swap',
-                args: [
-                  inputToken.address,
-                  outputToken.address,
-                  amount,
-                  minOut,
-                  deadlineTimestamp,
-                ],
+                args: swapArgs,
                 account: address as `0x${string}`,
                 chain: null,
               },
