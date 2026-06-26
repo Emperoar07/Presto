@@ -1279,7 +1279,7 @@ export function SwapCardEnhanced() {
                 <p className="text-[13px] font-bold text-slate-100">Swap Tokens</p>
               </div>
               <p className="mt-0.5 text-[11px] text-slate-400">
-                {quoteSource === 'synroute' ? 'SynRoute smart routing' : quoteSource === 'uniswap' ? 'Smart routing' : 'Instant onchain execution'}
+                {quoteSource === 'uniswap' ? 'Uniswap smart routing' : quoteSource === 'synroute' ? 'SynRoute smart routing' : 'Instant onchain execution'}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
