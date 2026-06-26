@@ -1277,14 +1277,9 @@ export function SwapCardEnhanced() {
             <div>
               <div className="flex items-center gap-2">
                 <p className="text-[13px] font-bold text-slate-100">Swap Tokens</p>
-                {quoteSource === 'uniswap' && (
-                  <span className="rounded bg-[#ff007a]/20 px-1.5 py-0.5 text-[9px] font-bold text-[#ff007a] uppercase tracking-wider">
-                    Uniswap
-                  </span>
-                )}
               </div>
               <p className="mt-0.5 text-[11px] text-slate-400">
-                {quoteSource === 'uniswap' ? 'Uniswap smart routing' : quoteSource === 'synroute' ? 'SynRoute smart routing' : 'Instant onchain execution'}
+                {quoteSource === 'synroute' ? 'SynRoute smart routing' : quoteSource === 'uniswap' ? 'Smart routing' : 'Instant onchain execution'}
               </p>
             </div>
             <div className="flex items-center gap-1.5">

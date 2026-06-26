@@ -195,214 +195,285 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     } finally { setBusy(false); }
   };
 
-  const renderPool = (pool: ForkPool) => {
-        const isOpen = openPair === pool.pair;
-        const sharePct = pool.totalSupply > 0n ? (Number(pool.userLp) / Number(pool.totalSupply)) * 100 : 0;
-        const reserveTokenDisp = Number(formatUnits(pool.reserveToken, pool.token.decimals));
-        const reserveHubDisp = Number(formatUnits(pool.reserveHub, pool.hub.decimals));
-        const tvl = reserveHubDisp * 2;
-        const lpBalance = Number(formatUnits(pool.userLp, 18));
-        const posValue = (tvl * sharePct) / 100;
-        const rate = reserveTokenDisp > 0 ? reserveHubDisp / reserveTokenDisp : 0;
+  const computeDerived = (pool: ForkPool) => {
+    const sharePct = pool.totalSupply > 0n ? (Number(pool.userLp) / Number(pool.totalSupply)) * 100 : 0;
+    const reserveTokenDisp = Number(formatUnits(pool.reserveToken, pool.token.decimals));
+    const reserveHubDisp = Number(formatUnits(pool.reserveHub, pool.hub.decimals));
+    const tvl = reserveHubDisp * 2;
+    const lpBalance = Number(formatUnits(pool.userLp, 18));
+    const posValue = (tvl * sharePct) / 100;
+    const rate = reserveTokenDisp > 0 ? reserveHubDisp / reserveTokenDisp : 0;
+    return { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate };
+  };
 
-        // Est. LP for the entered add amount.
-        let estLp = '--';
-        if (addToken && Number(addToken) > 0 && pool.reserveToken > 0n && pool.totalSupply > 0n) {
-          const minted = (parseUnits(addToken, pool.token.decimals) * pool.totalSupply) / pool.reserveToken;
-          estLp = Number(formatUnits(minted, 18)).toFixed(4);
-        }
-        // "You receive" for the entered remove amount.
-        let recvSummary = '--';
-        if (removeLp && Number(removeLp) > 0 && pool.totalSupply > 0n) {
-          const liq = parseUnits(removeLp, 18);
-          const tOut = (liq * pool.reserveToken) / pool.totalSupply;
-          const hOut = (liq * pool.reserveHub) / pool.totalSupply;
-          recvSummary = `${trimNum(Number(formatUnits(tOut, pool.token.decimals)))} ${pool.token.symbol} · ${trimNum(Number(formatUnits(hOut, pool.hub.decimals)), 2)} ${pool.hub.symbol}`;
-        }
-        const presetRemove = (f: number) => setRemoveLp(trimNum(lpBalance * f, 8));
+  // Shared add/remove manager body used by both the All Pools row and the My Positions card.
+  // 24h Vol is $0 by design: cirBTC swaps are routed to Synthra, so this fork pair sees no swaps.
+  const renderManager = (pool: ForkPool) => {
+    const { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate } = computeDerived(pool);
 
-        const statItems = [
-          { label: 'Value', value: fmtUsd(posValue) },
-          { label: 'Liquidity', value: fmtUsd(tvl) },
-          { label: '24h Vol', value: '—' },
-          { label: 'Reserves', value: `${trimNum(reserveTokenDisp)} ${pool.token.symbol} · ${trimNum(reserveHubDisp, 2)} ${pool.hub.symbol}` },
-          { label: 'Rate', value: rate > 0 ? `1 ${pool.token.symbol} ≈ ${rate.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${pool.hub.symbol}` : '--' },
-        ];
+    let estLp = '--';
+    if (addToken && Number(addToken) > 0 && pool.reserveToken > 0n && pool.totalSupply > 0n) {
+      const minted = (parseUnits(addToken, pool.token.decimals) * pool.totalSupply) / pool.reserveToken;
+      estLp = Number(formatUnits(minted, 18)).toFixed(4);
+    }
+    let recvSummary = '--';
+    if (removeLp && Number(removeLp) > 0 && pool.totalSupply > 0n) {
+      const liq = parseUnits(removeLp, 18);
+      const tOut = (liq * pool.reserveToken) / pool.totalSupply;
+      const hOut = (liq * pool.reserveHub) / pool.totalSupply;
+      recvSummary = `${trimNum(Number(formatUnits(tOut, pool.token.decimals)))} ${pool.token.symbol} · ${trimNum(Number(formatUnits(hOut, pool.hub.decimals)), 2)} ${pool.hub.symbol}`;
+    }
+    const presetRemove = (f: number) => setRemoveLp(trimNum(lpBalance * f, 8));
 
-        return (
-          <div key={pool.pair} className="border-b border-white/[0.04] last:border-b-0" style={{ background: isOpen ? 'rgba(37,192,244,0.04)' : 'transparent' }}>
-            <button
-              type="button"
-              onClick={() => { setOpenPair(isOpen ? null : pool.pair); setMode('add'); setAddToken(''); setAddHub(''); setRemoveLp(''); }}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.02] md:grid md:gap-3.5 md:px-5"
-              style={{ gridTemplateColumns: 'auto 1fr 140px 140px 124px' }}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative flex h-6 w-10 flex-shrink-0">
-                  {[{ bg: '#f7931a', lbl: 'cB' }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
-                    <div key={idx} className="absolute flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
-                      style={{ background: ic.bg, left: idx === 0 ? 0 : 14, zIndex: idx === 0 ? 1 : 0, border: `2px solid ${SURF}` }}>
-                      {ic.lbl}
-                    </div>
-                  ))}
+    const statItems = [
+      { label: 'Value', value: fmtUsd(posValue) },
+      { label: 'Liquidity', value: fmtUsd(tvl) },
+      { label: '24h Vol', value: '$0' },
+      { label: 'Reserves', value: `${trimNum(reserveTokenDisp)} ${pool.token.symbol} · ${trimNum(reserveHubDisp, 2)} ${pool.hub.symbol}` },
+      { label: 'Rate', value: rate > 0 ? `1 ${pool.token.symbol} ≈ ${rate.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${pool.hub.symbol}` : '--' },
+    ];
+
+    return (
+      <div className="mt-2 overflow-hidden rounded-[12px] border border-white/[0.08] bg-[#182336]">
+        <div className="flex flex-col gap-2 px-3 py-2.5">
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="relative flex h-6 w-9 flex-shrink-0">
+                {[{ bg: '#f7931a', lbl: 'cB' }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
+                  <div key={idx} className="absolute flex h-6 w-6 items-center justify-center rounded-full text-[8px] font-extrabold text-white"
+                    style={{ background: ic.bg, left: idx === 0 ? 0 : 14, zIndex: idx === 0 ? 1 : 0, border: '2px solid #182336' }}>
+                    {ic.lbl}
+                  </div>
+                ))}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-extrabold text-slate-50">{pool.token.symbol} / {pool.hub.symbol}</p>
+                <p className="text-[10px] text-slate-500">Uniswap V2 · 0.3%</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex rounded-full bg-[#153b37] px-2 py-0.5 text-[10px] font-bold text-emerald-400">LP {lpBalance.toFixed(4)}</span>
+              <span className="inline-flex rounded-full bg-[#16384b] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">{sharePct.toFixed(2)}%</span>
+              <div className="flex rounded-[8px] border border-white/[0.08] bg-[#1e293b] p-0.5">
+                {(['add', 'remove'] as const).map((m) => (
+                  <button key={m} type="button" onClick={() => setMode(m)}
+                    className="rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all capitalize"
+                    style={mode === m ? { background: m === 'add' ? '#25c0f4' : '#f87171', color: m === 'add' ? '#09111d' : '#130d12' } : { color: '#94a3b8' }}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
+            <div className="grid divide-y divide-white/[0.06] md:grid-cols-5 md:divide-x md:divide-y-0">
+              {statItems.map((item) => (
+                <div key={item.label} className="px-3 py-1.5">
+                  <p className="text-[9px] text-slate-500">{item.label}</p>
+                  <p className="mt-0.5 text-[12px] font-bold text-slate-50">{item.value}</p>
                 </div>
-                <div className="min-w-0 md:hidden">
-                  <p className="text-[13px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-500">{fmtUsd(tvl)} liquidity</p>
+              ))}
+            </div>
+          </div>
+
+          {mode === 'add' ? (
+            <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
+              <div className="grid gap-2 border-b border-white/[0.06] px-3 py-2 md:grid-cols-2">
+                <div className="rounded-[8px] border border-white/[0.06] bg-[#11192a] px-3 py-1.5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">{pool.token.symbol} wallet</p>
+                  <p className="mt-0.5 text-[13px] font-extrabold text-slate-50">{Number(formatUnits(pool.userTokenBal, pool.token.decimals)).toFixed(6)}</p>
+                </div>
+                <div className="rounded-[8px] border border-white/[0.06] bg-[#11192a] px-3 py-1.5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">{pool.hub.symbol} wallet</p>
+                  <p className="mt-0.5 text-[13px] font-extrabold text-slate-50">{Number(formatUnits(pool.userHubBal, pool.hub.decimals)).toFixed(4)}</p>
                 </div>
               </div>
-              <div className="hidden md:block">
-                <p className="text-[13px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3%</p>
-              </div>
-              <div className="hidden md:block">
-                <p className="text-[13px] font-semibold text-slate-100">{fmtUsd(tvl)}</p>
-                <p className="text-[11px] text-slate-500">Liquidity</p>
-              </div>
-              <div className="hidden md:block">
-                <p className="text-[13px] font-semibold text-slate-100">—</p>
-                <p className="text-[11px] text-slate-500">24h Vol</p>
-              </div>
-              <div className="flex items-center justify-end gap-3">
-                <span className="hidden rounded-[10px] bg-[#25c0f4] px-3 py-2 text-[12px] font-bold text-[#0f172a] md:inline-block">
-                  {isOpen ? 'Hide Manager' : lpBalance > 0 ? 'Manage' : 'Add Liquidity'}
-                </span>
-              </div>
-            </button>
-
-            {isOpen && (
-              <div className="px-4 pb-4 md:px-5">
-                <div className="mt-2 overflow-hidden rounded-[12px] border border-white/[0.08] bg-[#182336]">
-                  <div className="flex flex-col gap-2 px-3 py-2.5">
-                    {/* header */}
-                    <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="relative flex h-6 w-9 flex-shrink-0">
-                          {[{ bg: '#f7931a', lbl: 'cB' }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
-                            <div key={idx} className="absolute flex h-6 w-6 items-center justify-center rounded-full text-[8px] font-extrabold text-white"
-                              style={{ background: ic.bg, left: idx === 0 ? 0 : 14, zIndex: idx === 0 ? 1 : 0, border: '2px solid #182336' }}>
-                              {ic.lbl}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-extrabold text-slate-50">{pool.token.symbol} / {pool.hub.symbol}</p>
-                          <p className="text-[10px] text-slate-500">Uniswap V2 · 0.3%</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex rounded-full bg-[#153b37] px-2 py-0.5 text-[10px] font-bold text-emerald-400">LP {lpBalance.toFixed(4)}</span>
-                        <span className="inline-flex rounded-full bg-[#16384b] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">{sharePct.toFixed(2)}%</span>
-                        <div className="flex rounded-[8px] border border-white/[0.08] bg-[#1e293b] p-0.5">
-                          {(['add', 'remove'] as const).map((m) => (
-                            <button key={m} type="button" onClick={() => setMode(m)}
-                              className="rounded-[6px] px-2.5 py-1 text-[11px] font-bold transition-all capitalize"
-                              style={mode === m ? { background: m === 'add' ? '#25c0f4' : '#f87171', color: m === 'add' ? '#09111d' : '#130d12' } : { color: '#94a3b8' }}>
-                              {m}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* stats */}
-                    <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
-                      <div className="grid divide-y divide-white/[0.06] md:grid-cols-5 md:divide-x md:divide-y-0">
-                        {statItems.map((item) => (
-                          <div key={item.label} className="px-3 py-1.5">
-                            <p className="text-[9px] text-slate-500">{item.label}</p>
-                            <p className="mt-0.5 text-[12px] font-bold text-slate-50">{item.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {mode === 'add' ? (
-                      <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
-                        <div className="grid gap-2 border-b border-white/[0.06] px-3 py-2 md:grid-cols-2">
-                          <div className="rounded-[8px] border border-white/[0.06] bg-[#11192a] px-3 py-1.5">
-                            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">{pool.token.symbol} wallet</p>
-                            <p className="mt-0.5 text-[13px] font-extrabold text-slate-50">{Number(formatUnits(pool.userTokenBal, pool.token.decimals)).toFixed(6)}</p>
-                          </div>
-                          <div className="rounded-[8px] border border-white/[0.06] bg-[#11192a] px-3 py-1.5">
-                            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">{pool.hub.symbol} wallet</p>
-                            <p className="mt-0.5 text-[13px] font-extrabold text-slate-50">{Number(formatUnits(pool.userHubBal, pool.hub.decimals)).toFixed(4)}</p>
-                          </div>
-                        </div>
-                        <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px_130px] xl:items-end">
-                          <div>
-                            <div className="mb-1 flex items-center justify-between">
-                              <label className="text-[10px] text-slate-500">{pool.token.symbol} amount</label>
-                              <button type="button" onClick={() => onAddTokenChange(pool, formatUnits(pool.userTokenBal, pool.token.decimals))}
-                                className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">Max</button>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
-                              <input type="number" value={addToken} onChange={(e) => onAddTokenChange(pool, e.target.value)} placeholder="0.0"
-                                className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
-                              <span className="shrink-0 rounded-full border border-white/10 bg-[#1e293b] px-2.5 py-1 text-[10px] font-bold text-slate-100">{pool.token.symbol}</span>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="mb-1 flex items-center justify-between">
-                              <label className="text-[10px] text-slate-500">{pool.hub.symbol} amount</label>
-                              <button type="button" onClick={() => onAddHubChange(pool, formatUnits(pool.userHubBal, pool.hub.decimals))}
-                                className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">Max</button>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
-                              <input type="number" value={addHub} onChange={(e) => onAddHubChange(pool, e.target.value)} placeholder="0.0"
-                                className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
-                              <span className="shrink-0 rounded-full border border-white/10 bg-[#1e293b] px-2.5 py-1 text-[10px] font-bold text-slate-100">{pool.hub.symbol}</span>
-                            </div>
-                          </div>
-                          <div>
-                            <p className="mb-1 text-[10px] text-slate-500">Est. LP</p>
-                            <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">{estLp}</div>
-                          </div>
-                          <button type="button" onClick={() => handleAdd(pool)} disabled={busy || !addToken}
-                            className="rounded-[8px] bg-[#25c0f4] px-3 py-2 text-[12px] font-extrabold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50">
-                            {busy ? 'Adding...' : `Add ${pool.token.symbol}`}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
-                        <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-3 py-2">
-                          {[0.25, 0.5, 1].map((f) => (
-                            <button key={f} type="button" onClick={() => presetRemove(f)}
-                              className="rounded-[6px] border border-white/[0.08] bg-[#1a2435] px-3 py-1 text-[11px] font-bold text-slate-300">
-                              {f === 1 ? 'Max' : `${f * 100}%`}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_140px_100px_130px] xl:items-end">
-                          <div>
-                            <p className="mb-1 text-[10px] text-slate-500">LP amount · current {lpBalance.toFixed(4)}</p>
-                            <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
-                              <input type="number" value={removeLp} onChange={(e) => setRemoveLp(e.target.value)} placeholder="0.0"
-                                className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
-                            </div>
-                          </div>
-                          <div>
-                            <p className="mb-1 text-[10px] text-slate-500">Current share</p>
-                            <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">{sharePct.toFixed(2)}%</div>
-                          </div>
-                          <div>
-                            <p className="mb-1 text-[10px] text-slate-500">You receive</p>
-                            <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[11px] font-bold text-slate-100">{recvSummary}</div>
-                          </div>
-                          <button type="button" onClick={() => handleRemove(pool)} disabled={busy || pool.userLp <= 0n || !removeLp}
-                            className="rounded-[8px] border border-red-400/20 bg-[rgba(127,29,29,0.18)] px-3 py-2 text-[12px] font-extrabold text-red-300 transition-all disabled:cursor-not-allowed disabled:opacity-50">
-                            {busy ? 'Removing...' : 'Remove'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+              <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px_130px] xl:items-end">
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-[10px] text-slate-500">{pool.token.symbol} amount</label>
+                    <button type="button" onClick={() => onAddTokenChange(pool, formatUnits(pool.userTokenBal, pool.token.decimals))}
+                      className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">Max</button>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
+                    <input type="number" value={addToken} onChange={(e) => onAddTokenChange(pool, e.target.value)} placeholder="0.0"
+                      className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
+                    <span className="shrink-0 rounded-full border border-white/10 bg-[#1e293b] px-2.5 py-1 text-[10px] font-bold text-slate-100">{pool.token.symbol}</span>
                   </div>
                 </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-[10px] text-slate-500">{pool.hub.symbol} amount</label>
+                    <button type="button" onClick={() => onAddHubChange(pool, formatUnits(pool.userHubBal, pool.hub.decimals))}
+                      className="rounded-full border border-[#25c0f4]/25 bg-[#0d2237] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">Max</button>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
+                    <input type="number" value={addHub} onChange={(e) => onAddHubChange(pool, e.target.value)} placeholder="0.0"
+                      className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
+                    <span className="shrink-0 rounded-full border border-white/10 bg-[#1e293b] px-2.5 py-1 text-[10px] font-bold text-slate-100">{pool.hub.symbol}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] text-slate-500">Est. LP</p>
+                  <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">{estLp}</div>
+                </div>
+                <button type="button" onClick={() => handleAdd(pool)} disabled={busy || !addToken}
+                  className="rounded-[8px] bg-[#25c0f4] px-3 py-2 text-[12px] font-extrabold text-[#09111d] transition-all disabled:cursor-not-allowed disabled:opacity-50">
+                  {busy ? 'Adding...' : `Add ${pool.token.symbol}`}
+                </button>
               </div>
-            )}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
+              <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-3 py-2">
+                {[0.25, 0.5, 1].map((f) => (
+                  <button key={f} type="button" onClick={() => presetRemove(f)}
+                    className="rounded-[6px] border border-white/[0.08] bg-[#1a2435] px-3 py-1 text-[11px] font-bold text-slate-300">
+                    {f === 1 ? 'Max' : `${f * 100}%`}
+                  </button>
+                ))}
+              </div>
+              <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_140px_100px_130px] xl:items-end">
+                <div>
+                  <p className="mb-1 text-[10px] text-slate-500">LP amount · current {lpBalance.toFixed(4)}</p>
+                  <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
+                    <input type="number" value={removeLp} onChange={(e) => setRemoveLp(e.target.value)} placeholder="0.0"
+                      className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] text-slate-500">Current share</p>
+                  <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[12px] font-bold text-slate-100">{sharePct.toFixed(2)}%</div>
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] text-slate-500">You receive</p>
+                  <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[11px] font-bold text-slate-100">{recvSummary}</div>
+                </div>
+                <button type="button" onClick={() => handleRemove(pool)} disabled={busy || pool.userLp <= 0n || !removeLp}
+                  className="rounded-[8px] border border-red-400/20 bg-[rgba(127,29,29,0.18)] px-3 py-2 text-[12px] font-extrabold text-red-300 transition-all disabled:cursor-not-allowed disabled:opacity-50">
+                  {busy ? 'Removing...' : 'Remove'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Compact row used in the All Pools list.
+  const renderPool = (pool: ForkPool) => {
+    const isOpen = openPair === pool.pair;
+    const { tvl, lpBalance } = computeDerived(pool);
+    return (
+      <div key={pool.pair} className="border-b border-white/[0.04] last:border-b-0" style={{ background: isOpen ? 'rgba(37,192,244,0.04)' : 'transparent' }}>
+        <button
+          type="button"
+          onClick={() => { setOpenPair(isOpen ? null : pool.pair); setMode('add'); setAddToken(''); setAddHub(''); setRemoveLp(''); }}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.02] md:grid md:gap-3.5 md:px-5"
+          style={{ gridTemplateColumns: 'auto 1fr 140px 140px 124px' }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="relative flex h-6 w-10 flex-shrink-0">
+              {[{ bg: '#f7931a', lbl: 'cB' }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
+                <div key={idx} className="absolute flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
+                  style={{ background: ic.bg, left: idx === 0 ? 0 : 14, zIndex: idx === 0 ? 1 : 0, border: `2px solid ${SURF}` }}>
+                  {ic.lbl}
+                </div>
+              ))}
+            </div>
+            <div className="min-w-0 md:hidden">
+              <p className="text-[13px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">{fmtUsd(tvl)} liquidity</p>
+            </div>
           </div>
-        );
+          <div className="hidden md:block">
+            <p className="text-[13px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3%</p>
+          </div>
+          <div className="hidden md:block">
+            <p className="text-[13px] font-semibold text-slate-100">{fmtUsd(tvl)}</p>
+            <p className="text-[11px] text-slate-500">Liquidity</p>
+          </div>
+          <div className="hidden md:block">
+            <p className="text-[13px] font-semibold text-slate-100">$0</p>
+            <p className="text-[11px] text-slate-500">24h Vol</p>
+          </div>
+          <div className="flex items-center justify-end gap-3">
+            <span className="hidden rounded-[10px] bg-[#25c0f4] px-3 py-2 text-[12px] font-bold text-[#0f172a] md:inline-block">
+              {isOpen ? 'Hide Manager' : lpBalance > 0 ? 'Manage' : 'Add Liquidity'}
+            </span>
+          </div>
+        </button>
+
+        {isOpen && <div className="px-4 pb-4 md:px-5">{renderManager(pool)}</div>}
+      </div>
+    );
+  };
+
+  // Rich card used in My Positions — matches the Hub MyPositionRow layout (minus rewards).
+  const renderPositionCard = (pool: ForkPool) => {
+    const isOpen = openPair === pool.pair;
+    const { sharePct, tvl, lpBalance, posValue } = computeDerived(pool);
+    return (
+      <div
+        key={pool.pair}
+        className="rounded-[16px] px-5 py-4"
+        style={{ background: isOpen ? '#263347' : SURF, border: isOpen ? '1px solid rgba(37,192,244,0.22)' : '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-8 w-12 flex-shrink-0">
+                {[{ bg: '#f7931a', lbl: 'cB' }, { bg: USDC_COLOR, lbl: USDC_LABEL }].map((ic, idx) => (
+                  <div key={idx} className="absolute flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-extrabold text-white"
+                    style={{ background: ic.bg, left: idx === 0 ? 0 : 18, zIndex: idx === 0 ? 1 : 0, border: `2px solid ${isOpen ? '#263347' : SURF}` }}>
+                    {ic.lbl}
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p className="text-[16px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
+                <p className="mt-0.5 text-[12px] text-slate-500">Uniswap V2 liquidity position</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-3 text-left sm:grid-cols-3 sm:text-right">
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">LP Balance</p>
+              <p className="mt-1 text-[18px] font-extrabold tracking-tight text-slate-100">{lpBalance.toFixed(4)}</p>
+            </div>
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">Pool Share</p>
+              <p className="mt-1 text-[18px] font-extrabold tracking-tight text-[#25c0f4]">{sharePct.toFixed(2)}%</p>
+            </div>
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">Est. Value</p>
+              <p className="mt-1 text-[18px] font-extrabold tracking-tight text-slate-100">${posValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>$0 24h volume</span>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>Uniswap V2 · 0.3%</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setOpenPair(isOpen ? null : pool.pair); setMode('add'); setAddToken(''); setAddHub(''); setRemoveLp(''); }}
+            className="w-9 h-9 flex items-center justify-center rounded-[10px] transition-colors"
+            style={{ background: '#25c0f4', color: '#0f172a' }}
+            title={isOpen ? 'Hide Manager' : 'Manage Position'}
+          >
+            <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>expand_more</span>
+          </button>
+        </div>
+
+        {isOpen ? renderManager(pool) : null}
+      </div>
+    );
   };
 
   const renderSkeleton = (token: Token) => (
@@ -431,11 +502,11 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     </div>
   );
 
-  // My Positions only shows pools where the user actually has LP.
+  // My Positions only shows pools where the user actually has LP — as a rich card.
   if (variant === 'positions') {
     const pos = pools.filter((p) => p.userLp > 0n);
     if (pos.length === 0) return null;
-    return <>{pos.map(renderPool)}</>;
+    return <>{pos.map(renderPositionCard)}</>;
   }
 
   // All Pools: render rows instantly (skeleton) until reserves hydrate.
