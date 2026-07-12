@@ -158,3 +158,27 @@ test('scans the complete rolling range in inclusive 1000 block chunks', async ()
     swapCount: 3,
   });
 });
+
+test('rejects a swap log without complete decoded amounts', async () => {
+  const client = {
+    async getBlock({ blockNumber }: { blockNumber: bigint }) {
+      return { timestamp: blockNumber * 10n };
+    },
+    async getLogs() {
+      return [{ args: { amount0In: 1_000_000n } }];
+    },
+  };
+
+  await assert.rejects(
+    scanUniswapV2Volume(
+      client,
+      '0x3333333333333333333333333333333333333333',
+      USDC,
+      USDC,
+      CIRBTC,
+      100n,
+      1_000n,
+    ),
+    /decoded|amount/i,
+  );
+});

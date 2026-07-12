@@ -17,7 +17,7 @@ type UniswapVolumeClient = BlockTimestampClient & {
     event: typeof UNISWAP_V2_SWAP_EVENT;
     fromBlock: bigint;
     toBlock: bigint;
-  }): Promise<readonly { args?: UniswapV2SwapArgs }[]>;
+  }): Promise<readonly unknown[]>;
 };
 
 const UNISWAP_V2_SWAP_EVENT = parseAbiItem(
@@ -26,6 +26,20 @@ const UNISWAP_V2_SWAP_EVENT = parseAbiItem(
 
 const ARC_LOG_CHUNK_SIZE = 1_000n;
 const MAX_PARALLEL_LOG_REQUESTS = 6;
+
+function decodedSwapArgs(log: unknown): UniswapV2SwapArgs {
+  const args = (log as { args?: Partial<UniswapV2SwapArgs> })?.args;
+  if (
+    !args ||
+    typeof args.amount0In !== 'bigint' ||
+    typeof args.amount1In !== 'bigint' ||
+    typeof args.amount0Out !== 'bigint' ||
+    typeof args.amount1Out !== 'bigint'
+  ) {
+    throw new Error('Swap log is missing complete decoded amount fields');
+  }
+  return args as UniswapV2SwapArgs;
+}
 
 export function sumUsdcVolume(
   logs: readonly UniswapV2SwapArgs[],
@@ -108,7 +122,7 @@ export async function scanUniswapV2Volume(
     ));
     for (const logs of results) {
       for (const log of logs) {
-        if (log.args) swapArgs.push(log.args);
+        swapArgs.push(decodedSwapArgs(log));
       }
     }
   }

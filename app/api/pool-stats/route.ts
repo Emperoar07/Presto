@@ -2,8 +2,16 @@ import { NextResponse } from 'next/server';
 import { createPublicClient, defineChain, http, parseAbiItem, parseAbi } from 'viem';
 import { getArcTestnetRpcUrls } from '@/lib/rpc';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
-import { getContractAddresses, ZERO_ADDRESS } from '@/config/contracts';
+import {
+  getContractAddresses,
+  getUniswapV2Addresses,
+  UNISWAP_V2_FACTORY_ABI,
+  UNISWAP_V2_PAIR_ABI,
+  ZERO_ADDRESS,
+} from '@/config/contracts';
 import { getTokens, getHubToken } from '@/config/tokens';
+import { mergeForkPoolStats } from '@/lib/forkPoolStats';
+import { scanUniswapV2Volume } from '@/lib/uniswapV2Volume';
 
 const ARC_CHAIN_ID = 5042002;
 const CACHE_TTL_MS = 60_000;
@@ -70,6 +78,7 @@ export type PoolStat = {
   vol24hRaw: string;
   swapCount: number;
   hasLiquidity: boolean;
+  volumeAvailable: boolean;
 };
 
 type PoolSnapshot = {
@@ -180,11 +189,81 @@ function buildPoolBaseStats(): PoolStatSnapshot[] {
     vol24hRaw: '0',
     swapCount: 0,
     hasLiquidity: false,
+    volumeAvailable: token.symbol.toLowerCase() !== 'cirbtc',
     snapshot: {
       volRaw: '0',
       swapCount: 0,
     },
   }));
+}
+
+function recalculateTotalLiquidity(snapshot: PoolStatsSnapshot): PoolStatsSnapshot {
+  const totalLiquidityRaw = snapshot.pools.reduce(
+    (total, pool) => total + BigInt(pool.liquidityRaw),
+    0n,
+  );
+  return { ...snapshot, totalLiquidityUsdc: formatUsdc(totalLiquidityRaw, USDC_DECIMALS) };
+}
+
+async function enrichWithForkPool(
+  client: ReturnType<typeof createPublicClient>,
+  latestBlock: bigint,
+  snapshot: PoolStatsSnapshot,
+): Promise<PoolStatsSnapshot> {
+  const fork = getUniswapV2Addresses(ARC_CHAIN_ID);
+  const cirbtc = ARC_TOKENS.find((token) => token.symbol.toLowerCase() === 'cirbtc');
+  if (!fork || !cirbtc) return snapshot;
+
+  const pair = await client.readContract({
+    address: fork.factory,
+    abi: UNISWAP_V2_FACTORY_ABI,
+    functionName: 'getPair',
+    args: [cirbtc.address, USDC_ADDRESS],
+  }) as `0x${string}`;
+  if (!pair || pair.toLowerCase() === ZERO_ADDRESS) return snapshot;
+
+  const [token0, reserves, latest] = await Promise.all([
+    client.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' }) as Promise<`0x${string}`>,
+    client.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' }) as Promise<readonly [bigint, bigint, number]>,
+    client.getBlock({ blockNumber: latestBlock }),
+  ]);
+  const token1 = token0.toLowerCase() === USDC_ADDRESS.toLowerCase() ? cirbtc.address : USDC_ADDRESS;
+  const cutoffTimestamp = latest.timestamp > 86_400n ? latest.timestamp - 86_400n : 0n;
+  const volume = await scanUniswapV2Volume(
+    client,
+    pair,
+    USDC_ADDRESS,
+    token0,
+    token1,
+    latestBlock,
+    cutoffTimestamp,
+  );
+
+  const pools = mergeForkPoolStats(snapshot.pools, cirbtc.address, {
+    usdc: USDC_ADDRESS,
+    token0,
+    reserve0: reserves[0],
+    reserve1: reserves[1],
+    volumeRaw: volume.volumeRaw,
+    swapCount: volume.swapCount,
+    volumeAvailable: true,
+  });
+  return recalculateTotalLiquidity({ ...snapshot, pools });
+}
+
+function retainCachedForkPool(
+  snapshot: PoolStatsSnapshot,
+  cached?: PoolStatsSnapshot,
+): PoolStatsSnapshot {
+  const cirbtcAddress = ARC_TOKENS.find((token) => token.symbol.toLowerCase() === 'cirbtc')?.address.toLowerCase();
+  if (!cirbtcAddress) return snapshot;
+  const cachedFork = cached?.pools.find((pool) => pool.tokenAddress.toLowerCase() === cirbtcAddress);
+  const pools = snapshot.pools.map((pool) => {
+    if (pool.tokenAddress.toLowerCase() !== cirbtcAddress) return pool;
+    if (cachedFork?.volumeAvailable) return cachedFork;
+    return { ...pool, vol24h: '--', vol24hRaw: '0', swapCount: 0, volumeAvailable: false };
+  });
+  return recalculateTotalLiquidity({ ...snapshot, pools });
 }
 
 async function enrichWithReserves(
@@ -253,6 +332,7 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
   }
 
   let lastError: unknown;
+  let partialSnapshot: PoolStatsSnapshot | undefined;
   const usdcLower = USDC_ADDRESS.toLowerCase();
 
   for (const url of urls) {
@@ -340,7 +420,7 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
         totalVolumeRaw += liquidityDelta;
       }
 
-      return await enrichWithReserves(
+      const hubSnapshot = await enrichWithReserves(
         client,
         hubAmm,
         latestBlock,
@@ -348,11 +428,19 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
         totalVolumeRaw,
         totalSwaps
       );
+      try {
+        return await enrichWithForkPool(client, latestBlock, hubSnapshot);
+      } catch (forkError) {
+        lastError = forkError;
+        partialSnapshot = retainCachedForkPool(hubSnapshot, cached);
+        continue;
+      }
     } catch (err) {
       lastError = err;
     }
   }
 
+  if (partialSnapshot) return partialSnapshot;
   throw lastError ?? new Error('All RPCs failed');
 }
 
