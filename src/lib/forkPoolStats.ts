@@ -61,3 +61,18 @@ export function mergeForkPoolStats<T extends ForkPoolRecord>(
     };
   });
 }
+
+export function selectPoolStatsByToken(
+  pools: readonly Pick<ForkPoolRecord, 'tokenAddress' | 'vol24h' | 'vol24hRaw' | 'volumeAvailable'>[],
+  tokenAddress: string,
+): Pick<ForkPoolRecord, 'vol24h' | 'vol24hRaw' | 'volumeAvailable'> | null {
+  const pool = pools.find(
+    (candidate) => candidate.tokenAddress.toLowerCase() === tokenAddress.toLowerCase(),
+  );
+  if (!pool) return null;
+  return {
+    vol24h: pool.vol24h,
+    vol24hRaw: pool.vol24hRaw,
+    volumeAvailable: pool.volumeAvailable,
+  };
+}

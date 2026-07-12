@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Address } from 'viem';
-import { mergeForkPoolStats } from '../src/lib/forkPoolStats';
+import { mergeForkPoolStats, selectPoolStatsByToken } from '../src/lib/forkPoolStats';
 
 const USDC = '0x3600000000000000000000000000000000000000' as Address;
 const CIRBTC = '0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF' as Address;
@@ -70,4 +70,14 @@ test('marks cold scan volume unavailable without reporting a measured zero', () 
   assert.equal(result.vol24h, '--');
   assert.equal(result.vol24hRaw, '0');
   assert.equal(result.volumeAvailable, false);
+});
+
+test('selects shared fork stats by token address regardless of pool ordering', () => {
+  const selected = selectPoolStatsByToken([cirbtcPool, hubPool], CIRBTC.toUpperCase());
+
+  assert.deepEqual(selected, {
+    vol24h: '$0',
+    vol24hRaw: '0',
+    volumeAvailable: false,
+  });
 });

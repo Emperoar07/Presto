@@ -15,6 +15,8 @@ import {
 import { approveToken, getTokenBalance } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
 import { isUserCancellation } from '@/lib/errorHandling';
+import { usePoolStats } from '@/hooks/useApiQueries';
+import { selectPoolStatsByToken } from '@/lib/forkPoolStats';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 const SURF = '#1e293b';
@@ -46,6 +48,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  const { data: sharedPoolStats } = usePoolStats();
 
   const fork = getUniswapV2Addresses(chainId);
   const hub = getHubToken(chainId);
@@ -217,8 +220,10 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     return { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate };
   };
 
+  const volumeDisplay = (pool: ForkPool) =>
+    selectPoolStatsByToken(sharedPoolStats?.pools ?? [], pool.token.address)?.vol24h ?? '--';
+
   // Shared add/remove manager body used by both the All Pools row and the My Positions card.
-  // 24h Vol is $0 by design: cirBTC swaps are routed to Synthra, so this fork pair sees no swaps.
   const renderManager = (pool: ForkPool) => {
     const { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate } = computeDerived(pool);
 
@@ -239,7 +244,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     const statItems = [
       { label: 'Value', value: fmtUsd(posValue) },
       { label: 'Liquidity', value: fmtUsd(tvl) },
-      { label: '24h Vol', value: '$0' },
+      { label: '24h Vol', value: volumeDisplay(pool) },
       { label: 'Reserves', value: `${trimNum(reserveTokenDisp)} ${pool.token.symbol} · ${trimNum(reserveHubDisp, 2)} ${pool.hub.symbol}` },
       { label: 'Rate', value: rate > 0 ? `1 ${pool.token.symbol} ≈ ${rate.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${pool.hub.symbol}` : '--' },
     ];
@@ -377,6 +382,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   const renderPool = (pool: ForkPool) => {
     const isOpen = openPair === pool.pair;
     const { tvl, lpBalance } = computeDerived(pool);
+    const volume = volumeDisplay(pool);
     return (
       <div key={pool.pair} className="border-b border-white/[0.04] last:border-b-0" style={{ background: isOpen ? 'rgba(37,192,244,0.04)' : 'transparent' }}>
         <button
@@ -408,7 +414,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
             <p className="text-[11px] text-slate-500">Liquidity</p>
           </div>
           <div className="hidden md:block">
-            <p className="text-[13px] font-semibold text-slate-100">$0</p>
+            <p className="text-[13px] font-semibold text-slate-100">{volume}</p>
             <p className="text-[11px] text-slate-500">24h Vol</p>
           </div>
           <div className="flex items-center justify-end gap-3">
@@ -427,6 +433,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   const renderPositionCard = (pool: ForkPool) => {
     const isOpen = openPair === pool.pair;
     const { sharePct, tvl, lpBalance, posValue } = computeDerived(pool);
+    const volume = volumeDisplay(pool);
     return (
       <div
         key={pool.pair}
@@ -468,7 +475,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>$0 24h volume</span>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>{volume} 24h volume</span>
             <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>Uniswap V2 · 0.3%</span>
           </div>
           <button
