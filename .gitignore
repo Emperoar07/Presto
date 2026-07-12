@@ -27,3 +27,4 @@ tsconfig.tsbuildinfo
 repomix-output.xml
 data/backfill-positions.json
 .vercel
+.worktrees/

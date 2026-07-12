@@ -18,7 +18,7 @@ The deployed pair is discovered from the configured factory and token addresses 
 4. It determines whether USDC is token zero or token one, then sums the USDC input or output amount for each swap exactly once.
 5. It returns the raw six decimal USDC value, formatted display value, swap count, and update time with the existing pool stats response.
 6. The cirBTC pool row, manager, and position view consume the same server value.
-7. The Analytics page consumes that same pool record for the cirBTC volume bar and Pool Activity row. Fork volume and swap count also contribute to the page's protocol totals without being counted twice.
+7. The Analytics page consumes that same pool record for the cirBTC volume bar and Pool Activity row. The all time cards remain sourced from all time data and do not mix in a rolling 24 hour value.
 
 ## Reliability
 
