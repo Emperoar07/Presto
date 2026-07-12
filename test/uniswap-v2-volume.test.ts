@@ -124,7 +124,7 @@ test('finds the first block at or after the cutoff timestamp', async () => {
   assert.ok(requested.length < 12, 'uses binary search rather than a linear scan');
 });
 
-test('scans the complete rolling range in inclusive 1000 block chunks', async () => {
+test('scans the complete rolling range in inclusive 9999 block chunks', async () => {
   const ranges: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
   const client = {
     async getBlock({ blockNumber }: { blockNumber: bigint }) {
@@ -146,16 +146,15 @@ test('scans the complete rolling range in inclusive 1000 block chunks', async ()
     1_000n,
   );
 
+  // The whole [100, 2600] window fits in a single 9,999-block chunk.
   assert.deepEqual(ranges, [
-    { fromBlock: 100n, toBlock: 1_099n },
-    { fromBlock: 1_100n, toBlock: 2_099n },
-    { fromBlock: 2_100n, toBlock: 2_600n },
+    { fromBlock: 100n, toBlock: 2_600n },
   ]);
   assert.deepEqual(result, {
     fromBlock: 100n,
     toBlock: 2_600n,
-    volumeRaw: 3_000_000n,
-    swapCount: 3,
+    volumeRaw: 1_000_000n,
+    swapCount: 1,
   });
 });
 

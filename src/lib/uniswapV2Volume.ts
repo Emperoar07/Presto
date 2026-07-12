@@ -24,8 +24,13 @@ const UNISWAP_V2_SWAP_EVENT = parseAbiItem(
   'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
 );
 
-const ARC_LOG_CHUNK_SIZE = 1_000n;
+// Arc RPCs accept up to ~10k-block eth_getLogs ranges (the hub scan uses 9,999),
+// so scan the 24h window in 9,999-block chunks — ~10x fewer calls than 1k chunks.
+const ARC_LOG_CHUNK_SIZE = 9_999n;
 const MAX_PARALLEL_LOG_REQUESTS = 6;
+// Cap the from-block binary search: 24h is well under ~600k Arc blocks (~0.5s/block),
+// so we never need to search from genesis.
+const MAX_LOOKBACK_BLOCKS = 600_000n;
 
 function decodedSwapArgs(log: unknown): UniswapV2SwapArgs {
   const args = (log as { args?: Partial<UniswapV2SwapArgs> })?.args;
@@ -101,7 +106,8 @@ export async function scanUniswapV2Volume(
   latestBlock: bigint,
   cutoffTimestamp: bigint,
 ): Promise<{ fromBlock: bigint; toBlock: bigint; volumeRaw: bigint; swapCount: number }> {
-  const fromBlock = await findFirstBlockAtOrAfter(client, 0n, latestBlock, cutoffTimestamp);
+  const searchLow = latestBlock > MAX_LOOKBACK_BLOCKS ? latestBlock - MAX_LOOKBACK_BLOCKS : 0n;
+  const fromBlock = await findFirstBlockAtOrAfter(client, searchLow, latestBlock, cutoffTimestamp);
   const swapArgs: UniswapV2SwapArgs[] = [];
   const ranges: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
 
