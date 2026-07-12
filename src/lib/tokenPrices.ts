@@ -2,6 +2,13 @@ import type { Token } from '@/config/tokens';
 
 const STABLE_SYMBOLS = new Set(['USDC', 'EURC', 'USDT', 'WUSDC', 'USYC']);
 
+// App token symbol -> Pyth price-map key (served by /api/prices from Pyth Hermes).
+// Prefer the live Pyth price; fall back to a stable peg when the feed is unavailable.
+const PYTH_PRICED: Record<string, string> = {
+  CIRBTC: 'BTC',
+  EURC: 'EUR',
+};
+
 export type TokenPriceMap = Record<string, number>;
 
 export function getStaticTokenUsdPrice(token: Pick<Token, 'symbol'>): number | null {
@@ -9,11 +16,13 @@ export function getStaticTokenUsdPrice(token: Pick<Token, 'symbol'>): number | n
   return null;
 }
 
-export function getTokenUsdPrice(token: Pick<Token, 'symbol'>, _prices: TokenPriceMap): number | null {
-  const staticPrice = getStaticTokenUsdPrice(token);
-  if (staticPrice != null) return staticPrice;
-  if (token.symbol.toUpperCase() === 'CIRBTC') return _prices.BTC ?? null;
-  return null;
+export function getTokenUsdPrice(token: Pick<Token, 'symbol'>, prices: TokenPriceMap): number | null {
+  const pythKey = PYTH_PRICED[token.symbol.toUpperCase()];
+  if (pythKey) {
+    const px = prices[pythKey];
+    if (Number.isFinite(px) && px > 0) return px;
+  }
+  return getStaticTokenUsdPrice(token);
 }
 
 export async function fetchTokenPrices(): Promise<TokenPriceMap> {

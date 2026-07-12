@@ -256,7 +256,12 @@ async function fetchStats(): Promise<DexStatsSnapshot> {
         updatedAt: Date.now(),
       };
 
-      const startBlock = latestBlock > 44000000n ? 44000001n : latestBlock;
+      // Cap the cold scan: without this it scans from block 44M to head (~4.8M blocks),
+      // which hangs the request. The seeded snapshot above covers historical totals; we
+      // only scan recent activity on a cold cache, then accumulate incrementally after.
+      const MAX_COLD_START_BLOCKS = 50000n;
+      let startBlock = latestBlock > 44000000n ? 44000001n : latestBlock;
+      if (latestBlock - startBlock > MAX_COLD_START_BLOCKS) startBlock = latestBlock - MAX_COLD_START_BLOCKS;
       const [swapLogs, addLogs] = await Promise.all([
         getLogsInChunks(client, dexAddress, ARC_SWAP_EVENT, startBlock, latestBlock),
         getLogsInChunks(client, dexAddress, ARC_LIQUIDITY_ADDED_EVENT, startBlock, latestBlock),

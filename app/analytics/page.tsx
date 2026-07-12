@@ -75,13 +75,15 @@ export default function AnalyticsPage() {
               };
               const poolVolumes: PoolVolumeEntry[] = pools.map((p: {
                 pair: string;
-                vol24h: string;
+                vol24hRaw?: string;
                 label: string;
                 liquidityRaw: string;
                 liquidity: string;
               }) => {
-                const raw = Number.parseFloat((p.vol24h ?? '').replace(/[^0-9.]/g, '')) || 0;
-                const liquidityRaw = Number.parseFloat((p.liquidityRaw ?? '').replace(/[^0-9.]/g, '')) || 0;
+                // Use raw USDC (6dp) values, not the formatted "$39.0K" strings whose K/M
+                // suffixes would otherwise be stripped and skew the bar heights.
+                const raw = (Number(p.vol24hRaw ?? '0') || 0) / 1e6;
+                const liquidityRaw = (Number(p.liquidityRaw ?? '0') || 0) / 1e6;
                 return { pair: p.pair, label: p.label, raw, liquidityRaw, liquidity: p.liquidity };
               });
               const allZero = poolVolumes.every((p: PoolVolumeEntry) => p.raw <= 0);
