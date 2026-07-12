@@ -17,13 +17,18 @@ export function sumUsdcVolume(
   const usdcIsToken0 = token0.toLowerCase() === normalizedUsdc;
   const usdcIsToken1 = token1.toLowerCase() === normalizedUsdc;
 
-  if (!usdcIsToken0 && !usdcIsToken1) {
-    throw new Error('Pair does not contain USDC');
+  if (usdcIsToken0 === usdcIsToken1) {
+    throw new Error('Pair must contain USDC on exactly one side');
   }
 
   const volumeRaw = logs.reduce((total, log) => {
     const amountIn = usdcIsToken0 ? log.amount0In : log.amount1In;
     const amountOut = usdcIsToken0 ? log.amount0Out : log.amount1Out;
+
+    if (amountIn !== 0n && amountOut !== 0n) {
+      throw new Error('USDC input and output cannot both be nonzero');
+    }
+
     return total + (amountIn !== 0n ? amountIn : amountOut);
   }, 0n);
 
