@@ -18,6 +18,7 @@ The deployed pair is discovered from the configured factory and token addresses 
 4. It determines whether USDC is token zero or token one, then sums the USDC input or output amount for each swap exactly once.
 5. It returns the raw six decimal USDC value, formatted display value, swap count, and update time with the existing pool stats response.
 6. The cirBTC pool row, manager, and position view consume the same server value.
+7. The Analytics page consumes that same pool record for the cirBTC volume bar and Pool Activity row. Fork volume and swap count also contribute to the page's protocol totals without being counted twice.
 
 ## Reliability
 
@@ -31,6 +32,6 @@ The first version computes an exact rolling window from chain logs. It does not 
 
 ## Tests
 
-Unit tests cover timestamp boundary selection, token zero and token one USDC accounting, exact input and exact output event shapes, empty windows, and formatting. An API level test verifies that fork volume is merged into the cirBTC pool without changing Hub pool values.
+Unit tests cover timestamp boundary selection, token zero and token one USDC accounting, exact input and exact output event shapes, empty windows, and formatting. An API level test verifies that fork volume is merged into the cirBTC pool without changing Hub pool values. A presentation test verifies that Analytics receives the merged cirBTC liquidity and volume record and includes fork activity in aggregate totals once.
 
 Manual verification compares the API result with a direct Arc log scan for the deployed pair. Type checking, linting, the complete test suite, and the production build run before completion.
