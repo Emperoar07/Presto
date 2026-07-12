@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Address } from 'viem';
 import {
+  findFirstBlockAtOrAfter,
   formatUsdcVolume,
+  scanUniswapV2Volume,
   sumUsdcVolume,
   type UniswapV2SwapArgs,
 } from '../src/lib/uniswapV2Volume';
@@ -105,4 +107,54 @@ test('formats raw values beyond Number.MAX_SAFE_INTEGER exactly', () => {
     formatUsdcVolume(9_007_199_254_740_993n),
     '9007199254.740993',
   );
+});
+
+test('finds the first block at or after the cutoff timestamp', async () => {
+  const requested: bigint[] = [];
+  const client = {
+    async getBlock({ blockNumber }: { blockNumber: bigint }) {
+      requested.push(blockNumber);
+      return { timestamp: blockNumber * 10n };
+    },
+  };
+
+  const block = await findFirstBlockAtOrAfter(client, 0n, 200n, 1_055n);
+
+  assert.equal(block, 106n);
+  assert.ok(requested.length < 12, 'uses binary search rather than a linear scan');
+});
+
+test('scans the complete rolling range in inclusive 1000 block chunks', async () => {
+  const ranges: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
+  const client = {
+    async getBlock({ blockNumber }: { blockNumber: bigint }) {
+      return { timestamp: blockNumber * 10n };
+    },
+    async getLogs(request: { fromBlock: bigint; toBlock: bigint }) {
+      ranges.push({ fromBlock: request.fromBlock, toBlock: request.toBlock });
+      return [{ args: swap({ amount0In: 1_000_000n }) }];
+    },
+  };
+
+  const result = await scanUniswapV2Volume(
+    client,
+    '0x3333333333333333333333333333333333333333',
+    USDC,
+    USDC,
+    CIRBTC,
+    2_600n,
+    1_000n,
+  );
+
+  assert.deepEqual(ranges, [
+    { fromBlock: 100n, toBlock: 1_099n },
+    { fromBlock: 1_100n, toBlock: 2_099n },
+    { fromBlock: 2_100n, toBlock: 2_600n },
+  ]);
+  assert.deepEqual(result, {
+    fromBlock: 100n,
+    toBlock: 2_600n,
+    volumeRaw: 3_000_000n,
+    swapCount: 3,
+  });
 });

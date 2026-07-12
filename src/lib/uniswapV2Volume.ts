@@ -1,4 +1,4 @@
-import { formatUnits, type Address } from 'viem';
+import { formatUnits, parseAbiItem, type Address } from 'viem';
 
 export type UniswapV2SwapArgs = {
   amount0In: bigint;
@@ -6,6 +6,26 @@ export type UniswapV2SwapArgs = {
   amount0Out: bigint;
   amount1Out: bigint;
 };
+
+type BlockTimestampClient = {
+  getBlock(args: { blockNumber: bigint }): Promise<{ timestamp: bigint }>;
+};
+
+type UniswapVolumeClient = BlockTimestampClient & {
+  getLogs(args: {
+    address: Address;
+    event: typeof UNISWAP_V2_SWAP_EVENT;
+    fromBlock: bigint;
+    toBlock: bigint;
+  }): Promise<readonly { args?: UniswapV2SwapArgs }[]>;
+};
+
+const UNISWAP_V2_SWAP_EVENT = parseAbiItem(
+  'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
+);
+
+const ARC_LOG_CHUNK_SIZE = 1_000n;
+const MAX_PARALLEL_LOG_REQUESTS = 6;
 
 export function sumUsdcVolume(
   logs: readonly UniswapV2SwapArgs[],
@@ -37,4 +57,65 @@ export function sumUsdcVolume(
 
 export function formatUsdcVolume(raw: bigint): string {
   return formatUnits(raw, 6);
+}
+
+export async function findFirstBlockAtOrAfter(
+  client: BlockTimestampClient,
+  lowBlock: bigint,
+  highBlock: bigint,
+  cutoffTimestamp: bigint,
+): Promise<bigint> {
+  let low = lowBlock;
+  let high = highBlock;
+
+  while (low < high) {
+    const middle = (low + high) / 2n;
+    const block = await client.getBlock({ blockNumber: middle });
+    if (block.timestamp < cutoffTimestamp) low = middle + 1n;
+    else high = middle;
+  }
+
+  return low;
+}
+
+export async function scanUniswapV2Volume(
+  client: UniswapVolumeClient,
+  pair: Address,
+  usdc: Address,
+  token0: Address,
+  token1: Address,
+  latestBlock: bigint,
+  cutoffTimestamp: bigint,
+): Promise<{ fromBlock: bigint; toBlock: bigint; volumeRaw: bigint; swapCount: number }> {
+  const fromBlock = await findFirstBlockAtOrAfter(client, 0n, latestBlock, cutoffTimestamp);
+  const swapArgs: UniswapV2SwapArgs[] = [];
+  const ranges: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
+
+  for (let start = fromBlock; start <= latestBlock; start += ARC_LOG_CHUNK_SIZE) {
+    const end = start + ARC_LOG_CHUNK_SIZE - 1n;
+    ranges.push({ fromBlock: start, toBlock: end < latestBlock ? end : latestBlock });
+  }
+
+  for (let index = 0; index < ranges.length; index += MAX_PARALLEL_LOG_REQUESTS) {
+    const batch = ranges.slice(index, index + MAX_PARALLEL_LOG_REQUESTS);
+    const results = await Promise.all(batch.map(({ fromBlock: start, toBlock: end }) =>
+      client.getLogs({
+        address: pair,
+        event: UNISWAP_V2_SWAP_EVENT,
+        fromBlock: start,
+        toBlock: end,
+      })
+    ));
+    for (const logs of results) {
+      for (const log of logs) {
+        if (log.args) swapArgs.push(log.args);
+      }
+    }
+  }
+
+  return {
+    fromBlock,
+    toBlock: latestBlock,
+    ...sumUsdcVolume(swapArgs, usdc, token0, token1),
+  };
 }
