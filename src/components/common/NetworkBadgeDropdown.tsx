@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useChainId } from 'wagmi';
-import { isArcChain, isTempoNativeChain } from '@/config/contracts';
+import { isArcChain } from '@/config/contracts';
 
 export function getNetworkVisual(chainId?: number) {
   if (isArcChain(chainId)) {
@@ -13,19 +13,10 @@ export function getNetworkVisual(chainId?: number) {
     };
   }
 
-  if (isTempoNativeChain(chainId)) {
-    return {
-      iconSrc: '/networks/tempo.svg',
-      label: 'Testnet',
-      badgeClass: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300',
-    };
-  }
-
   return null;
 }
 
 export function getDisplayChainName(chainId?: number, fallback?: string) {
-  if (isTempoNativeChain(chainId)) return 'Testnet';
   if (isArcChain(chainId)) return 'Arc Testnet';
   if (chainId === 11155111) return 'Ethereum Sepolia';
   if (chainId === 84532) return 'Base Sepolia';
