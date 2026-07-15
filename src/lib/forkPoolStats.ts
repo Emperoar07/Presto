@@ -22,6 +22,13 @@ export type ForkPoolMetrics = {
   volumeAvailable: boolean;
 };
 
+export type PoolStatsRequestMode = 'base' | 'activity' | 'fork';
+
+export function getPoolStatsRequestMode(url: string): PoolStatsRequestMode {
+  const mode = new URL(url).searchParams.get('mode');
+  return mode === 'activity' || mode === 'fork' ? mode : 'base';
+}
+
 export function formatCompactUsdc(raw: bigint): string {
   const whole = raw / 1_000_000n;
   if (whole >= 1_000_000n) return `$${(Number(whole) / 1_000_000).toFixed(1)}M`;
@@ -75,4 +82,35 @@ export function selectPoolStatsByToken(
     vol24hRaw: pool.vol24hRaw,
     volumeAvailable: pool.volumeAvailable,
   };
+}
+
+export function mergeForkPoolRecord<T extends ForkPoolRecord>(
+  pools: readonly T[],
+  forkPool: T | null | undefined,
+): T[] {
+  if (!forkPool) return [...pools];
+  return pools.map((pool) =>
+    pool.tokenAddress.toLowerCase() === forkPool.tokenAddress.toLowerCase() ? forkPool : pool
+  );
+}
+
+export function mergePoolActivityRecords<T extends ForkPoolRecord>(
+  basePools: readonly T[],
+  activityPools: readonly T[] | null | undefined,
+): T[] {
+  if (!activityPools) return [...basePools];
+  const activityByToken = new Map(
+    activityPools.map((pool) => [pool.tokenAddress.toLowerCase(), pool] as const),
+  );
+  return basePools.map((pool) => {
+    const activity = activityByToken.get(pool.tokenAddress.toLowerCase());
+    if (!activity) return pool;
+    return {
+      ...pool,
+      vol24h: activity.vol24h,
+      vol24hRaw: activity.vol24hRaw,
+      swapCount: activity.swapCount,
+      volumeAvailable: activity.volumeAvailable,
+    };
+  });
 }

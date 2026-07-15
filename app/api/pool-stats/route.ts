@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createPublicClient, defineChain, http, parseAbiItem, parseAbi } from 'viem';
-import { getArcTestnetRpcUrls } from '@/lib/rpc';
+import { getArcTestnetRpcUrls, raceRpcUrls } from '@/lib/rpc';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
 import {
   getContractAddresses,
@@ -10,11 +10,13 @@ import {
   ZERO_ADDRESS,
 } from '@/config/contracts';
 import { getTokens, getHubToken } from '@/config/tokens';
-import { mergeForkPoolStats } from '@/lib/forkPoolStats';
+import { getPoolStatsRequestMode, mergeForkPoolStats } from '@/lib/forkPoolStats';
 import { scanUniswapV2Volume } from '@/lib/uniswapV2Volume';
+import { readPoolPathReserves } from '@/lib/poolReserves';
 
 const ARC_CHAIN_ID = 5042002;
 const CACHE_TTL_MS = 60_000;
+const FORK_CACHE_TTL_MS = 5 * 60_000;
 const FULL_SCAN_START_BLOCK = 32_600_000n; // HubAMM deployed ~block 32,655,000
 const LOG_CHUNK_SIZE = 9_999n;
 const MAX_PARALLEL_CHUNKS = 6;
@@ -99,6 +101,11 @@ export type PoolStatsResponse = {
   updatedAt: number;
 };
 
+export type ForkPoolStatsResponse = {
+  pool: PoolStat;
+  updatedAt: number;
+};
+
 type PoolStatsSnapshot = Omit<PoolStatsResponse, 'pools'> & {
   totalVolumeRaw: string;
   latestBlock: string;
@@ -106,7 +113,9 @@ type PoolStatsSnapshot = Omit<PoolStatsResponse, 'pools'> & {
 };
 
 type GlobalCache = typeof globalThis & {
+  __poolBaseStatsCache?: { ts: number; data: PoolStatsSnapshot };
   __poolStatsCache?: { ts: number; data: PoolStatsSnapshot };
+  __forkPoolStatsCache?: { ts: number; data: ForkPoolStatsResponse };
 };
 
 const g = globalThis as GlobalCache;
@@ -134,6 +143,11 @@ function toPublicResponse(snapshot: PoolStatsSnapshot): PoolStatsResponse {
     scannedBlocks: snapshot.scannedBlocks,
     updatedAt: snapshot.updatedAt,
   };
+}
+
+function toPublicPool(pool: PoolStatSnapshot): PoolStat {
+  const { snapshot: _snapshot, ...publicPool } = pool;
+  return publicPool;
 }
 
 async function getLogsInChunks(
@@ -251,21 +265,6 @@ async function enrichWithForkPool(
   return recalculateTotalLiquidity({ ...snapshot, pools });
 }
 
-function retainCachedForkPool(
-  snapshot: PoolStatsSnapshot,
-  cached?: PoolStatsSnapshot,
-): PoolStatsSnapshot {
-  const cirbtcAddress = ARC_TOKENS.find((token) => token.symbol.toLowerCase() === 'cirbtc')?.address.toLowerCase();
-  if (!cirbtcAddress) return snapshot;
-  const cachedFork = cached?.pools.find((pool) => pool.tokenAddress.toLowerCase() === cirbtcAddress);
-  const pools = snapshot.pools.map((pool) => {
-    if (pool.tokenAddress.toLowerCase() !== cirbtcAddress) return pool;
-    if (cachedFork?.volumeAvailable) return cachedFork;
-    return { ...pool, vol24h: '--', vol24hRaw: '0', swapCount: 0, volumeAvailable: false };
-  });
-  return recalculateTotalLiquidity({ ...snapshot, pools });
-}
-
 async function enrichWithReserves(
   client: ReturnType<typeof createPublicClient>,
   hubAmm: `0x${string}`,
@@ -274,20 +273,19 @@ async function enrichWithReserves(
   totalVolumeRaw: bigint,
   totalSwaps: number
 ): Promise<PoolStatsSnapshot> {
-  const reserveResults = await Promise.allSettled(
-    ARC_TOKENS.map(async (token) => {
-      const [, pathRes] = await Promise.all([
-        client.readContract({ address: hubAmm, abi: HUB_AMM_ABI, functionName: 'tokenReserves', args: [token.address] }),
-        client.readContract({ address: hubAmm, abi: HUB_AMM_ABI, functionName: 'pathReserves', args: [token.address] }),
-      ]);
-      return { symbol: token.symbol, pathReserve: pathRes as bigint };
-    })
+  const pathReserves = await readPoolPathReserves(
+    ARC_TOKENS,
+    async (token) => client.readContract({
+      address: hubAmm,
+      abi: HUB_AMM_ABI,
+      functionName: 'pathReserves',
+      args: [token.address],
+    }) as Promise<bigint>
   );
 
   let totalLiquidityRaw = 0n;
   const withReserves = pools.map((pool, index) => {
-    const result = reserveResults[index];
-    const pathReserve = result.status === 'fulfilled' ? result.value.pathReserve : 0n;
+    const pathReserve = pathReserves[index] ?? 0n;
     totalLiquidityRaw += pathReserve;
     return {
       ...pool,
@@ -332,7 +330,6 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
   }
 
   let lastError: unknown;
-  let partialSnapshot: PoolStatsSnapshot | undefined;
   const usdcLower = USDC_ADDRESS.toLowerCase();
 
   for (const url of urls) {
@@ -420,7 +417,7 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
         totalVolumeRaw += liquidityDelta;
       }
 
-      const hubSnapshot = await enrichWithReserves(
+      return await enrichWithReserves(
         client,
         hubAmm,
         latestBlock,
@@ -428,25 +425,70 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
         totalVolumeRaw,
         totalSwaps
       );
-      try {
-        return await enrichWithForkPool(client, latestBlock, hubSnapshot);
-      } catch (forkError) {
-        lastError = forkError;
-        partialSnapshot = retainCachedForkPool(hubSnapshot, cached);
-        continue;
-      }
     } catch (err) {
       lastError = err;
     }
   }
 
-  if (partialSnapshot) return partialSnapshot;
   throw lastError ?? new Error('All RPCs failed');
 }
 
+async function fetchPoolBaseStats(): Promise<PoolStatsSnapshot> {
+  const hubAmm = getContractAddresses(ARC_CHAIN_ID).HUB_AMM_ADDRESS;
+  if (hubAmm === ZERO_ADDRESS) {
+    return {
+      pools: buildPoolBaseStats(),
+      totalLiquidityUsdc: '$0',
+      totalSwaps: 0,
+      totalVolumeRaw: '0',
+      totalVolumeUsdc: '$0',
+      scannedBlocks: 0,
+      latestBlock: '0',
+      updatedAt: Date.now(),
+    };
+  }
+
+  return raceRpcUrls(getArcTestnetRpcUrls(), async (url) => {
+    const client = createPublicClient({ chain: ARC_TESTNET, transport: http(url, { timeout: 8_000 }) });
+    const latestBlock = await client.getBlockNumber();
+    return enrichWithReserves(client, hubAmm, latestBlock, buildPoolBaseStats(), 0n, 0);
+  });
+}
+
+async function fetchForkPoolStats(): Promise<ForkPoolStatsResponse> {
+  const cirbtc = buildPoolBaseStats().find((pool) => pool.token.toLowerCase() === 'cirbtc');
+  if (!cirbtc) throw new Error('cirBTC pool is not configured');
+
+  let lastError: unknown;
+  for (const url of getArcTestnetRpcUrls()) {
+    try {
+      const client = createPublicClient({ chain: ARC_TESTNET, transport: http(url, { timeout: 12_000 }) });
+      const latestBlock = await client.getBlockNumber();
+      const emptySnapshot: PoolStatsSnapshot = {
+        pools: [cirbtc],
+        totalLiquidityUsdc: '$0',
+        totalSwaps: 0,
+        totalVolumeRaw: '0',
+        totalVolumeUsdc: '$0',
+        scannedBlocks: Number(latestBlock),
+        latestBlock: latestBlock.toString(),
+        updatedAt: Date.now(),
+      };
+      const enriched = await enrichWithForkPool(client, latestBlock, emptySnapshot);
+      const pool = enriched.pools.find((candidate) => candidate.tokenAddress.toLowerCase() === cirbtc.tokenAddress.toLowerCase());
+      if (!pool?.volumeAvailable) throw new Error('Fork pool volume is unavailable');
+      return { pool: toPublicPool(pool), updatedAt: enriched.updatedAt };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error('All fork pool RPCs failed');
+}
+
 export async function GET(request: Request) {
+  const mode = getPoolStatsRequestMode(request.url);
   const ip = getClientIp(request);
-  const { allowed, retryAfter } = await rateLimit(`pool-stats:${ip}`, 30, 60_000);
+  const { allowed, retryAfter } = await rateLimit(`pool-stats:${mode}:${ip}`, mode === 'base' ? 30 : 10, 60_000);
   if (!allowed) {
     return NextResponse.json(
       { error: 'Rate limit exceeded' },
@@ -454,22 +496,60 @@ export async function GET(request: Request) {
     );
   }
 
-  if (g.__poolStatsCache && Date.now() - g.__poolStatsCache.ts < CACHE_TTL_MS) {
-    return NextResponse.json(toPublicResponse(g.__poolStatsCache.data), {
+  if (mode === 'fork') {
+    if (g.__forkPoolStatsCache && Date.now() - g.__forkPoolStatsCache.ts < FORK_CACHE_TTL_MS) {
+      return NextResponse.json(g.__forkPoolStatsCache.data, {
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      });
+    }
+    try {
+      const data = await fetchForkPoolStats();
+      g.__forkPoolStatsCache = { ts: Date.now(), data };
+      return NextResponse.json(data, {
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      });
+    } catch (error) {
+      console.error('fork pool-stats error:', error);
+      if (g.__forkPoolStatsCache) return NextResponse.json(g.__forkPoolStatsCache.data);
+      return NextResponse.json({ error: 'Failed to fetch fork pool stats' }, { status: 503 });
+    }
+  }
+
+  if (mode === 'activity') {
+    if (g.__poolStatsCache && Date.now() - g.__poolStatsCache.ts < CACHE_TTL_MS) {
+      return NextResponse.json(toPublicResponse(g.__poolStatsCache.data), {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+      });
+    }
+    try {
+      const data = await fetchPoolStats();
+      g.__poolStatsCache = { ts: Date.now(), data };
+      return NextResponse.json(toPublicResponse(data), {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+      });
+    } catch (error) {
+      console.error('pool activity-stats error:', error);
+      if (g.__poolStatsCache) return NextResponse.json(toPublicResponse(g.__poolStatsCache.data));
+      return NextResponse.json({ error: 'Failed to fetch pool activity' }, { status: 503 });
+    }
+  }
+
+  if (g.__poolBaseStatsCache && Date.now() - g.__poolBaseStatsCache.ts < CACHE_TTL_MS) {
+    return NextResponse.json(toPublicResponse(g.__poolBaseStatsCache.data), {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     });
   }
 
   try {
-    const data = await fetchPoolStats();
-    g.__poolStatsCache = { ts: Date.now(), data };
+    const data = await fetchPoolBaseStats();
+    g.__poolBaseStatsCache = { ts: Date.now(), data };
     return NextResponse.json(toPublicResponse(data), {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     });
   } catch (err) {
-    console.error('pool-stats error:', err);
-    if (g.__poolStatsCache) {
-      return NextResponse.json(toPublicResponse(g.__poolStatsCache.data), {
+    console.error('pool base-stats error:', err);
+    if (g.__poolBaseStatsCache) {
+      return NextResponse.json(toPublicResponse(g.__poolBaseStatsCache.data), {
         headers: { 'Cache-Control': 'public, s-maxage=5' },
       });
     }

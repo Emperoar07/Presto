@@ -74,11 +74,29 @@ export const ARC_TESTNET_RPC_DEFAULTS = [
   'https://rpc.quicknode.testnet.arc.network',
 ];
 
+export const mergeRpcUrls = (preferred: readonly string[], fallbacks: readonly string[]) =>
+  Array.from(new Set([...preferred, ...fallbacks]));
+
 export const getArcTestnetRpcUrls = () => {
-  const explicit = process.env.ARC_TESTNET_RPC_URLS || process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL;
-  if (explicit) return splitUrls(explicit);
-  return ARC_TESTNET_RPC_DEFAULTS;
+  const explicit = process.env.ARC_TESTNET_RPC_URLS
+    || process.env.ARC_TESTNET_RPC_URL
+    || process.env.ARC_RPC_URL
+    || process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL;
+  return mergeRpcUrls(explicit ? splitUrls(explicit) : [], ARC_TESTNET_RPC_DEFAULTS);
 };
+
+export async function raceRpcUrls<T>(
+  urls: readonly string[],
+  operation: (url: string) => Promise<T>
+): Promise<T> {
+  if (urls.length === 0) throw new Error('All RPC operations failed: no RPC URLs configured');
+
+  try {
+    return await Promise.any(urls.map((url) => operation(url)));
+  } catch (error) {
+    throw new Error('All RPC operations failed', { cause: error });
+  }
+}
 
 let tempoClients: LabeledRpcClient[] | null = null;
 

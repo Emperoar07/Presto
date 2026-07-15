@@ -15,7 +15,7 @@ import {
 import { approveToken, getTokenBalance } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
 import { isUserCancellation } from '@/lib/errorHandling';
-import { usePoolStats } from '@/hooks/useApiQueries';
+import { useForkPoolStats } from '@/hooks/useApiQueries';
 import { selectPoolStatsByToken } from '@/lib/forkPoolStats';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
@@ -48,7 +48,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
-  const { data: sharedPoolStats } = usePoolStats();
+  const { data: sharedForkStats } = useForkPoolStats();
 
   const fork = getUniswapV2Addresses(chainId);
   const hub = getHubToken(chainId);
@@ -221,7 +221,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   };
 
   const volumeDisplay = (pool: ForkPool) =>
-    selectPoolStatsByToken(sharedPoolStats?.pools ?? [], pool.token.address)?.vol24h ?? '--';
+    selectPoolStatsByToken(sharedForkStats?.pool ? [sharedForkStats.pool] : [], pool.token.address)?.vol24h ?? '--';
 
   // Shared add/remove manager body used by both the All Pools row and the My Positions card.
   const renderManager = (pool: ForkPool) => {

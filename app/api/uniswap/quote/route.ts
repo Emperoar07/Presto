@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createPublicClient, http, getAddress, type Address, type PublicClient } from 'viem';
 import { getUniswapV2Addresses } from '@/config/contracts';
+import { getArcTestnetRpcUrls, raceRpcUrls } from '@/lib/rpc';
 
 // The Uniswap V2 fork is deployed on Arc Testnet only.
 const ARC_CHAIN_ID = 5042002;
-const ARC_RPC_URL = process.env.ARC_TESTNET_RPC_URL || process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network';
 // Base token used for multi-hop routing (Arc USDC / hub token).
 const BASE_TOKEN = getAddress('0x3600000000000000000000000000000000000000');
 
@@ -99,17 +99,20 @@ export async function POST(request: Request) {
     const tokenOutDecimals = request.headers.get('x-token-out-decimals')
       ? parseInt(request.headers.get('x-token-out-decimals')!) : 18;
 
-    const client = createPublicClient({ transport: http(ARC_RPC_URL) });
     const tIn = getAddress(tokenIn) as Address;
     const tOut = getAddress(tokenOut) as Address;
     const useHop = tIn.toLowerCase() !== BASE_TOKEN.toLowerCase() && tOut.toLowerCase() !== BASE_TOKEN.toLowerCase();
 
     // Read direct pool and (when neither side is the base) the two hop legs, in parallel.
-    const [directPool, legIn, legOut] = await Promise.all([
-      readPool(client, uni.factory, tIn, tOut),
-      useHop ? readPool(client, uni.factory, tIn, BASE_TOKEN) : Promise.resolve(null),
-      useHop ? readPool(client, uni.factory, BASE_TOKEN, tOut) : Promise.resolve(null),
-    ]);
+    const rpcUrls = getArcTestnetRpcUrls();
+    const [directPool, legIn, legOut] = await raceRpcUrls(rpcUrls, async (url) => {
+      const client = createPublicClient({ transport: http(url, { timeout: 8_000 }) });
+      return Promise.all([
+        readPool(client, uni.factory, tIn, tOut),
+        useHop ? readPool(client, uni.factory, tIn, BASE_TOKEN) : Promise.resolve(null),
+        useHop ? readPool(client, uni.factory, BASE_TOKEN, tOut) : Promise.resolve(null),
+      ]);
+    });
 
     const isExactIn = tradeType !== 'EXACT_OUTPUT';
     const candidates: Candidate[] = [];

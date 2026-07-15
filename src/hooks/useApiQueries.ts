@@ -4,11 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useAccount, useChainId, usePublicClient } from 'wagmi';
 import { getTokens } from '@/config/tokens';
 import { getTokenBalancesBatch } from '@/lib/tempoClient';
+import { mergeForkPoolRecord, mergePoolActivityRecords } from '@/lib/forkPoolStats';
 
 // ─── Query keys ──────────────────────────────────────────────────────────────
 export const queryKeys = {
   dexStats: ['dex-stats'] as const,
   poolStats: ['pool-stats'] as const,
+  poolActivityStats: ['pool-activity-stats'] as const,
+  forkPoolStats: ['fork-pool-stats'] as const,
   transactions: (address: string, chainId: number) =>
     ['transactions', address, chainId] as const,
   balances: (address: string, chainId: number) =>
@@ -25,6 +28,18 @@ async function fetchDexStats() {
 async function fetchPoolStats() {
   const res = await fetch('/api/pool-stats');
   if (!res.ok) throw new Error('pool-stats fetch failed');
+  return res.json();
+}
+
+async function fetchForkPoolStats() {
+  const res = await fetch('/api/pool-stats?mode=fork');
+  if (!res.ok) throw new Error('fork pool-stats fetch failed');
+  return res.json();
+}
+
+async function fetchPoolActivityStats() {
+  const res = await fetch('/api/pool-stats?mode=activity');
+  if (!res.ok) throw new Error('pool activity-stats fetch failed');
   return res.json();
 }
 
@@ -48,13 +63,37 @@ export function useDexStats() {
   });
 }
 
-/** Per-pool liquidity & volume. Polls every 30s. */
+/** Fast reserve data renders first; historical activity merges when its scan finishes. */
 export function usePoolStats() {
-  return useQuery({
+  const base = useQuery({
     queryKey: queryKeys.poolStats,
     queryFn: fetchPoolStats,
     staleTime: 30_000,
     refetchInterval: 30_000,
+    placeholderData: (prev: unknown) => prev,
+  });
+  const activity = useQuery({
+    queryKey: queryKeys.poolActivityStats,
+    queryFn: fetchPoolActivityStats,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: 1,
+    placeholderData: (prev: unknown) => prev,
+  });
+  const data = base.data
+    ? { ...base.data, pools: mergePoolActivityRecords(base.data.pools ?? [], activity.data?.pools) }
+    : undefined;
+  return { ...base, data };
+}
+
+/** Fork metrics load independently so historical log scans never block the pool list. */
+export function useForkPoolStats() {
+  return useQuery({
+    queryKey: queryKeys.forkPoolStats,
+    queryFn: fetchForkPoolStats,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: 1,
     placeholderData: (prev: unknown) => prev,
   });
 }
@@ -63,9 +102,13 @@ export function usePoolStats() {
 export function useSwapPageStats() {
   const dex = useDexStats();
   const pool = usePoolStats();
+  const fork = useForkPoolStats();
+  const poolStats = pool.data
+    ? { ...pool.data, pools: mergeForkPoolRecord(pool.data.pools ?? [], fork.data?.pool) }
+    : null;
   return {
     dexStats: dex.data ?? null,
-    poolStats: pool.data ?? null,
+    poolStats,
     loading: dex.isLoading || pool.isLoading,
   };
 }
