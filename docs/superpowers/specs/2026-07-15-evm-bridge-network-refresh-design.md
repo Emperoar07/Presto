@@ -59,6 +59,12 @@ The transaction history page and bridge history panel will use the configured EV
 
 The README and in app docs will describe the five supported EVM testnets, Circle Bridge Kit, CCTP V2, wallet chain switching, destination addresses, estimation, retries, and testnet funding requirements. Homepage copy, bridge metadata, and sidebar network labels will match the implemented network list.
 
+## Analytics Removal
+
+The Analytics product surface will be removed completely. This includes the `/analytics` route, its layout and dashboard component, its aggregate API route, navigation and top bar entries, homepage feature copy, in app documentation, README sections, and analytics only generated data files.
+
+Shared pool, price, transaction, and indexer behavior used by Swap, Pools, Portfolio, or Activity will remain. The indexer will stop producing the unused analytics output while retaining order and transaction state required by active product surfaces.
+
 ## Testing
 
 Tests will verify:
@@ -70,5 +76,6 @@ Tests will verify:
 * Explorer URL selection
 * History rejection for removed Solana records
 * Wallet add and switch metadata for Fuji and Arbitrum Sepolia
+* Absence of Analytics navigation, routes, and API output
 
 Final verification will run bridge focused tests, all API tests, all contract tests, TypeScript, lint, and a production build. A local runtime check will confirm the bridge page renders the new network choices without Solana code or copy.
