@@ -347,6 +347,23 @@ export function getEvmProviderFromConnector(
   return null;
 }
 
+export async function resolveEvmProvider(
+  connector: { getProvider?: () => Promise<unknown> } | undefined,
+  connectorClient: { transport?: { value?: unknown } } | undefined,
+  injectedProvider: EvmInjectedProvider | null = getInjectedEvmProvider(),
+): Promise<EvmInjectedProvider | null> {
+  try {
+    const provider = await connector?.getProvider?.();
+    if (provider && typeof provider === 'object' && 'request' in provider) {
+      return provider as EvmInjectedProvider;
+    }
+  } catch {
+    // A connector may be rebuilding after a chain switch; use the next live source.
+  }
+
+  return getEvmProviderFromConnector(connectorClient) ?? injectedProvider;
+}
+
 export function parseChainId(value: unknown) {
   if (typeof value === 'string') {
     const parsed = Number.parseInt(value, 16);

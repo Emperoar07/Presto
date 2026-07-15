@@ -36,3 +36,9 @@ test('registers every bridge EVM chain with wagmi', () => {
     assert.match(wagmi, new RegExp(`\\[${chain}\\.id\\]`));
   }
 });
+
+test('does not let stale URL state overwrite a selected bridge source', () => {
+  const workspace = read('src/components/bridge/BridgeWorkspace.tsx');
+  assert.match(workspace, /\}, \[searchParams\]\);/);
+  assert.doesNotMatch(workspace, /\[destinationKey, searchParams, sourceKey\]/);
+});

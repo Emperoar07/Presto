@@ -26,11 +26,10 @@ import {
   formatUsd,
   getBridgeActionLabel,
   getTransferSpeed,
-  getEvmProviderFromConnector,
-  getInjectedEvmProvider,
   isBridgeNetworkKey,
   isValidEvmAddress,
   parseChainId,
+  resolveEvmProvider,
   sanitizeBridgeAmount,
 } from './constants';
 import { useBridgeBalance } from './useBridgeBalance';
@@ -212,7 +211,7 @@ export function BridgeWorkspace() {
   const initialSourceParam = searchParams.get('source');
   const initialDestinationParam = searchParams.get('destination');
   const chainId = useChainId();
-  const { address: evmAddress } = useAccount();
+  const { address: evmAddress, connector } = useAccount();
   const { data: connectorClient } = useConnectorClient();
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const [sourceKey, setSourceKey] = useState<BridgeNetworkKey>(() => {
@@ -369,13 +368,10 @@ export function BridgeWorkspace() {
   });
 
   async function createAdapterFor(networkKey: BridgeNetworkKey, _isDestination = false, isRetry = false) {
-    const connectorProvider = getEvmProviderFromConnector(connectorClient as { transport?: { value?: unknown } } | undefined);
-
-    let ethereumProvider: any =
-      connectorProvider ??
-      (typeof window !== 'undefined'
-        ? ((window as Window & { ethereum?: any }).ethereum ?? null)
-        : null);
+    let ethereumProvider: any = await resolveEvmProvider(
+      connector,
+      connectorClient as { transport?: { value?: unknown } } | undefined,
+    );
 
     if (!ethereumProvider && isRetry) {
       ethereumProvider = {
@@ -452,36 +448,40 @@ export function BridgeWorkspace() {
   }, []);
 
   useEffect(() => {
-    const provider = getEvmProviderFromConnector(connectorClient as { transport?: { value?: unknown } } | undefined) ?? getInjectedEvmProvider();
-    if (!provider) {
-      setActiveWalletChainId(null);
-      return;
-    }
-
     let mounted = true;
+    let activeProvider: Awaited<ReturnType<typeof resolveEvmProvider>> = null;
     const handleChainChanged = (value: unknown) => {
       if (!mounted) return;
       setActiveWalletChainId(parseChainId(value));
     };
 
-    void provider
-      .request({ method: 'eth_chainId' })
-      .then((value) => {
-        if (!mounted) return;
-        setActiveWalletChainId(parseChainId(value));
-      })
-      .catch(() => {
-        if (!mounted) return;
+    void resolveEvmProvider(
+      connector,
+      connectorClient as { transport?: { value?: unknown } } | undefined,
+    ).then(async (provider) => {
+      if (!mounted) return;
+      activeProvider = provider;
+      if (!provider) {
         setActiveWalletChainId(null);
-      });
+        return;
+      }
 
-    provider.on?.('chainChanged', handleChainChanged);
+      try {
+        const value = await provider.request({ method: 'eth_chainId' });
+        if (mounted) setActiveWalletChainId(parseChainId(value));
+      } catch {
+        if (mounted) setActiveWalletChainId(null);
+      }
+
+      if (!mounted) return;
+      provider.on?.('chainChanged', handleChainChanged);
+    });
 
     return () => {
       mounted = false;
-      provider.removeListener?.('chainChanged', handleChainChanged);
+      activeProvider?.removeListener?.('chainChanged', handleChainChanged);
     };
-  }, []);
+  }, [connector, connectorClient]);
 
   useEffect(() => {
     const nextSourceParam = searchParams.get('source');
@@ -490,13 +490,12 @@ export function BridgeWorkspace() {
     if (
       isBridgeNetworkKey(nextSourceParam) &&
       isBridgeNetworkKey(nextDestinationParam) &&
-      nextSourceParam !== nextDestinationParam &&
-      (nextSourceParam !== sourceKey || nextDestinationParam !== destinationKey)
+      nextSourceParam !== nextDestinationParam
     ) {
       setSourceKey(nextSourceParam);
       setDestinationKey(nextDestinationParam);
     }
-  }, [destinationKey, searchParams, sourceKey]);
+  }, [searchParams]);
 
   useEffect(() => {
     const legacyPeer = searchParams.get('peer');
@@ -582,18 +581,27 @@ export function BridgeWorkspace() {
     const targetChainId = NETWORKS[networkKey].chainId;
     if (!targetChainId) return;
 
-    const provider = getEvmProviderFromConnector(connectorClient as { transport?: { value?: unknown } } | undefined) ?? getInjectedEvmProvider();
+    const provider = await resolveEvmProvider(
+      connector,
+      connectorClient as { transport?: { value?: unknown } } | undefined,
+    );
     if (!provider) {
       throw new Error('An EVM wallet is required to add or switch bridge networks.');
     }
 
     const hexChainId = `0x${targetChainId.toString(16)}` as const;
+    const currentChainId = parseChainId(await provider.request({ method: 'eth_chainId' }));
+    if (currentChainId === targetChainId) return;
 
     try {
       await provider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: hexChainId }],
       });
+      const switchedChainId = parseChainId(await provider.request({ method: 'eth_chainId' }));
+      if (switchedChainId !== targetChainId) {
+        throw new Error(`Switch your wallet to ${NETWORKS[networkKey].label} before continuing.`);
+      }
       return;
     } catch (error) {
       const code = typeof error === 'object' && error && 'code' in error ? Number((error as { code?: unknown }).code) : null;
@@ -616,6 +624,11 @@ export function BridgeWorkspace() {
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: hexChainId }],
     });
+
+    const switchedChainId = parseChainId(await provider.request({ method: 'eth_chainId' }));
+    if (switchedChainId !== targetChainId) {
+      throw new Error(`Switch your wallet to ${NETWORKS[networkKey].label} before continuing.`);
+    }
   }
 
   // ---- Estimate & Bridge ----
@@ -673,6 +686,8 @@ export function BridgeWorkspace() {
     }
     const capturedSteps: BridgeStep[] = [];
     try {
+      await ensureEvmSourceChain(sourceKey);
+
       // Validate amount exceeds fees before submitting
       const inputNum = Number(effectiveBridgeAmount) || 0;
       if (inputNum > 0 && totalUsdcFee > 0 && inputNum <= totalUsdcFee) {

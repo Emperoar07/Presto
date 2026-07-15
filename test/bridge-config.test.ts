@@ -11,6 +11,7 @@ import {
   isBridgeNetworkKey,
   isValidBridgeHistoryItem,
   isValidTxHash,
+  resolveEvmProvider,
 } from '../src/components/bridge/constants';
 
 const networks = NETWORKS as Record<string, { bridgeChain: string; chainId: number; ecosystem: string }>;
@@ -41,6 +42,31 @@ test('uses a Circle supported transfer speed for every source chain', () => {
   assert.equal(getTransferSpeed('base-sepolia'), 'FAST');
   assert.equal(getTransferSpeed('arbitrum-sepolia'), 'FAST');
   assert.equal(getTransferSpeed('optimism-sepolia'), 'FAST');
+});
+
+test('uses the provider owned by the connected wallet connector', async () => {
+  const connectedProvider = { request: async () => 'connected' };
+  const staleClientProvider = { request: async () => 'stale-client' };
+  const injectedProvider = { request: async () => 'injected' };
+
+  const resolved = await resolveEvmProvider(
+    { getProvider: async () => connectedProvider },
+    { transport: { value: staleClientProvider } },
+    injectedProvider,
+  );
+
+  assert.equal(resolved, connectedProvider);
+});
+
+test('falls back through connector client and injected providers', async () => {
+  const clientProvider = { request: async () => 'client' };
+  const injectedProvider = { request: async () => 'injected' };
+
+  assert.equal(
+    await resolveEvmProvider(undefined, { transport: { value: clientProvider } }, injectedProvider),
+    clientProvider,
+  );
+  assert.equal(await resolveEvmProvider(undefined, undefined, injectedProvider), injectedProvider);
 });
 
 test('uses Circle CCTP identifiers and official USDC contracts', () => {
