@@ -21,8 +21,6 @@ const TOKEN = process.env.INDEXER_TOKEN;
 const TOKEN_LIST = process.env.INDEXER_TOKEN_LIST;
 const DEPTH = Number(process.env.INDEXER_DEPTH ?? '20');
 const OUTPUT = process.env.INDEXER_OUTPUT ?? 'data/indexer.json';
-const ANALYTICS_OUTPUT = process.env.INDEXER_ANALYTICS_OUTPUT ?? 'data/analytics.json';
-const STATE_OUTPUT = process.env.INDEXER_STATE ?? 'data/indexer-state.json';
 const INTERVAL_MS = Number(process.env.INDEXER_INTERVAL_MS ?? '5000');
 const MAX_RANGE = BigInt(process.env.INDEXER_MAX_RANGE ?? '100000');
 
@@ -78,22 +76,6 @@ const resolveTokens = () => {
       .map((address) => ({ symbol: 'TOKEN', address, decimals: 6 }));
   }
   return loadTokensFromConfig();
-};
-
-const loadState = () => {
-  if (!fs.existsSync(STATE_OUTPUT)) {
-    return { lastPlacedBlockByToken: {}, lastFilledBlock: null, orderMeta: {}, analytics: {} };
-  }
-  try {
-    return JSON.parse(fs.readFileSync(STATE_OUTPUT, 'utf-8'));
-  } catch {
-    return { lastPlacedBlockByToken: {}, lastFilledBlock: null, orderMeta: {}, analytics: {} };
-  }
-};
-
-const saveState = (state) => {
-  ensureDir(STATE_OUTPUT);
-  fs.writeFileSync(STATE_OUTPUT, JSON.stringify(state, null, 2));
 };
 
 const fetchOrderbookSnapshot = async (client, token) => {
@@ -212,13 +194,6 @@ const fetchOrderbookSnapshot = async (client, token) => {
   };
 };
 
-const getBucketKeys = (timestamp) => {
-  const date = new Date(Number(timestamp) * 1000);
-  const dayKey = date.toISOString().slice(0, 10);
-  const hourKey = `${dayKey}T${date.getUTCHours().toString().padStart(2, '0')}:00Z`;
-  return { dayKey, hourKey };
-};
-
 const writeSnapshot = async () => {
   const tokens = resolveTokens();
   if (tokens.length === 0) {
@@ -227,103 +202,6 @@ const writeSnapshot = async () => {
   }
 
   const client = await getHealthyClient();
-  const state = loadState();
-  const orderMeta = state.orderMeta ?? {};
-  const analytics = state.analytics ?? {};
-  const lastPlacedBlockByToken = state.lastPlacedBlockByToken ?? {};
-  let lastFilledBlock = state.lastFilledBlock ? BigInt(state.lastFilledBlock) : null;
-
-  const latestBlock = await client.getBlockNumber();
-  const fromFilled = lastFilledBlock !== null
-    ? lastFilledBlock + 1n
-    : latestBlock > (MAX_RANGE - 1n)
-      ? latestBlock - (MAX_RANGE - 1n)
-      : 0n;
-
-  for (const token of tokens) {
-    const fromPlaced = lastPlacedBlockByToken[token.address]
-      ? BigInt(lastPlacedBlockByToken[token.address]) + 1n
-      : latestBlock > (MAX_RANGE - 1n)
-        ? latestBlock - (MAX_RANGE - 1n)
-        : 0n;
-
-    const placedLogs = await client.getLogs({
-      address: DEX_ADDRESS,
-      event: parseAbiItem('event OrderPlaced(uint256 indexed orderId, int24 tick, bool isBid, uint256 amount, address maker, address indexed token, bool isFlipOrder, int24 flipTick)'),
-      args: { token: token.address },
-      fromBlock: fromPlaced,
-      toBlock: latestBlock,
-    });
-
-    for (const log of placedLogs) {
-      const { orderId, tick, isBid } = log.args;
-      orderMeta[orderId.toString()] = { token: token.address, tick, isBid };
-    }
-
-    lastPlacedBlockByToken[token.address] = latestBlock.toString();
-  }
-
-  const filledLogs = await client.getLogs({
-    address: DEX_ADDRESS,
-    event: parseAbiItem('event OrderFilled(uint256 indexed orderId, uint256 amountFilled, bool partialFill)'),
-    fromBlock: fromFilled,
-    toBlock: latestBlock,
-  });
-
-  const blockCache = new Map();
-  const getBlockTimestamp = async (blockNumber) => {
-    if (blockCache.has(blockNumber.toString())) {
-      return blockCache.get(blockNumber.toString());
-    }
-    const block = await client.getBlock({ blockNumber });
-    blockCache.set(blockNumber.toString(), block.timestamp);
-    return block.timestamp;
-  };
-
-  for (const log of filledLogs) {
-    const { orderId, amountFilled } = log.args;
-    const meta = orderMeta[orderId.toString()];
-    if (!meta) continue;
-
-    const token = meta.token;
-    const ts = await getBlockTimestamp(log.blockNumber);
-    const { dayKey, hourKey } = getBucketKeys(ts);
-
-    if (!analytics[token]) {
-      analytics[token] = { hourly: {}, daily: {}, recentTrades: [] };
-    }
-
-    const hourly = analytics[token].hourly;
-    const daily = analytics[token].daily;
-
-    if (!hourly[hourKey]) {
-      hourly[hourKey] = { volume: '0', count: 0 };
-    }
-    if (!daily[dayKey]) {
-      daily[dayKey] = { volume: '0', count: 0 };
-    }
-
-    const volume = BigInt(hourly[hourKey].volume) + amountFilled;
-    hourly[hourKey].volume = volume.toString();
-    hourly[hourKey].count += 1;
-
-    const dayVolume = BigInt(daily[dayKey].volume) + amountFilled;
-    daily[dayKey].volume = dayVolume.toString();
-    daily[dayKey].count += 1;
-
-    analytics[token].recentTrades.unshift({
-      price: meta.tick,
-      amount: amountFilled,
-      side: meta.isBid ? 'sell' : 'buy',
-      hash: log.transactionHash,
-      block: log.blockNumber,
-      timestamp: ts.toString(),
-    });
-    analytics[token].recentTrades = analytics[token].recentTrades.slice(0, 50);
-  }
-
-  lastFilledBlock = latestBlock;
-
   const snapshots = {};
   for (const token of tokens) {
     snapshots[token.address] = await fetchOrderbookSnapshot(client, token);
@@ -332,17 +210,7 @@ const writeSnapshot = async () => {
   ensureDir(OUTPUT);
   fs.writeFileSync(OUTPUT, JSON.stringify({ chainId: CHAIN_ID, updatedAt: Date.now(), tokens: snapshots }, null, 2));
 
-  ensureDir(ANALYTICS_OUTPUT);
-  fs.writeFileSync(ANALYTICS_OUTPUT, JSON.stringify({ chainId: CHAIN_ID, updatedAt: Date.now(), analytics }, null, 2));
-
-  saveState({
-    lastPlacedBlockByToken,
-    lastFilledBlock: lastFilledBlock.toString(),
-    orderMeta,
-    analytics,
-  });
-
-  process.stdout.write(`[indexer] updated ${OUTPUT} and ${ANALYTICS_OUTPUT}\n`);
+  process.stdout.write(`[indexer] updated ${OUTPUT}\n`);
 };
 
 await writeSnapshot();

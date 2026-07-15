@@ -113,7 +113,7 @@ function buildBridgeActivity(item: BridgeHistoryItem): ActivityItem {
 
   const primaryHash = item.sourceTxHash || item.steps.find((s) => s.txHash)?.txHash;
   const explorerBase = getExplorerBase(item.sourceKey);
-  const explorerUrl = primaryHash ? `${explorerBase}${primaryHash}${item.sourceKey === 'solana-devnet' ? '?cluster=devnet' : ''}` : undefined;
+  const explorerUrl = primaryHash ? `${explorerBase}${primaryHash}` : undefined;
 
   return {
     id: `bridge-${item.id}`,

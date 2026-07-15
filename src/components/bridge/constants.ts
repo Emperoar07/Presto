@@ -1,5 +1,5 @@
 import { createPublicClient, http } from 'viem';
-import { baseSepolia, sepolia } from 'wagmi/chains';
+import { arbitrumSepolia, avalancheFuji, baseSepolia, optimismSepolia, sepolia } from 'wagmi/chains';
 import { arcTestnet } from '@/config/wagmi';
 import { getArcTestnetRpcUrls, getBaseSepoliaRpcUrls } from '@/lib/rpc';
 import type {
@@ -43,13 +43,32 @@ export const NETWORKS: Record<BridgeNetworkKey, NetworkConfig> = {
     chainId: baseSepolia.id,
     helper: 'Uses the same EVM wallet path as Arc, with cheaper test routing on Base.',
   },
-  'solana-devnet': {
-    key: 'solana-devnet',
-    label: 'Solana Devnet',
-    shortLabel: 'Solana',
-    bridgeChain: 'Solana_Devnet',
-    ecosystem: 'solana',
-    helper: 'Requires a Solana wallet like Phantom when Solana is the source chain.',
+  'avalanche-fuji': {
+    key: 'avalanche-fuji',
+    label: 'Avalanche Fuji',
+    shortLabel: 'Fuji',
+    bridgeChain: 'Avalanche_Fuji',
+    ecosystem: 'evm',
+    chainId: avalancheFuji.id,
+    helper: 'Uses native USDC on Avalanche Fuji through Circle CCTP V2.',
+  },
+  'arbitrum-sepolia': {
+    key: 'arbitrum-sepolia',
+    label: 'Arbitrum Sepolia',
+    shortLabel: 'Arbitrum',
+    bridgeChain: 'Arbitrum_Sepolia',
+    ecosystem: 'evm',
+    chainId: arbitrumSepolia.id,
+    helper: 'Uses native USDC on Arbitrum Sepolia through Circle CCTP V2.',
+  },
+  'optimism-sepolia': {
+    key: 'optimism-sepolia',
+    label: 'Optimism Sepolia',
+    shortLabel: 'Optimism',
+    bridgeChain: 'Optimism_Sepolia',
+    ecosystem: 'evm',
+    chainId: optimismSepolia.id,
+    helper: 'Uses native USDC on Optimism Sepolia through Circle CCTP V2.',
   },
 };
 
@@ -57,7 +76,9 @@ export const BRIDGE_NETWORKS: BridgeNetworkKey[] = [
   'arc',
   'ethereum-sepolia',
   'base-sepolia',
-  'solana-devnet',
+  'avalanche-fuji',
+  'arbitrum-sepolia',
+  'optimism-sepolia',
 ];
 
 // ---------------------------------------------------------------------------
@@ -68,22 +89,23 @@ export const BRIDGE_USDC_ADDRESSES: Record<BridgeNetworkKey, string> = {
   arc: '0x3600000000000000000000000000000000000000',
   'ethereum-sepolia': '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
   'base-sepolia': '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-  'solana-devnet': '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+  'avalanche-fuji': '0x5425890298aed601595a70AB815c96711a31Bc65',
+  'arbitrum-sepolia': '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
+  'optimism-sepolia': '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
 };
 
 export const CCTP_DOMAIN_IDS: Record<BridgeNetworkKey, number> = {
   arc: 26,
   'ethereum-sepolia': 0,
   'base-sepolia': 6,
-  'solana-devnet': 5,
+  'avalanche-fuji': 1,
+  'arbitrum-sepolia': 3,
+  'optimism-sepolia': 2,
 };
 
 // ---------------------------------------------------------------------------
 // RPC / transport
 // ---------------------------------------------------------------------------
-
-export const SOLANA_DEVNET_RPC_URL =
-  process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_URL || 'https://api.devnet.solana.com';
 
 export const AUTO_ESTIMATE_COOLDOWN_MS = 30_000;
 export const BRIDGE_HISTORY_STORAGE_KEY = 'prestodex-bridge-history';
@@ -94,7 +116,7 @@ export const BRIDGE_HISTORY_STORAGE_KEY = 'prestodex-bridge-history';
 
 export const EVM_NETWORK_PARAMS: Partial<
   Record<
-    Exclude<BridgeNetworkKey, 'solana-devnet'>,
+    BridgeNetworkKey,
     {
       chainId: `0x${string}`;
       chainName: string;
@@ -127,6 +149,27 @@ export const EVM_NETWORK_PARAMS: Partial<
       : Array.from(baseSepolia.rpcUrls.default.http),
     blockExplorerUrls: ['https://sepolia.basescan.org'],
   },
+  'avalanche-fuji': {
+    chainId: '0xa869',
+    chainName: 'Avalanche Fuji',
+    nativeCurrency: avalancheFuji.nativeCurrency,
+    rpcUrls: [...avalancheFuji.rpcUrls.default.http],
+    blockExplorerUrls: [avalancheFuji.blockExplorers.default.url],
+  },
+  'arbitrum-sepolia': {
+    chainId: '0x66eee',
+    chainName: 'Arbitrum Sepolia',
+    nativeCurrency: arbitrumSepolia.nativeCurrency,
+    rpcUrls: [...arbitrumSepolia.rpcUrls.default.http],
+    blockExplorerUrls: [arbitrumSepolia.blockExplorers.default.url],
+  },
+  'optimism-sepolia': {
+    chainId: '0xaa37dc',
+    chainName: 'Optimism Sepolia',
+    nativeCurrency: optimismSepolia.nativeCurrency,
+    rpcUrls: [...optimismSepolia.rpcUrls.default.http],
+    blockExplorerUrls: [optimismSepolia.blockExplorers.default.url],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -153,6 +196,18 @@ export const evmBridgeClients: Record<string, any> = {
       { timeout: 8000 },
     ),
   }),
+  'avalanche-fuji': createPublicClient({
+    chain: avalancheFuji,
+    transport: http(avalancheFuji.rpcUrls.default.http[0], { timeout: 8000 }),
+  }),
+  'arbitrum-sepolia': createPublicClient({
+    chain: arbitrumSepolia,
+    transport: http(arbitrumSepolia.rpcUrls.default.http[0], { timeout: 8000 }),
+  }),
+  'optimism-sepolia': createPublicClient({
+    chain: optimismSepolia,
+    transport: http(optimismSepolia.rpcUrls.default.http[0], { timeout: 8000 }),
+  }),
 };
 
 // ---------------------------------------------------------------------------
@@ -177,7 +232,9 @@ export function isBridgeNetworkKey(value: string | null): value is BridgeNetwork
     value === 'arc' ||
     value === 'ethereum-sepolia' ||
     value === 'base-sepolia' ||
-    value === 'solana-devnet'
+    value === 'avalanche-fuji' ||
+    value === 'arbitrum-sepolia' ||
+    value === 'optimism-sepolia'
   );
 }
 
@@ -185,18 +242,11 @@ export function isValidEvmAddress(value: string) {
   return /^0x[a-fA-F0-9]{40}$/.test(value);
 }
 
-export function isValidSolanaAddress(value: string) {
-  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value);
-}
-
 const EVM_TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
-const SOLANA_SIG_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
 
-export function isValidTxHash(hash: unknown, networkKey: BridgeNetworkKey): boolean {
+export function isValidTxHash(hash: unknown, _networkKey: BridgeNetworkKey): boolean {
   if (typeof hash !== 'string') return false;
-  return networkKey === 'solana-devnet'
-    ? SOLANA_SIG_PATTERN.test(hash)
-    : EVM_TX_HASH_PATTERN.test(hash);
+  return EVM_TX_HASH_PATTERN.test(hash);
 }
 
 export function isValidBridgeHistoryItem(item: unknown): item is BridgeHistoryItem {
@@ -268,8 +318,14 @@ export function getExplorerBase(networkKey: BridgeNetworkKey) {
   if (networkKey === 'arc') return 'https://testnet.arcscan.app/tx/';
   if (networkKey === 'ethereum-sepolia') return 'https://sepolia.etherscan.io/tx/';
   if (networkKey === 'base-sepolia') return 'https://sepolia.basescan.org/tx/';
-  if (networkKey === 'solana-devnet') return 'https://explorer.solana.com/tx/';
+  if (networkKey === 'avalanche-fuji') return 'https://testnet.snowtrace.io/tx/';
+  if (networkKey === 'arbitrum-sepolia') return 'https://sepolia.arbiscan.io/tx/';
+  if (networkKey === 'optimism-sepolia') return 'https://sepolia-optimism.etherscan.io/tx/';
   return '';
+}
+
+export function getTransferSpeed(networkKey: BridgeNetworkKey): 'FAST' | 'SLOW' {
+  return networkKey === 'arc' || networkKey === 'avalanche-fuji' ? 'SLOW' : 'FAST';
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +359,7 @@ export function parseChainId(value: unknown) {
 export function getBridgeActionLabel(
   eventLog: string[],
   bridgeResult: BridgeSummary | null,
-  sourceEcosystem: 'evm' | 'solana',
+  _sourceEcosystem: 'evm',
 ) {
   const pendingStep = bridgeResult?.steps?.find((step) => step.state !== 'success');
   const latestEvent =
@@ -315,7 +371,7 @@ export function getBridgeActionLabel(
     '';
 
   if (latestEvent.includes('approve')) {
-    return sourceEcosystem === 'solana' ? 'PREPARING TRANSFER' : 'APPROVING USDC (CCTP)';
+    return 'APPROVING USDC (CCTP)';
   }
   if (latestEvent.includes('burn')) return 'BURNING USDC';
   if (latestEvent.includes('fetchattestation')) return 'FETCHING ATTESTATION';

@@ -5,8 +5,6 @@ import { erc20Abi } from 'viem';
 import type { BridgeNetworkKey, BalanceState } from './types';
 import {
   BRIDGE_USDC_ADDRESSES,
-  NETWORKS,
-  SOLANA_DEVNET_RPC_URL,
   evmBridgeClients,
 } from './constants';
 import { subscribePrestoDataRefresh } from '@/lib/appDataRefresh';
@@ -29,43 +27,11 @@ async function fetchEvmBalance(
   return (Number(raw) / 1e6).toString();
 }
 
-async function fetchSolanaBalance(address: string): Promise<string> {
-  const mint = BRIDGE_USDC_ADDRESSES['solana-devnet'];
-  const body = {
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'getTokenAccountsByOwner',
-    params: [
-      address,
-      { mint },
-      { encoding: 'jsonParsed' },
-    ],
-  };
-  const resp = await fetch(SOLANA_DEVNET_RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = await resp.json();
-  if (json?.error) {
-    console.warn('[bridge-balance] Solana RPC error:', json.error);
-    return '0';
-  }
-  const accounts = json?.result?.value;
-  if (!Array.isArray(accounts) || accounts.length === 0) return '0';
-  const info = accounts[0]?.account?.data?.parsed?.info?.tokenAmount;
-  return info?.uiAmountString ?? '0';
-}
-
 async function fetchBalance(
   networkKey: BridgeNetworkKey,
   address: string,
 ): Promise<string> {
   if (!address) return '0';
-  const network = NETWORKS[networkKey];
-  if (network.ecosystem === 'solana') {
-    return fetchSolanaBalance(address);
-  }
   return fetchEvmBalance(networkKey, address);
 }
 

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace Solana Devnet with Avalanche Fuji and Arbitrum Sepolia in the Circle CCTP bridge, remove all Solana code and dependencies, and remove the Analytics product surface.
+**Goal:** Replace Solana Devnet with Avalanche Fuji, Arbitrum Sepolia, and Optimism Sepolia in the Circle CCTP bridge, remove all Solana code and dependencies, and remove the Analytics product surface.
 
-**Architecture:** Keep the bridge registry in `src/components/bridge/constants.ts` as the source of truth for five EVM testnets. Use one Viem browser wallet adapter for every source and destination, with chain switching driven by registry metadata. Delete ecosystem branches and Analytics modules that no active route consumes.
+**Architecture:** Keep the bridge registry in `src/components/bridge/constants.ts` as the source of truth for six EVM testnets. Use one Viem browser wallet adapter for every source and destination, with chain switching driven by registry metadata. Delete ecosystem branches and Analytics modules that no active route consumes.
 
 **Tech Stack:** Next.js 16, React 18, TypeScript, Wagmi, Viem, Circle Bridge Kit, Circle Viem adapter, Node test runner.
 
@@ -20,7 +20,7 @@
 
 - [ ] **Step 1: Write the failing registry tests**
 
-Create tests asserting that `BRIDGE_NETWORKS` is exactly `arc`, `ethereum-sepolia`, `base-sepolia`, `avalanche-fuji`, and `arbitrum-sepolia`. Assert Circle chain names, chain IDs, CCTP domains, official USDC addresses, EVM transaction hash validation, and explorers for Fuji and Arbitrum.
+Create tests asserting that `BRIDGE_NETWORKS` is exactly `arc`, `ethereum-sepolia`, `base-sepolia`, `avalanche-fuji`, `arbitrum-sepolia`, and `optimism-sepolia`. Assert Circle chain names, chain IDs, CCTP domains, official USDC addresses, EVM transaction hash validation, and explorers for Fuji, Arbitrum, and Optimism.
 
 ```ts
 assert.deepEqual(BRIDGE_NETWORKS, [
@@ -42,7 +42,7 @@ Run: `npx tsx --test test/bridge-config.test.ts`
 
 Expected: failure because the new keys are missing and Solana remains.
 
-- [ ] **Step 3: Implement the five network registry**
+- [ ] **Step 3: Implement the six network registry**
 
 Change `BridgeNetworkKey` and `NetworkConfig` to EVM only. Import Viem definitions for `avalancheFuji` and `arbitrumSepolia`. Add the two network entries, USDC addresses, CCTP domains, wallet add metadata, public clients, explorer mappings, and validation.
 
@@ -56,7 +56,7 @@ export type BridgeNetworkKey =
 
 export type NetworkConfig = {
   key: BridgeNetworkKey;
-  bridgeChain: 'Arc_Testnet' | 'Ethereum_Sepolia' | 'Base_Sepolia' | 'Avalanche_Fuji' | 'Arbitrum_Sepolia';
+  bridgeChain: 'Arc_Testnet' | 'Ethereum_Sepolia' | 'Base_Sepolia' | 'Avalanche_Fuji' | 'Arbitrum_Sepolia' | 'Optimism_Sepolia';
   ecosystem: 'evm';
   chainId: number;
   label: string;
@@ -118,7 +118,7 @@ Use `createViemAdapterFromProvider` for every configured network. Keep source ch
 
 - [ ] **Step 4: Remove Solana balance, receipt, and explorer branches**
 
-Use ERC20 `balanceOf` and EVM receipts for all five networks. Remove Solana query methods and query suffixes from history panels and the transaction page.
+Use ERC20 `balanceOf` and EVM receipts for all six networks. Remove Solana query methods and query suffixes from history panels and the transaction page.
 
 - [ ] **Step 5: Remove Solana packages**
 
@@ -194,7 +194,7 @@ Expected: all product surface assertions pass.
 
 - [ ] **Step 1: Write a failing copy audit**
 
-Extend `test/product-surface.test.ts` to assert current product files contain `Avalanche Fuji` and `Arbitrum Sepolia`, and contain neither `Solana` nor an Analytics navigation or feature claim.
+Extend `test/product-surface.test.ts` to assert current product files contain `Avalanche Fuji`, `Arbitrum Sepolia`, and `Optimism Sepolia`, and contain neither `Solana` nor an Analytics navigation or feature claim.
 
 - [ ] **Step 2: Run the audit and verify RED**
 
@@ -204,11 +204,11 @@ Expected: failure on stale Solana and Analytics copy.
 
 - [ ] **Step 3: Rewrite the README and in app docs**
 
-Describe the five EVM bridge networks, Circle CCTP V2 flow, source chain switching, required native testnet gas, official testnet USDC, route estimation, destination address handling, retries, and explorers. Remove the Analytics section and all Solana setup.
+Describe the six EVM bridge networks, Circle CCTP V2 flow, source chain switching, required native testnet gas, official testnet USDC, route estimation, destination address handling, retries, and explorers. Remove the Analytics section and all Solana setup.
 
 - [ ] **Step 4: Update application copy and environment examples**
 
-Update bridge metadata, homepage network names, and sidebar networks. Add optional Fuji and Arbitrum public RPC examples if the runtime reads them. Do not alter unrelated existing `.env.example` work.
+Update bridge metadata, homepage network names, and sidebar networks. Add Fuji, Arbitrum, and Optimism public RPC configuration where the runtime reads it. Do not alter unrelated existing `.env.example` work.
 
 - [ ] **Step 5: Verify the copy audit GREEN**
 
@@ -243,7 +243,7 @@ Expected: every command exits zero.
 
 - [ ] **Step 3: Run local bridge page checks**
 
-Start the app on an unused port. Confirm `/bridge` renders five selectable EVM networks, Fuji and Arbitrum wallet add metadata is valid, route query parameters survive reload, and `/analytics` returns the Next.js not found page. Confirm no browser console errors occur before wallet connection.
+Start the app on an unused port. Confirm `/bridge` renders six selectable EVM networks, Fuji, Arbitrum, and Optimism wallet add metadata is valid, route query parameters survive reload, and `/analytics` returns the Next.js not found page. Confirm no browser console errors occur before wallet connection.
 
 - [ ] **Step 4: Review final diff and commit**
 

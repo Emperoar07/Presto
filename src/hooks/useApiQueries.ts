@@ -98,7 +98,7 @@ export function useForkPoolStats() {
   });
 }
 
-/** Both dex stats and pool stats in a single hook — used on swap & analytics pages. */
+/** DEX and pool stats used by the swap workspace. */
 export function useSwapPageStats() {
   const dex = useDexStats();
   const pool = usePoolStats();

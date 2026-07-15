@@ -58,7 +58,7 @@ const toc = [
   { id: 'bridge', label: 'Bridge' },
   { id: 'deploy', label: 'Deploy' },
   { id: 'portfolio', label: 'Portfolio' },
-  { id: 'analytics', label: 'Analytics and Activity' },
+  { id: 'activity', label: 'Activity' },
   { id: 'developers', label: 'Developers' },
   { id: 'privacy-policy', label: 'Privacy Policy' },
   { id: 'terms-of-use', label: 'Terms of Use' },
@@ -193,10 +193,6 @@ export default function DocsPage() {
                   Deploy
                 </Link>{' '}
                 to launch tokens, NFTs, or contracts,{' '}
-                <Link href="/analytics" className="font-medium text-primary hover:underline">
-                  Analytics
-                </Link>{' '}
-                for market summaries, and{' '}
                 <Link href="/transactions" className="font-medium text-primary hover:underline">
                   Activity
                 </Link>{' '}
@@ -335,7 +331,7 @@ export default function DocsPage() {
             <Section id="bridge" title="Bridge">
               <p>
                 The Bridge workspace uses Circle CCTP (Cross-Chain Transfer Protocol) to move USDC between Arc Testnet,
-                Ethereum Sepolia, Base Sepolia, and Solana Devnet.
+                Ethereum Sepolia, Base Sepolia, Avalanche Fuji, Arbitrum Sepolia, and Optimism Sepolia.
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
@@ -391,38 +387,11 @@ export default function DocsPage() {
               </p>
             </Section>
 
-            <Section id="analytics" title="Analytics and Activity">
-              <p>
-                The Analytics page tracks all time protocol volume, trades, and unique traders. Stats are read directly from
-                on-chain Swap and LiquidityAdded events emitted by the Hub AMM contract, scanning from the deployment block
-                with parallel chunk fetching for fast cold starts.
-              </p>
-
-              <ul className="list-disc space-y-2 pl-5">
-                <li><strong>All-time Volume</strong> shows total DEX volume since launch, normalized to USDC and including swaps plus the USDC leg of liquidity adds from the Hub AMM contract.</li>
-                <li><strong>All-time Trades</strong> counts every Swap event across all pools.</li>
-                <li><strong>Unique Traders</strong> tracks distinct wallet addresses that have executed swaps.</li>
-              </ul>
-
+            <Section id="activity" title="Activity">
               <p>
                 The Activity page shows a unified timeline of all wallet actions: swaps, liquidity adds and removals,
                 bridge transfers, sent tokens, and contract deployments. Filter by category using the tab bar.
               </p>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
-                  <p className="text-[13px] font-semibold text-slate-100">Use Analytics for</p>
-                  <p className="mt-2 text-[13px] leading-6 text-slate-300">
-                    Market summaries, lightweight pool context, and network aware stats.
-                  </p>
-                </div>
-                <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
-                  <p className="text-[13px] font-semibold text-slate-100">Use Activity for</p>
-                  <p className="mt-2 text-[13px] leading-6 text-slate-300">
-                    Recent swaps, liquidity adds, removals, and bridge actions tied to the connected wallet.
-                  </p>
-                </div>
-              </div>
             </Section>
 
             <Section id="developers" title="Developers">

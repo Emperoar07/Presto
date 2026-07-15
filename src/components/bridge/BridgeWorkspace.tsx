@@ -6,9 +6,6 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Listbox, Transition } from '@headlessui/react';
-import { WalletReadyState } from '@solana/wallet-adapter-base';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { VersionedTransaction } from '@solana/web3.js';
 import { useAccount, useChainId, useConnectorClient, useSwitchChain } from 'wagmi';
 import { arcTestnet } from '@/config/wagmi';
 import { getNetworkVisual } from '@/components/common/NetworkBadgeDropdown';
@@ -18,8 +15,6 @@ import type {
   BridgeStep,
   BridgeSummary,
   EstimateSummary,
-  SolanaProviderOption,
-  SolanaWalletProvider,
 } from './types';
 import {
   AUTO_ESTIMATE_COOLDOWN_MS,
@@ -30,11 +25,11 @@ import {
   formatBalanceLabel,
   formatUsd,
   getBridgeActionLabel,
+  getTransferSpeed,
   getEvmProviderFromConnector,
   getInjectedEvmProvider,
   isBridgeNetworkKey,
   isValidEvmAddress,
-  isValidSolanaAddress,
   parseChainId,
   sanitizeBridgeAmount,
 } from './constants';
@@ -81,16 +76,6 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function')
   }
 }
 
-// Helper to convert base64 strings to Uint8Array in the browser without relying on Node's Buffer global
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binaryString = window.atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
 // ---------------------------------------------------------------------------
 // Bridge party builders
 // ---------------------------------------------------------------------------
@@ -113,14 +98,6 @@ function buildBridgeDestinationParty(
   adapter: unknown,
   address: string,
 ): any {
-  if (network.ecosystem === 'solana') {
-    return {
-      adapter,
-      chain: network.bridgeChain,
-      ...(address ? { recipientAddress: address } : {}),
-    };
-  }
-
   return {
     adapter,
     chain: network.bridgeChain,
@@ -171,8 +148,7 @@ function BridgeNetworkSelector({
             {BRIDGE_NETWORKS.map((networkKey) => {
               const network = NETWORKS[networkKey];
               const visual = networkKey === 'arc' ? getNetworkVisual(arcTestnet.id) : null;
-              const isSolana = networkKey === 'solana-devnet';
-              const disabled = networkKey === disabledKey || isSolana;
+              const disabled = networkKey === disabledKey;
 
               return (
                 <Listbox.Option
@@ -202,9 +178,7 @@ function BridgeNetworkSelector({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold text-white">{network.label}</p>
                       <p className="text-[11px] text-slate-400">
-                        {isSolana
-                          ? 'Coming soon'
-                          : disabled
+                        {disabled
                             ? 'Already selected on the other side'
                             : `Route through ${network.shortLabel}`}
                       </p>
@@ -225,7 +199,6 @@ function BridgeNetworkSelector({
 // browser User Gesture context during transaction signing.
 // ---------------------------------------------------------------------------
 let preloadedBridgeKit: any = null;
-let preloadedSolanaKitAdapter: any = null;
 let preloadedViemAdapter: any = null;
 
 // ---------------------------------------------------------------------------
@@ -236,19 +209,6 @@ export function BridgeWorkspace() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const {
-    wallets: solanaWallets,
-    wallet: selectedSolanaWallet,
-    publicKey: solanaPublicKey,
-    connected: solanaWalletConnected,
-    connecting: solanaWalletConnecting,
-    select: selectSolanaWallet,
-    connect: connectSolanaAdapter,
-    disconnect: disconnectSolanaAdapter,
-    signTransaction: signSolanaTransaction,
-    signAllTransactions: signAllSolanaTransactions,
-    signMessage: signSolanaMessage,
-  } = useWallet();
   const initialSourceParam = searchParams.get('source');
   const initialDestinationParam = searchParams.get('destination');
   const chainId = useChainId();
@@ -256,23 +216,20 @@ export function BridgeWorkspace() {
   const { data: connectorClient } = useConnectorClient();
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const [sourceKey, setSourceKey] = useState<BridgeNetworkKey>(() => {
-    const key = isBridgeNetworkKey(initialSourceParam) ? initialSourceParam : 'arc';
-    return key === 'solana-devnet' ? 'arc' : key;
+    return isBridgeNetworkKey(initialSourceParam) ? initialSourceParam : 'arc';
   });
   const [destinationKey, setDestinationKey] = useState<BridgeNetworkKey>(() => {
     const key = isBridgeNetworkKey(initialDestinationParam) ? initialDestinationParam : 'ethereum-sepolia';
-    const fallback = key === 'solana-devnet' ? 'ethereum-sepolia' : key;
-    const resolvedSource = isBridgeNetworkKey(initialSourceParam) && initialSourceParam !== 'solana-devnet' ? initialSourceParam : 'arc';
-    if (fallback === resolvedSource) {
+    const resolvedSource = isBridgeNetworkKey(initialSourceParam) ? initialSourceParam : 'arc';
+    if (key === resolvedSource) {
       return resolvedSource === 'arc' ? 'ethereum-sepolia' : 'arc';
     }
-    return fallback;
+    return key;
   });
   const [amount, setAmount] = useState('');
   const [exactAmountMode, setExactAmountMode] = useState(false);
   const [manualDestination, setManualDestination] = useState('');
   const [useManualDestination, setUseManualDestination] = useState(false);
-  const [solanaAddress, setSolanaAddress] = useState('');
   const [estimate, setEstimate] = useState<EstimateSummary | null>(null);
   const [bridgeResult, setBridgeResult] = useState<BridgeSummary | null>(null);
   const [eventLog, setEventLog] = useState<string[]>([]);
@@ -280,7 +237,6 @@ export function BridgeWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
   const [isBridging, setIsBridging] = useState(false);
-  const [isConnectingSolana, setIsConnectingSolana] = useState(false);
   const [isAddingChain, setIsAddingChain] = useState(false);
   const [activeWalletChainId, setActiveWalletChainId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -324,8 +280,6 @@ export function BridgeWorkspace() {
     return () => observer.disconnect();
   }, [historyOpen]);
 
-  const [solanaProviderKey, setSolanaProviderKey] = useState<string | null>(null);
-  const [solanaWalletPickerOpen, setSolanaWalletPickerOpen] = useState(false);
   const [bridgeStatusCard, setBridgeStatusCard] = useState<{
     state: 'pending' | 'success' | 'error';
     message: string;
@@ -337,51 +291,30 @@ export function BridgeWorkspace() {
 
   const sourceNetwork = NETWORKS[sourceKey];
   const destinationNetwork = NETWORKS[destinationKey];
-  const isCrossEcosystem = sourceNetwork.ecosystem !== destinationNetwork.ecosystem;
-  const solanaOptions = useMemo<SolanaProviderOption[]>(
-    () =>
-      solanaWallets
-        .filter((wallet) => wallet.readyState === WalletReadyState.Installed || wallet.readyState === WalletReadyState.Loadable)
-        .map((wallet) => ({
-          key: wallet.adapter.name,
-          label: wallet.adapter.name,
-          icon: wallet.adapter.icon,
-          adapter: wallet.adapter,
-        })),
-    [solanaWallets],
-  );
   const effectiveChainId = activeWalletChainId ?? chainId;
   const isArcVisible = isArcChain(effectiveChainId || arcTestnet.id);
   const needsEvmChainSwitch =
-    sourceNetwork.ecosystem === 'evm' &&
-    typeof sourceNetwork.chainId === 'number' &&
     effectiveChainId !== null &&
     effectiveChainId !== sourceNetwork.chainId;
 
   // ---- Resolved addresses ----
 
-  // Cross-ecosystem: source and destination use different wallet types.
   const resolvedDestinationAddress = useMemo(() => {
     if (useManualDestination && manualDestination.trim()) return manualDestination.trim();
-    if (destinationNetwork.ecosystem === 'solana') return solanaAddress;
     return evmAddress ?? '';
-  }, [destinationNetwork.ecosystem, evmAddress, solanaAddress, useManualDestination, manualDestination]);
+  }, [evmAddress, useManualDestination, manualDestination]);
 
-  const sourceAddress = sourceNetwork.ecosystem === 'solana' ? solanaAddress : evmAddress ?? '';
+  const sourceAddress = evmAddress ?? '';
 
   const destinationAddressIsValid = useMemo(() => {
     if (!resolvedDestinationAddress) return false;
-    return destinationNetwork.ecosystem === 'solana'
-      ? isValidSolanaAddress(resolvedDestinationAddress)
-      : isValidEvmAddress(resolvedDestinationAddress);
-  }, [destinationNetwork.ecosystem, resolvedDestinationAddress]);
+    return isValidEvmAddress(resolvedDestinationAddress);
+  }, [resolvedDestinationAddress]);
 
   const sourceAddressIsValid = useMemo(() => {
     if (!sourceAddress) return false;
-    return sourceNetwork.ecosystem === 'solana'
-      ? isValidSolanaAddress(sourceAddress)
-      : isValidEvmAddress(sourceAddress);
-  }, [sourceAddress, sourceNetwork.ecosystem]);
+    return isValidEvmAddress(sourceAddress);
+  }, [sourceAddress]);
 
   // ---- Fee & receive amount computation ----
 
@@ -436,132 +369,7 @@ export function BridgeWorkspace() {
     isBridging,
   });
 
-  // Solana bridge provider (used by createAdapterFor)
-  const solanaBridgeProvider = useMemo<SolanaWalletProvider | null>(() => {
-    if (!selectedSolanaWallet?.adapter) return null;
-
-    return {
-      isConnected: solanaWalletConnected,
-      address: solanaPublicKey?.toBase58(),
-      connect: async () => {
-        if (!solanaWalletConnected) {
-          await connectSolanaAdapter();
-        }
-        // After connect, the adapter's publicKey is the most reliable source
-        // since React state (solanaPublicKey) may not have updated yet.
-        const address =
-          selectedSolanaWallet.adapter.publicKey?.toBase58?.() ??
-          solanaPublicKey?.toBase58() ??
-          '';
-        if (!address) {
-          throw new Error('Connected Solana wallet did not return a valid address.');
-        }
-        return { address };
-      },
-      disconnect: async () => {
-        await disconnectSolanaAdapter();
-      },
-      signTransaction: async (transaction) => {
-        bridgeDebug('[solana-provider] signTransaction requested');
-        // Circle's adapter calls this via signVersionedTransaction path.
-        // The adapter's executeSerializedTransaction / executeTransaction
-        // handles sending via RPC after we return the signed tx.
-        // We just need to sign and return the VersionedTransaction.
-        if (!signSolanaTransaction) {
-          throw new Error('The selected Solana wallet cannot sign transactions. Check if it is fully connected.');
-        }
-        let tx: VersionedTransaction;
-        try {
-          if (typeof transaction === 'string') {
-            tx = VersionedTransaction.deserialize(base64ToUint8Array(transaction));
-          } else if (transaction instanceof Uint8Array) {
-            tx = VersionedTransaction.deserialize(transaction);
-          } else {
-            tx = transaction as VersionedTransaction;
-          }
-          bridgeDebug('[solana-provider] deserialized transaction successfully. Requesting wallet signature...');
-          const signed = await signSolanaTransaction(tx);
-          bridgeDebug('[solana-provider] transaction signed successfully');
-          return signed;
-        } catch (err) {
-          bridgeDebugError('[solana-provider] signTransaction failed:', err);
-          throw err;
-        }
-      },
-      signAllTransactions: signAllSolanaTransactions
-        ? async (transactions) => {
-            bridgeDebug('[solana-provider] signAllTransactions requested, count:', transactions.length);
-            try {
-              const deserialized = (transactions as unknown[]).map((t) => {
-                if (typeof t === 'string') return VersionedTransaction.deserialize(base64ToUint8Array(t));
-                if (t instanceof Uint8Array) return VersionedTransaction.deserialize(t);
-                return t as VersionedTransaction;
-              });
-              const signed = await signAllSolanaTransactions(deserialized);
-              bridgeDebug('[solana-provider] all transactions signed successfully');
-              return signed;
-            } catch (err) {
-              bridgeDebugError('[solana-provider] signAllTransactions failed:', err);
-              throw err;
-            }
-          }
-        : undefined,
-      signMessage: signSolanaMessage
-        ? async (message) => {
-            bridgeDebug('[solana-provider] signMessage requested');
-            try {
-              const signature = await signSolanaMessage(message);
-              bridgeDebug('[solana-provider] message signed successfully');
-              return { signature };
-            } catch (err) {
-              bridgeDebugError('[solana-provider] signMessage failed:', err);
-              throw err;
-            }
-          }
-        : undefined,
-    };
-  }, [
-    connectSolanaAdapter,
-    disconnectSolanaAdapter,
-    selectedSolanaWallet,
-    signSolanaTransaction,
-    signAllSolanaTransactions,
-    signSolanaMessage,
-    solanaPublicKey,
-    solanaWalletConnected,
-  ]);
-
-  async function createAdapterFor(networkKey: BridgeNetworkKey, isDestination = false, isRetry = false) {
-    if (networkKey === 'solana-devnet') {
-      let providerToUse = solanaBridgeProvider;
-      if (!providerToUse && isRetry) {
-        providerToUse = {
-          isConnected: true,
-          address: '11111111111111111111111111111111',
-          connect: async () => ({ address: '11111111111111111111111111111111' }),
-          disconnect: async () => {},
-          signTransaction: async (tx: any) => tx,
-          signAllTransactions: async (txs: any[]) => txs,
-          signMessage: async (msg: any) => ({ signature: new Uint8Array() }),
-        } as any;
-      }
-
-      if (!providerToUse) {
-        if (isDestination) {
-          return undefined;
-        }
-        throw new Error('A Solana wallet like Phantom is required when Solana Devnet participates in the bridge.');
-      }
-
-      const mod = preloadedSolanaKitAdapter || (await import('@circle-fin/adapter-solana-kit'));
-      const { createSolanaKitAdapterFromProvider } = mod;
-
-      const adapter = createSolanaKitAdapterFromProvider({
-        provider: providerToUse,
-      });
-      return adapter;
-    }
-
+  async function createAdapterFor(networkKey: BridgeNetworkKey, _isDestination = false, isRetry = false) {
     const connectorProvider = getEvmProviderFromConnector(connectorClient as { transport?: { value?: unknown } } | undefined);
 
     let ethereumProvider: any =
@@ -606,7 +414,7 @@ export function BridgeWorkspace() {
     const { BridgeKit, TransferSpeed } = mod;
     return {
       kit: new BridgeKit(),
-      transferSpeed: TransferSpeed.FAST,
+      transferSpeed: TransferSpeed[getTransferSpeed(sourceKey)],
     };
   }
 
@@ -631,9 +439,6 @@ export function BridgeWorkspace() {
         if (!preloadedBridgeKit) {
           preloadedBridgeKit = await import('@circle-fin/bridge-kit');
         }
-        if (!preloadedSolanaKitAdapter) {
-          preloadedSolanaKitAdapter = await import('@circle-fin/adapter-solana-kit');
-        }
         if (!preloadedViemAdapter) {
           preloadedViemAdapter = await import('@circle-fin/adapter-viem-v2');
         }
@@ -646,23 +451,6 @@ export function BridgeWorkspace() {
 
     setHasMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (selectedSolanaWallet?.adapter?.name) {
-      setSolanaProviderKey(selectedSolanaWallet.adapter.name);
-    }
-  }, [selectedSolanaWallet]);
-
-  useEffect(() => {
-    if (solanaPublicKey) {
-      setSolanaAddress(solanaPublicKey.toBase58());
-      return;
-    }
-
-    if (!solanaWalletConnected) {
-      setSolanaAddress('');
-    }
-  }, [solanaPublicKey, solanaWalletConnected]);
 
   useEffect(() => {
     const provider = getEvmProviderFromConnector(connectorClient as { transport?: { value?: unknown } } | undefined) ?? getInjectedEvmProvider();
@@ -790,59 +578,9 @@ export function BridgeWorkspace() {
     [amount, destinationKey, resolvedDestinationAddress, sourceAddress, sourceKey],
   );
 
-  // ---- Solana wallet connection ----
-
-  async function connectSolanaWallet() {
-    setSolanaWalletPickerOpen(true);
-  }
-
-  async function connectSelectedSolanaWallet(optionKey?: string) {
-    if (solanaOptions.length === 0) {
-      setErrorMessage('Install a Solana wallet like Phantom to bridge from or into Solana Devnet.');
-      setSolanaWalletPickerOpen(true);
-      return;
-    }
-
-    const nextProviderKey = optionKey ?? solanaProviderKey ?? solanaOptions[0]?.key ?? null;
-    if (!nextProviderKey) {
-      setErrorMessage('Choose a Solana wallet to continue.');
-      setSolanaWalletPickerOpen(true);
-      return;
-    }
-
-    const nextOption = solanaOptions.find((option) => option.key === nextProviderKey) ?? null;
-
-    if (!nextOption) {
-      setErrorMessage('Choose a Solana wallet to continue.');
-      setSolanaWalletPickerOpen(true);
-      return;
-    }
-
-    try {
-      setIsConnectingSolana(true);
-      if (selectedSolanaWallet?.adapter.name !== nextProviderKey) {
-        selectSolanaWallet(nextProviderKey as import('@solana/wallet-adapter-base').WalletName);
-        await new Promise((resolve) => window.setTimeout(resolve, 50));
-      }
-      await nextOption.adapter.connect();
-      const nextAddress = nextOption.adapter.publicKey?.toBase58?.() ?? '';
-      if (!nextAddress || !isValidSolanaAddress(nextAddress)) {
-        throw new Error('Connected Solana wallet did not return a valid address.');
-      }
-      setSolanaAddress(nextAddress);
-      setSolanaProviderKey(nextProviderKey);
-      setSolanaWalletPickerOpen(false);
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Could not connect the Solana wallet.');
-    } finally {
-      setIsConnectingSolana(false);
-    }
-  }
-
   // ---- EVM chain switching ----
 
-  async function ensureEvmSourceChain(networkKey: Exclude<BridgeNetworkKey, 'solana-devnet'>) {
+  async function ensureEvmSourceChain(networkKey: BridgeNetworkKey) {
     const targetChainId = NETWORKS[networkKey].chainId;
     if (!targetChainId) return;
 
@@ -1021,7 +759,7 @@ export function BridgeWorkspace() {
               try { bridgeDebugError(`[bridge] step[${i}] ERROR:`, JSON.parse(JSON.stringify(flat, (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v))); } catch { bridgeDebugError(`[bridge] step[${i}] ERROR (raw):`, err); }
               if (err.cause) {
                 bridgeDebugError(`[bridge] step[${i}] cause:`, err.cause);
-                // Extract Solana simulation logs from trace
+                // Include simulation logs from the adapter trace when available.
                 const trace = (err.cause as any)?.trace;
                 if (trace) {
                   if (trace.logs) bridgeDebugError(`[bridge] step[${i}] SIMULATION LOGS:\n`, trace.logs);
@@ -1122,25 +860,8 @@ export function BridgeWorkspace() {
 
   // ---- Computed labels ----
 
-  const activeSolanaOption = solanaProviderKey
-    ? solanaOptions.find((option) => option.key === solanaProviderKey) ?? null
-    : null;
-  const sourceWalletLabel =
-    sourceNetwork.ecosystem === 'solana'
-      ? solanaAddress
-        ? `Solana: ${activeSolanaOption?.label ?? 'Connected'}`
-        : 'Choose Solana wallet'
-      : evmAddress
-        ? 'Wallet connected'
-        : 'Select wallet';
-  const destinationWalletLabel =
-    destinationNetwork.ecosystem === 'solana'
-      ? resolvedDestinationAddress
-        ? `Solana: ${activeSolanaOption?.label ?? 'Connected'}`
-        : 'Choose Solana wallet'
-      : resolvedDestinationAddress
-        ? 'Recipient ready'
-        : 'Select wallet';
+  const sourceWalletLabel = evmAddress ? 'Wallet connected' : 'Select wallet';
+  const destinationWalletLabel = resolvedDestinationAddress ? 'Recipient ready' : 'Select wallet';
 
   // ---- Render ----
 
@@ -1151,70 +872,34 @@ export function BridgeWorkspace() {
         const hasBridgeActivity = Boolean(statusMessage || errorMessage || estimate || bridgeResult || eventLog.length > 0);
         const sourceWalletDisplayLabel = hasMounted ? sourceWalletLabel : 'Select wallet';
         const destinationWalletDisplayLabel = hasMounted ? destinationWalletLabel : 'Select wallet';
-        const needsEvmWalletForDestination =
-          sourceNetwork.ecosystem === 'solana' &&
-          destinationNetwork.ecosystem === 'evm' &&
-          !connected &&
-          !destinationAddressIsValid;
-        const needsSolanaWalletForDestination =
-          sourceNetwork.ecosystem === 'evm' &&
-          destinationNetwork.ecosystem === 'solana' &&
-          !solanaAddress &&
-          !destinationAddressIsValid;
-
-        // Wallet mismatch: source wallet check with ecosystem-specific messages
-        const sourceWalletMissing =
-          sourceNetwork.ecosystem === 'solana'
-            ? !solanaAddress
-            : !connected;
+        const sourceWalletMissing = !connected;
 
         const primaryLabel =
-          sourceNetwork.ecosystem === 'solana' && !solanaAddress
-            ? isConnectingSolana
-              ? 'CONNECTING SOLANA'
-              : 'CONNECT SOLANA WALLET'
-            : sourceNetwork.ecosystem === 'evm' && !connected
-              ? 'CONNECT EVM WALLET'
-              : needsEvmWalletForDestination
-                ? 'CONNECT EVM WALLET FOR DESTINATION'
-                : needsSolanaWalletForDestination
-                  ? 'CONNECT SOLANA WALLET'
-                  : needsEvmChainSwitch
-                    ? isAddingChain || isSwitchingChain
-                      ? 'PREPARING NETWORK'
-                      : `SWITCH TO ${sourceNetwork.shortLabel.toUpperCase()}`
-                  : !estimate
-                    ? 'ESTIMATING ROUTE'
-                    : isBridging
-                      ? getBridgeActionLabel(eventLog, bridgeResult, sourceNetwork.ecosystem)
-                      : 'REVIEW & BRIDGE';
-        const primaryActionBusy = isConnectingSolana || isAddingChain || isSwitchingChain || isEstimating || isBridging;
+          !connected
+            ? 'CONNECT EVM WALLET'
+            : needsEvmChainSwitch
+              ? isAddingChain || isSwitchingChain
+                ? 'PREPARING NETWORK'
+                : `SWITCH TO ${sourceNetwork.shortLabel.toUpperCase()}`
+              : !estimate
+                ? 'ESTIMATING ROUTE'
+                : isBridging
+                  ? getBridgeActionLabel(eventLog, bridgeResult, sourceNetwork.ecosystem)
+                  : 'REVIEW & BRIDGE';
+        const primaryActionBusy = isAddingChain || isSwitchingChain || isEstimating || isBridging;
         const hasBridgeActivityPanel = Boolean(bridgeStatusCard || statusMessage || errorMessage || estimate || bridgeResult);
         const summaryReceiveLabel = estimate ? `~${estimatedReceiveAmount} USDC` : '--';
 
         const handlePrimaryAction = () => {
-          if (sourceNetwork.ecosystem === 'solana' && !solanaAddress) {
-            void connectSolanaWallet();
-            return;
-          }
-          if (sourceNetwork.ecosystem === 'evm' && !connected) {
+          if (!connected) {
             openConnectModal();
-            return;
-          }
-          // Cross-ecosystem: destination needs the other wallet type
-          if (needsEvmWalletForDestination) {
-            openConnectModal();
-            return;
-          }
-          if (needsSolanaWalletForDestination && !resolvedDestinationAddress) {
-            void connectSolanaWallet();
             return;
           }
           if (needsEvmChainSwitch && sourceNetwork.chainId) {
             void (async () => {
               try {
                 setIsAddingChain(true);
-                await ensureEvmSourceChain(sourceKey as Exclude<BridgeNetworkKey, 'solana-devnet'>);
+                await ensureEvmSourceChain(sourceKey);
                 setErrorMessage(null);
               } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : 'Could not add or switch the selected network.');
@@ -1237,8 +922,8 @@ export function BridgeWorkspace() {
           }
           commitRoute(nextKey, nextDestination);
           const nextNetwork = NETWORKS[nextKey];
-          if (nextNetwork.ecosystem === 'evm' && nextNetwork.chainId && effectiveChainId !== nextNetwork.chainId) {
-            void ensureEvmSourceChain(nextKey as Exclude<BridgeNetworkKey, 'solana-devnet'>).catch(() => undefined);
+          if (effectiveChainId !== nextNetwork.chainId) {
+            void ensureEvmSourceChain(nextKey).catch(() => undefined);
           }
         };
 
@@ -1257,16 +942,9 @@ export function BridgeWorkspace() {
           commitRoute(nextSource, nextDestination);
 
           const nextNetwork = NETWORKS[nextSource];
-          if (nextNetwork.ecosystem === 'evm' && nextNetwork.chainId && effectiveChainId !== nextNetwork.chainId) {
-            void ensureEvmSourceChain(nextSource as Exclude<BridgeNetworkKey, 'solana-devnet'>).catch(() => undefined);
+          if (effectiveChainId !== nextNetwork.chainId) {
+            void ensureEvmSourceChain(nextSource).catch(() => undefined);
           }
-        };
-
-        const handleSelectSolanaWallet = (optionKey: string) => {
-          setSolanaProviderKey(optionKey);
-          window.setTimeout(() => {
-            void connectSelectedSolanaWallet(optionKey);
-          }, 0);
         };
 
         return (
@@ -1298,20 +976,10 @@ export function BridgeWorkspace() {
                       <p className="text-[10px] font-medium text-slate-500">From</p>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (sourceNetwork.ecosystem === 'solana') {
-                            if (solanaAddress) {
-                              void disconnectSolanaAdapter().then(() => { setSolanaAddress(''); setErrorMessage(null); });
-                              return;
-                            }
-                            void connectSolanaWallet();
-                            return;
-                          }
-                          if (sourceNetwork.ecosystem === 'evm' && !connected) openConnectModal();
-                        }}
+                        onClick={() => { if (!connected) openConnectModal(); }}
                         className="text-[11px] font-semibold text-primary"
                       >
-                        {sourceNetwork.ecosystem === 'solana' && solanaAddress ? 'Disconnect Solana' : sourceWalletDisplayLabel}
+                        {sourceWalletDisplayLabel}
                       </button>
                     </div>
                     <div className="mt-2">
@@ -1348,7 +1016,7 @@ export function BridgeWorkspace() {
                       <p className="text-[10px] font-medium text-slate-500">To</p>
                       <button
                         type="button"
-                        onClick={() => { if (destinationNetwork.ecosystem === 'solana') void connectSolanaWallet(); }}
+                        onClick={() => { if (!connected) openConnectModal(); }}
                         className="text-[11px] font-semibold text-primary"
                       >
                         {destinationWalletDisplayLabel}
@@ -1451,13 +1119,9 @@ export function BridgeWorkspace() {
                       primaryActionBusy ||
                       (sourceWalletMissing
                         ? false
-                        : needsEvmWalletForDestination
+                        : needsEvmChainSwitch
                           ? false
-                          : needsSolanaWalletForDestination && !resolvedDestinationAddress
-                            ? false
-                            : needsEvmChainSwitch
-                              ? false
-                              : !estimate)
+                          : !estimate)
                     }
                     className="w-full rounded-[12px] py-3 text-[13px] font-extrabold text-[#0a1628] transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                     style={{ background: '#25c0f4', boxShadow: '0 6px 24px rgba(37,192,244,0.25)' }}
@@ -1600,15 +1264,6 @@ export function BridgeWorkspace() {
                       <p className="mt-2 text-[12px] font-semibold text-emerald-400">1 to 3 min</p>
                     </div>
 
-                    {/* Cross-ecosystem warning */}
-                    {isCrossEcosystem ? (
-                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 sm:col-span-2">
-                        <p className="text-[11px] text-amber-300">
-                          This is a cross-ecosystem bridge ({sourceNetwork.ecosystem.toUpperCase()} &rarr; {destinationNetwork.ecosystem.toUpperCase()}).
-                          Ensure the destination address is correct — funds sent to the wrong address cannot be recovered.
-                        </p>
-                      </div>
-                    ) : null}
                   </div>
 
                   <button
@@ -1626,59 +1281,6 @@ export function BridgeWorkspace() {
               </div>
             ) : null}
 
-            {solanaWalletPickerOpen ? (
-              <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/65 px-4 py-8">
-                <div className="w-full max-w-md rounded-[18px] border border-white/10 bg-[#151f33] p-4 shadow-[0_20px_60px_rgba(2,6,23,0.55)]">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Solana wallet</p>
-                      <p className="mt-1 text-xs text-slate-300">Choose the Solana wallet to use for this bridge route.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSolanaWalletPickerOpen(false)}
-                      className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-slate-400 transition-colors hover:border-primary/30 hover:text-primary"
-                    >
-                      Close
-                    </button>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    {solanaOptions.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-white/10 bg-[#132238] px-3 py-4 text-sm text-slate-400">
-                        No Solana wallet was detected. Install Phantom, Solflare, or Backpack and reload the page.
-                      </div>
-                    ) : (
-                      solanaOptions.map((option) => (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => handleSelectSolanaWallet(option.key)}
-                          className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#132238] px-3 py-2.5 text-left transition-colors hover:border-primary/30"
-                        >
-                          <div className="flex items-center gap-3">
-                            {option.icon ? (
-                              <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
-                                <img src={option.icon} alt={option.label} className="h-8 w-8 object-contain" />
-                              </span>
-                            ) : (
-                              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/12 text-xs font-bold text-white ring-1 ring-white/5">
-                                {option.label.slice(0, 2).toUpperCase()}
-                              </span>
-                            )}
-                            <div>
-                              <p className="text-sm font-semibold text-white">{option.label}</p>
-                              <p className="text-xs text-slate-400">Use this wallet for Solana Devnet transfers.</p>
-                            </div>
-                          </div>
-                          <span className="material-symbols-outlined text-[18px] text-slate-400">chevron_right</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </section>
         );
       }}

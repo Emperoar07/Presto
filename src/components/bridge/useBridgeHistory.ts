@@ -6,7 +6,6 @@ import type { BridgeNetworkKey, BridgeHistoryItem, BridgeSummary } from './types
 import {
   BRIDGE_HISTORY_STORAGE_KEY,
   CCTP_DOMAIN_IDS,
-  SOLANA_DEVNET_RPC_URL,
   NETWORKS,
   evmBridgeClients,
   isValidBridgeHistoryItem,
@@ -53,7 +52,7 @@ async function fetchCircleAttestationState(sourceKey: BridgeNetworkKey, burnTxHa
 }
 
 async function getEvmReceiptState(
-  networkKey: Exclude<BridgeNetworkKey, 'solana-devnet'>,
+  networkKey: BridgeNetworkKey,
   txHash: string,
 ) {
   const client = evmBridgeClients[networkKey];
@@ -70,46 +69,7 @@ async function getEvmReceiptState(
   }
 }
 
-async function getSolanaReceiptState(signature: string) {
-  try {
-    const response = await fetch(SOLANA_DEVNET_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getSignatureStatuses',
-        params: [[signature], { searchTransactionHistory: true }],
-      }),
-    });
-
-    if (!response.ok) return { confirmed: false, failed: false };
-
-    const payload = (await response.json()) as {
-      result?: {
-        value?: Array<{
-          confirmationStatus?: string | null;
-          err?: unknown;
-        } | null>;
-      };
-    };
-
-    const status = payload.result?.value?.[0];
-    if (!status) return { confirmed: false, failed: false };
-
-    return {
-      confirmed:
-        status.confirmationStatus === 'confirmed' ||
-        status.confirmationStatus === 'finalized',
-      failed: Boolean(status.err),
-    };
-  } catch {
-    return { confirmed: false, failed: false };
-  }
-}
-
 async function getTransactionState(networkKey: BridgeNetworkKey, txHash: string) {
-  if (networkKey === 'solana-devnet') return getSolanaReceiptState(txHash);
   return getEvmReceiptState(networkKey, txHash);
 }
 
@@ -240,10 +200,6 @@ export function useBridgeHistory(deps: {
       createAdapterFor(item.destinationKey, true, false), // destination is required to sign the mint, so isRetry = false
     ]);
     bridgeDebug('[bridge-retry] Adapters created. Calling kit.retry()...');
-
-    if (NETWORKS[item.destinationKey].ecosystem === 'solana' && !toAdapter) {
-      throw new Error('A Solana wallet like Phantom is required and must be connected to claim this transaction on Solana.');
-    }
 
     // RetryContext expects adapters directly, not { adapter, chain } wrappers.
     // Pass toAdapter for all ecosystems to ensure manual mints prompt the wallet popup.

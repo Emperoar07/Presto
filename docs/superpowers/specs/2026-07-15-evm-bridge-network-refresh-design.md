@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace the unfinished Solana Devnet bridge integration with Avalanche Fuji and Arbitrum Sepolia. The bridge will support USDC transfers among Arc Testnet, Ethereum Sepolia, Base Sepolia, Avalanche Fuji, and Arbitrum Sepolia through Circle Bridge Kit and CCTP V2.
+Replace the unfinished Solana Devnet bridge integration with Avalanche Fuji, Arbitrum Sepolia, and Optimism Sepolia. The bridge will support USDC transfers among Arc Testnet, Ethereum Sepolia, Base Sepolia, Avalanche Fuji, Arbitrum Sepolia, and Optimism Sepolia through Circle Bridge Kit and CCTP V2.
 
 ## Product Scope
 
@@ -25,6 +25,13 @@ Arbitrum Sepolia will use:
 * EVM chain ID `421614`
 * CCTP domain `3`
 * USDC `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d`
+
+Optimism Sepolia will use:
+
+* Bridge Kit chain `Optimism_Sepolia`
+* EVM chain ID `11155420`
+* CCTP domain `2`
+* USDC `0x5fd84259d66Cd46123540766Be93DFE6D43130D7`
 
 Public Viem chain definitions will provide default RPC endpoints, native currencies, and explorer URLs. Optional public environment RPC values may override those defaults where the application already supports overrides.
 
@@ -51,13 +58,13 @@ The bridge page will render the workspace directly because no ecosystem specific
 
 ## History And Recovery
 
-Bridge history accepts only the five configured EVM networks. Receipt reconciliation uses a Viem public client for each network. Circle attestation lookup uses the source network CCTP domain. Retry creates fresh Viem adapters from the connected browser wallet.
+Bridge history accepts only the six configured EVM networks. Receipt reconciliation uses a Viem public client for each network. Circle attestation lookup uses the source network CCTP domain. Retry creates fresh Viem adapters from the connected browser wallet.
 
 The transaction history page and bridge history panel will use the configured EVM explorer for every supported source and destination.
 
 ## Documentation
 
-The README and in app docs will describe the five supported EVM testnets, Circle Bridge Kit, CCTP V2, wallet chain switching, destination addresses, estimation, retries, and testnet funding requirements. Homepage copy, bridge metadata, and sidebar network labels will match the implemented network list.
+The README and in app docs will describe the six supported EVM testnets, Circle Bridge Kit, CCTP V2, wallet chain switching, destination addresses, estimation, retries, and testnet funding requirements. Homepage copy, bridge metadata, and sidebar network labels will match the implemented network list.
 
 ## Analytics Removal
 
@@ -69,13 +76,13 @@ Shared pool, price, transaction, and indexer behavior used by Swap, Pools, Portf
 
 Tests will verify:
 
-* The complete five network registry
+* The complete six network registry
 * Bridge Kit chain names, chain IDs, CCTP domains, and official USDC addresses
 * Network and route validation
 * EVM transaction hash validation for every network
 * Explorer URL selection
 * History rejection for removed Solana records
-* Wallet add and switch metadata for Fuji and Arbitrum Sepolia
+* Wallet add and switch metadata for Fuji, Arbitrum Sepolia, and Optimism Sepolia
 * Absence of Analytics navigation, routes, and API output
 
 Final verification will run bridge focused tests, all API tests, all contract tests, TypeScript, lint, and a production build. A local runtime check will confirm the bridge page renders the new network choices without Solana code or copy.

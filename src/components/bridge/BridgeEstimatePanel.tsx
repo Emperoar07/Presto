@@ -152,7 +152,7 @@ export function BridgeEstimatePanel({
               return (
                 <a
                   key={`${stepName}-${index}`}
-                  href={`${explorerBase}${step.txHash}${stepChainKey === 'solana-devnet' ? '?cluster=devnet' : ''}`}
+                  href={`${explorerBase}${step.txHash}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#132238] px-2 py-0.5 text-[10px] text-slate-300 transition-colors hover:border-primary/30 hover:text-primary"

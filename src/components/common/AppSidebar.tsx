@@ -6,7 +6,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { memo, useEffect, useRef, useState } from 'react';
 import { useChainId, useDisconnect, useSwitchChain } from 'wagmi';
-import { baseSepolia, sepolia } from 'wagmi/chains';
+import { arbitrumSepolia, avalancheFuji, baseSepolia, optimismSepolia, sepolia } from 'wagmi/chains';
 import { FaucetModal } from './FaucetModal';
 import { getDisplayChainName, getNetworkVisual } from './NetworkBadgeDropdown';
 import { isArcChain, isTempoNativeChain } from '@/config/contracts';
@@ -33,7 +33,7 @@ type NavLink = {
   href: string;
   label: string;
   icon: string;
-  section: 'trade' | 'account' | 'insights';
+  section: 'trade' | 'account';
   comingSoon?: boolean;
   isNew?: boolean;
 };
@@ -47,7 +47,6 @@ const NAV_LINKS: NavLink[] = [
   { href: '/deploy', label: 'Deploy', icon: 'rocket_launch', section: 'trade' },
   { href: '/portfolio', label: 'Portfolio', icon: 'pie_chart', section: 'account' },
   { href: '/transactions', label: 'Activity', icon: 'history', section: 'account' },
-  { href: '/analytics', label: 'Analytics', icon: 'bar_chart', section: 'insights' },
 ];
 
 export const AppSidebar = memo(function AppSidebar() {
@@ -82,7 +81,9 @@ export const AppSidebar = memo(function AppSidebar() {
     { key: 'arc', label: 'Arc Testnet', iconSrc: '/networks/arc.svg', chainId: arcTestnet.id },
     { key: 'ethereum-sepolia', label: 'Ethereum Sepolia', iconSrc: null, chainId: sepolia.id },
     { key: 'base-sepolia', label: 'Base Sepolia', iconSrc: null, chainId: baseSepolia.id },
-    { key: 'solana-devnet', label: 'Solana Devnet', iconSrc: null, chainId: null },
+    { key: 'avalanche-fuji', label: 'Avalanche Fuji', iconSrc: null, chainId: avalancheFuji.id },
+    { key: 'arbitrum-sepolia', label: 'Arbitrum Sepolia', iconSrc: null, chainId: arbitrumSepolia.id },
+    { key: 'optimism-sepolia', label: 'Optimism Sepolia', iconSrc: null, chainId: optimismSepolia.id },
   ] as const;
   const activeBridgeEntry = bridgeNetworkEntries.find((e) => e.key === bridgeSource) ?? bridgeNetworkEntries[0];
   const standardSupportedChains = [arcTestnet];
@@ -131,13 +132,11 @@ export const AppSidebar = memo(function AppSidebar() {
   }, []);
 
   const navLinks = NAV_LINKS.filter((link) => {
-    if (link.href === '/analytics') return true;
     if (link.href === '/bridge') return pathname === '/bridge' || isArcChain(chainId || arcTestnet.id);
     return true;
   });
   const tradeLinks = navLinks.filter((l) => l.section === 'trade');
   const accountLinks = navLinks.filter((l) => l.section === 'account');
-  const insightLinks = navLinks.filter((l) => l.section === 'insights');
 
   // Inline chain list used inside collapsed wallet dropdown
   const ChainList = () => (
@@ -348,12 +347,6 @@ export const AppSidebar = memo(function AppSidebar() {
               <div>
                 <SectionLabel label="Account" compact={compact} />
                 {accountLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} isNew={l.isNew} />)}
-              </div>
-            )}
-            {insightLinks.length > 0 && (
-              <div>
-                <SectionLabel label="Insights" compact={compact} />
-                {insightLinks.map((l) => <NavItem key={l.href} href={l.href} label={l.label} icon={l.icon} compact={compact} isNew={l.isNew} />)}
               </div>
             )}
           </nav>

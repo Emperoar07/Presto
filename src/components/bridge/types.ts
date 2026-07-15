@@ -1,4 +1,10 @@
-export type BridgeNetworkKey = 'arc' | 'ethereum-sepolia' | 'base-sepolia' | 'solana-devnet';
+export type BridgeNetworkKey =
+  | 'arc'
+  | 'ethereum-sepolia'
+  | 'base-sepolia'
+  | 'avalanche-fuji'
+  | 'arbitrum-sepolia'
+  | 'optimism-sepolia';
 
 export type EstimateFee = {
   type: 'kit' | 'provider' | 'forwarder';
@@ -63,30 +69,6 @@ export type BridgeHistoryItem = {
   rawResult?: Record<string, unknown> | null;
 };
 
-export type SolanaWalletProvider = {
-  isConnected: boolean;
-  address?: string;
-  connect(): Promise<{ address: string }>;
-  disconnect(): Promise<void>;
-  signTransaction(transaction: unknown): Promise<unknown>;
-  signAllTransactions?(transactions: unknown[]): Promise<unknown[]>;
-  signMessage?(message: Uint8Array): Promise<{ signature: Uint8Array }>;
-};
-
-export type SolanaProviderOption = {
-  key: string;
-  label: string;
-  icon?: string;
-  adapter: {
-    name: string;
-    icon?: string;
-    connect: () => Promise<void>;
-    publicKey?: {
-      toBase58?: () => string;
-    } | null;
-  };
-};
-
 export type EvmInjectedProvider = import('viem').EIP1193Provider & {
   request(args: { method: string; params?: unknown[] }): Promise<unknown>;
   on?(event: string, listener: (...args: unknown[]) => void): void;
@@ -107,8 +89,8 @@ export type NetworkConfig = {
   key: BridgeNetworkKey;
   label: string;
   shortLabel: string;
-  bridgeChain: 'Arc_Testnet' | 'Ethereum_Sepolia' | 'Base_Sepolia' | 'Solana_Devnet';
-  ecosystem: 'evm' | 'solana';
-  chainId?: number;
+  bridgeChain: 'Arc_Testnet' | 'Ethereum_Sepolia' | 'Base_Sepolia' | 'Avalanche_Fuji' | 'Arbitrum_Sepolia' | 'Optimism_Sepolia';
+  ecosystem: 'evm';
+  chainId: number;
   helper: string;
 };

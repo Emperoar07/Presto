@@ -6,13 +6,12 @@ import { PRESTO_MARKETS_URL } from '@/config/links';
 
 const FEATURES = [
   { t: 'Token Swaps', d: 'Instant onchain execution against stable hub pools. No offchain order books and no hidden routing fees.', icon: 'swap_horiz', color: '#25c0f4' },
-  { t: 'Cross Chain Bridge', d: 'Circle CCTP V2 moves USDC across Arc, Base, Ethereum, and Solana. Live fee estimates and retry support.', icon: 'link', color: '#22c55e' },
+  { t: 'Cross Chain Bridge', d: 'Circle CCTP V2 moves USDC across Arc, Ethereum, Base, Avalanche, Arbitrum, and Optimism testnets with live fee estimates and retry support.', icon: 'link', color: '#22c55e' },
   { t: 'Liquidity Pools', d: 'Provide liquidity, manage positions, and earn trading fees on every swap through your pool.', icon: 'water_drop', color: '#a78bfa' },
   { t: 'Send Tokens', d: 'Transfer any ERC20 on Arc Testnet to any address. Paste a custom contract address to load unlisted tokens.', icon: 'send', color: '#f59e0b' },
   { t: 'Deploy Hub', d: 'Launch ERC20 tokens with seed liquidity, NFT collections with public mint pages, or any contract from ABI and bytecode.', icon: 'rocket_launch', color: '#ec4899' },
   { t: 'Portfolio', d: 'Token balances, LP positions, and fee earnings. All in one dashboard.', icon: 'account_balance_wallet', color: '#06b6d4' },
   { t: 'Activity Feed', d: 'Complete history of swaps, liquidity events, bridge transfers, and deployments for your wallet.', icon: 'history', color: '#8b5cf6' },
-  { t: 'Analytics', d: 'Onchain orderbook data and trade volume summaries on supported routes.', icon: 'bar_chart', color: '#10b981' },
 ];
 
 
@@ -239,7 +238,7 @@ export default function Home() {
         <div className="mx-auto max-w-[1140px] px-4 md:px-7 text-center">
           <div className="mb-6 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#4b6280]">Bridge Supported Networks</div>
           <div className="flex flex-wrap justify-center gap-3">
-            {['Arc Testnet', 'Base Sepolia', 'Ethereum Sepolia', 'Solana Devnet'].map((name) => (
+            {['Arc Testnet', 'Ethereum Sepolia', 'Base Sepolia', 'Avalanche Fuji', 'Arbitrum Sepolia', 'Optimism Sepolia'].map((name) => (
               <div key={name} className="flex items-center rounded-[10px] border border-white/[0.06] bg-[#141e30] px-4 py-2.5">
                 <span className="text-[13px] font-semibold text-[#f1f5f9]">{name}</span>
               </div>

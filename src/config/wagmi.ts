@@ -10,7 +10,10 @@ import {
 } from '@rainbow-me/rainbowkit/wallets';
 import { createConfig } from 'wagmi';
 import {
+  arbitrumSepolia,
+  avalancheFuji,
   baseSepolia,
+  optimismSepolia,
   sepolia,
 } from 'wagmi/chains';
 import { defineChain, fallback, http } from 'viem';
@@ -76,11 +79,14 @@ const connectors = connectorsForWallets(
 
 export const config = createConfig({
   connectors,
-  chains: [arcTestnet, baseSepolia, sepolia],
+  chains: [arcTestnet, baseSepolia, sepolia, avalancheFuji, arbitrumSepolia, optimismSepolia],
   ssr: true,
   transports: {
     [arcTestnet.id]: arcTestnetTransport,
     [baseSepolia.id]: baseSepoliaTransport,
     [sepolia.id]: http(sepolia.rpcUrls.default.http[0], { timeout: 8000 }),
+    [avalancheFuji.id]: http(avalancheFuji.rpcUrls.default.http[0], { timeout: 8000 }),
+    [arbitrumSepolia.id]: http(arbitrumSepolia.rpcUrls.default.http[0], { timeout: 8000 }),
+    [optimismSepolia.id]: http(optimismSepolia.rpcUrls.default.http[0], { timeout: 8000 }),
   },
 });

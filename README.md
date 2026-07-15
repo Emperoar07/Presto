@@ -1,14 +1,13 @@
 # Presto
 
-Presto is a testnet DEX for Arc with a live normalized hub AMM, USDC bridge flows, on-chain analytics, and full liquidity management.
+Presto is a testnet DEX for Arc with a live normalized hub AMM, Circle powered USDC bridge flows, and full liquidity management.
 
 ## Features
 
 - Instant token swaps via a USDC hub-and-spoke AMM on Arc Testnet
 - SynRoute smart routing for Arc swaps through Synthra's quote and swap API
 - Bidirectional liquidity management with auto-calculated pair amounts
-- Real-time analytics tracking all time DEX volume, trades, and unique traders from on-chain events
-- USDC bridge workspace powered by Circle CCTP for Arc, Ethereum Sepolia, Base Sepolia, and Solana Devnet routes
+- USDC bridge workspace powered by Circle CCTP for Arc, Ethereum Sepolia, Base Sepolia, Avalanche Fuji, Arbitrum Sepolia, and Optimism Sepolia routes
 - Manual bridge destination address support for cross chain sends
 - Send any ERC20 token on Arc Testnet, including custom tokens by pasting a contract address
 - Deploy tokens/memecoins, NFT collections, and smart contracts directly from the browser
@@ -167,17 +166,6 @@ All deployments are tracked in localStorage per wallet and shown on the deploy l
 
 **Contracts**: `contracts/DeployableToken.sol` (ERC20 + Ownable + mint + burn) and `contracts/DeployableNFT.sol` (ERC721 + URIStorage + Ownable + public mint + owner mint).
 
-## Analytics
-
-The analytics page tracks protocol-wide stats by scanning on-chain events from block 0:
-
-- **All-time Volume**: Total protocol volume since launch, including swaps and the USDC leg of liquidity adds
-- **All-time Trades**: Count of all Swap events across every pool
-- **Unique Traders**: Distinct wallets from swap events
-- **Pool Activity**: Live table with liquidity, volume, and status per pool
-
-Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk scanning (6 concurrent), and stale-while-revalidate headers.
-
 ## Network Support
 
 | Network | Chain ID | Status |
@@ -186,7 +174,9 @@ Stats are served from `/api/dex-stats` with 60s server cache, parallel chunk sca
 | Tempo Testnet | 42431 | Supported |
 | Ethereum Sepolia | 11155111 | Bridge origin |
 | Base Sepolia | 84532 | Bridge origin |
-| Solana Devnet | N/A | Bridge origin |
+| Avalanche Fuji | 43113 | Bridge origin |
+| Arbitrum Sepolia | 421614 | Bridge origin |
+| Optimism Sepolia | 11155420 | Bridge origin |
 | Hardhat Local | 31337 | Development |
 
 ## SynRoute
