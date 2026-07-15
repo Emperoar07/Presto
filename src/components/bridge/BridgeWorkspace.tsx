@@ -233,7 +233,6 @@ export function BridgeWorkspace() {
   const [estimate, setEstimate] = useState<EstimateSummary | null>(null);
   const [bridgeResult, setBridgeResult] = useState<BridgeSummary | null>(null);
   const [eventLog, setEventLog] = useState<string[]>([]);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
   const [isBridging, setIsBridging] = useState(false);
@@ -526,7 +525,6 @@ export function BridgeWorkspace() {
     setBridgeResult(null);
     setEventLog([]);
     setErrorMessage(null);
-    setStatusMessage(null);
     setBridgeStatusCard(null);
     setConfirmOpen(false);
   }, [amount, destinationKey, sourceKey]);
@@ -631,7 +629,6 @@ export function BridgeWorkspace() {
     try {
       setIsEstimating(true);
       setErrorMessage(null);
-      setStatusMessage('Estimating route and fees...');
       setBridgeResult(null);
 
       const [{ kit, transferSpeed }, fromAdapter, toAdapter] = await Promise.all([
@@ -652,10 +649,8 @@ export function BridgeWorkspace() {
 
       bridgeDebug('[bridge] estimate result:', { amount: result.amount, fees: result.fees, gasFees: result.gasFees });
       setEstimate(result);
-      setStatusMessage('Route ready.');
     } catch (error) {
       setEstimate(null);
-      setStatusMessage(null);
       setErrorMessage(error instanceof Error ? error.message : 'Could not estimate the bridge route.');
     } finally {
       setIsEstimating(false);
@@ -687,7 +682,6 @@ export function BridgeWorkspace() {
 
       setIsBridging(true);
       setErrorMessage(null);
-      setStatusMessage('Preparing the crosschain transfer...');
       setBridgeStatusCard({
         state: 'pending',
         message: 'Bridge submitted and waiting for completion.',
@@ -779,7 +773,6 @@ export function BridgeWorkspace() {
       }
 
       setBridgeResult(result);
-      setStatusMessage(result.state === 'success' ? 'Bridge completed successfully.' : 'Bridge submitted. Monitor the steps below.');
       setBridgeStatusCard({
         state: result.state === 'success' ? 'success' : 'pending',
         message: result.state === 'success' ? 'Bridge completed successfully.' : 'Bridge is still pending.',
@@ -807,7 +800,6 @@ export function BridgeWorkspace() {
     } catch (error) {
       bridgeDebugError('[bridge] Bridge failed:', error);
       setBridgeResult(null);
-      setStatusMessage(null);
       setErrorMessage(error instanceof Error ? error.message : 'Bridge execution failed.');
       setBridgeStatusCard({
         state: 'error',
@@ -869,7 +861,6 @@ export function BridgeWorkspace() {
     <ConnectButton.Custom>
       {({ account, mounted, openConnectModal }) => {
         const connected = mounted && Boolean(account);
-        const hasBridgeActivity = Boolean(statusMessage || errorMessage || estimate || bridgeResult || eventLog.length > 0);
         const sourceWalletDisplayLabel = hasMounted ? sourceWalletLabel : 'Select wallet';
         const destinationWalletDisplayLabel = hasMounted ? destinationWalletLabel : 'Select wallet';
         const sourceWalletMissing = !connected;
@@ -887,7 +878,7 @@ export function BridgeWorkspace() {
                   ? getBridgeActionLabel(eventLog, bridgeResult, sourceNetwork.ecosystem)
                   : 'REVIEW & BRIDGE';
         const primaryActionBusy = isAddingChain || isSwitchingChain || isEstimating || isBridging;
-        const hasBridgeActivityPanel = Boolean(bridgeStatusCard || statusMessage || errorMessage || estimate || bridgeResult);
+        const hasBridgeActivityPanel = Boolean(bridgeStatusCard || errorMessage || estimate || bridgeResult);
         const summaryReceiveLabel = estimate ? `~${estimatedReceiveAmount} USDC` : '--';
 
         const handlePrimaryAction = () => {
@@ -1141,7 +1132,6 @@ export function BridgeWorkspace() {
               <div className="mt-5">
                 <BridgeEstimatePanel
                   bridgeStatusCard={bridgeStatusCard}
-                  statusMessage={statusMessage}
                   errorMessage={errorMessage}
                   estimate={estimate}
                   bridgeResult={bridgeResult}

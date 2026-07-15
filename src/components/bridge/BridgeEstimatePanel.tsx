@@ -5,7 +5,6 @@ import { formatUsd, getExplorerBase } from './constants';
 
 export function BridgeEstimatePanel({
   bridgeStatusCard,
-  statusMessage,
   errorMessage,
   estimate,
   bridgeResult,
@@ -16,7 +15,6 @@ export function BridgeEstimatePanel({
   onExactAmountModeChange,
 }: {
   bridgeStatusCard: BridgeStatusCard | null;
-  statusMessage: string | null;
   errorMessage: string | null;
   estimate: EstimateSummary | null;
   bridgeResult: BridgeSummary | null;
@@ -26,7 +24,7 @@ export function BridgeEstimatePanel({
   exactAmountMode: boolean;
   onExactAmountModeChange: (v: boolean) => void;
 }) {
-  const hasBridgeActivity = Boolean(statusMessage || errorMessage || estimate || bridgeResult);
+  const hasBridgeActivity = Boolean(errorMessage || estimate || bridgeResult);
 
   let totalUsdc = 0;
   let nativeGasEntries: { token: string; amount: number }[] = [];
@@ -58,25 +56,6 @@ export function BridgeEstimatePanel({
       className="mt-3 overflow-hidden rounded-[12px]"
       style={{ background: '#131d2e', border: '1px solid rgba(255,255,255,0.07)' }}
     >
-      {/* ── Status bar ── */}
-      <div
-        className="flex items-center gap-2 px-3 py-2"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-      >
-        <span
-          className={`inline-flex h-[6px] w-[6px] flex-shrink-0 rounded-full ${
-            bridgeStatusCard?.state === 'success'
-              ? 'bg-emerald-400'
-              : bridgeStatusCard?.state === 'error'
-                ? 'bg-rose-400'
-                : 'bg-amber-400 animate-pulse'
-          }`}
-        />
-        <span className="flex-1 truncate text-[11px] text-slate-400">
-          {statusMessage ?? (errorMessage ? 'Bridge needs attention.' : 'Preparing the transfer...')}
-        </span>
-      </div>
-
       {/* ── Error message ── */}
       {errorMessage ? (
         <div className="mx-3 mt-2 rounded-lg border border-rose-500/20 bg-rose-500/5 px-2.5 py-1.5 text-[11px] text-rose-300">
