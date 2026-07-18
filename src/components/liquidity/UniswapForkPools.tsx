@@ -69,6 +69,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   const [loaded, setLoaded] = useState(false);
   const [openPair, setOpenPair] = useState<string | null>(null);
   const [mode, setMode] = useState<'add' | 'remove'>('add');
+  const [removeSource, setRemoveSource] = useState<'rewards' | 'wallet'>('rewards');
   const [addToken, setAddToken] = useState('');
   const [addHub, setAddHub] = useState('');
   const [removeLp, setRemoveLp] = useState('');
@@ -96,7 +97,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
                 publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'stakedLp', args: [address] }) as Promise<bigint>,
                 publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'principalUsdc', args: [address] }) as Promise<bigint>,
                 publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'claimableOf', args: [address] }) as Promise<bigint>,
-              ])
+              ]).catch(() => [0n, 0n, 0n] as const)
             : Promise.resolve([0n, 0n, 0n] as const);
           const [reserves, token0, totalSupply, userLp, [stakedLp, principalUsdc, claimableUsyc]] = await Promise.all([
             publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' }) as Promise<readonly [bigint, bigint, number]>,
@@ -303,7 +304,8 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     if (!walletClient || !publicClient || !address) return;
     if (!removeLp || Number(removeLp) <= 0) return toast.error('Enter an LP amount');
     let liquidity = parseUnits(removeLp, 18);
-    const availableLp = pool.stakedLp > 0n ? pool.stakedLp : pool.userLp;
+    const useRewardLp = removeSource === 'rewards' && pool.stakedLp > 0n;
+    const availableLp = useRewardLp ? pool.stakedLp : pool.userLp;
     if (liquidity > availableLp) liquidity = availableLp;
     if (liquidity <= 0n) return toast.error('No LP position');
     if (pool.totalSupply <= 0n) return toast.error('Pool has no liquidity');
@@ -315,7 +317,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     setBusy(true);
     try {
       let hash: `0x${string}`;
-      if (rewardsConfigured && pool.stakedLp > 0n) {
+      if (rewardsConfigured && useRewardLp) {
         hash = await walletClient.writeContract({
           address: CIRBTC_REWARDS_ADDRESS,
           abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
@@ -359,7 +361,8 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   // Shared add/remove manager body used by both the All Pools row and the My Positions card.
   const renderManager = (pool: ForkPool) => {
     const { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate } = computeDerived(pool);
-    const removableLp = Number(formatUnits(pool.stakedLp > 0n ? pool.stakedLp : pool.userLp, 18));
+    const useRewardLp = removeSource === 'rewards' && pool.stakedLp > 0n;
+    const removableLp = Number(formatUnits(useRewardLp ? pool.stakedLp : pool.userLp, 18));
 
     let estLp = '--';
     if (addToken && Number(addToken) > 0 && pool.reserveToken > 0n && pool.totalSupply > 0n) {
@@ -492,6 +495,21 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
           ) : (
             <div className="overflow-hidden rounded-[8px] border border-white/[0.06] bg-[#172134]">
               <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-3 py-2">
+                {pool.stakedLp > 0n && pool.userLp > 0n && (
+                  <div className="mr-2 flex rounded-[7px] border border-white/[0.08] bg-[#11192a] p-0.5">
+                    {(['rewards', 'wallet'] as const).map((source) => (
+                      <button
+                        key={source}
+                        type="button"
+                        onClick={() => { setRemoveSource(source); setRemoveLp(''); }}
+                        className="rounded-[5px] px-2.5 py-1 text-[10px] font-bold"
+                        style={removeSource === source ? { background: '#263347', color: '#f1f5f9' } : { color: '#64748b' }}
+                      >
+                        {source === 'rewards' ? 'Rewards LP' : 'Wallet LP'}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {[0.25, 0.5, 1].map((f) => (
                   <button key={f} type="button" onClick={() => presetRemove(f)}
                     className="rounded-[6px] border border-white/[0.08] bg-[#1a2435] px-3 py-1 text-[11px] font-bold text-slate-300">
@@ -501,7 +519,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
               </div>
               <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_140px_100px_130px] xl:items-end">
                 <div>
-                  <p className="mb-1 text-[10px] text-slate-500">LP amount · available {removableLp.toFixed(4)}</p>
+                  <p className="mb-1 text-[10px] text-slate-500">{useRewardLp ? 'Rewards LP' : 'Wallet LP'} amount · available {removableLp.toFixed(4)}</p>
                   <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
                     <input type="number" value={removeLp} onChange={(e) => setRemoveLp(e.target.value)} placeholder="0.0"
                       className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />

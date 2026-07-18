@@ -263,7 +263,7 @@ export default function DocsPage() {
 
             <Section id="lp-rewards" title="LP Rewards">
               <p>
-                Liquidity providers on Arc Testnet earn <strong>USYC</strong> (US Yield Coin) based on their pool share and how long they keep liquidity in a supported pool. Rewards start when liquidity is added. There is no lockup and no separate staking step.
+                Liquidity providers on Arc Testnet earn <strong>USYC</strong> (US Yield Coin) based on their position value and how long they keep liquidity in a supported pool. New positions enter their reward campaign when liquidity is added. There is no lockup.
               </p>
 
               <DataTable
@@ -274,6 +274,11 @@ export default function DocsPage() {
                     <span key="other-rate" className="font-semibold text-[#00b87a]">0.5% APR</span>,
                     'USYC',
                   ],
+                  [
+                    <span key="cirbtc-pair" className="font-semibold text-slate-100">cirBTC / USDC</span>,
+                    <span key="cirbtc-rate" className="font-semibold text-[#00b87a]">1% APR</span>,
+                    'USYC',
+                  ],
                 ]}
               />
 
@@ -282,6 +287,7 @@ export default function DocsPage() {
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-[14px] leading-7 text-slate-300">
                   <li>Add liquidity to any supported pair on the Pools page.</li>
                   <li>Rewards begin accruing from that moment based on your pool share and the pool TVL.</li>
+                  <li>Existing cirBTC and USDC providers click <strong>Activate 1% Rewards</strong> once. The pair permit keeps activation to one transaction.</li>
                   <li>Return to the Pools page at any time. Each pair panel shows your claimable USYC balance.</li>
                   <li>Click <strong>Claim USYC</strong> to transfer your accumulated rewards directly to your wallet.</li>
                 </ol>
@@ -290,8 +296,8 @@ export default function DocsPage() {
               <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
                 <p className="text-[13px] font-semibold text-slate-100">cirBTC routing</p>
                 <p className="mt-2 text-[13px] leading-6 text-slate-300">
-                  cirBTC swaps use Synthra SynRoute so users see market based routing for BTC liquidity on Arc.
-                  The Pools page shows cirBTC through the Arc Uniswap V2 fork, while USYC rewards stay attached to Hub AMM pool shares.
+                  cirBTC swaps use Synthra Route so users see market based routing for BTC liquidity on Arc.
+                  The Pools page shows cirBTC through the Arc Uniswap V2 fork. Its 0.3% swap fee remains separate from the 1% USYC reward APR. New deposits enter rewards automatically, while an existing LP position needs one activation transaction.
                 </p>
               </div>
 
@@ -306,9 +312,10 @@ export default function DocsPage() {
                 <div className="rounded-[14px] border border-white/[0.07] bg-[#1b2434] px-4 py-4">
                   <p className="text-[13px] font-semibold text-slate-100">Reward contract</p>
                   <p className="mt-2 text-[13px] leading-6 text-slate-300">
-                    USYCRewards is a standalone contract separate from the Hub AMM, funded with{' '}
+                    Hub rewards use the standalone USYCRewards contract, funded with{' '}
                     <strong>4,000,000 USYC</strong>. Contract address:{' '}
                     <code className="text-[11px] text-slate-400">0x3454fB11Ead7a10806434daE0A7EfFd289ABb908</code>
+                    . The cirBTC campaign uses a dedicated liquidity rewards contract and pays the same USYC token.
                   </p>
                 </div>
               </div>

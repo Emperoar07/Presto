@@ -44,8 +44,11 @@ Current USYC campaign rates:
 | Pair | Annual Reward Rate |
 |------|--------------------|
 | Supported Hub AMM pairs | 0.5% APR |
+| cirBTC / USDC | 1% USYC APR |
 
-cirBTC swaps use Synthra SynRoute for BTC market routing on Arc. cirBTC liquidity is shown through the Arc Uniswap V2 fork because it should not be priced as a 1:1 Hub AMM stable pair.
+cirBTC swaps use Synthra Route for BTC market routing on Arc. Its liquidity remains in the Arc Uniswap V2 fork with a 0.3% swap fee. New liquidity joins the 1% USYC campaign automatically. Existing LP holders use Activate 1% Rewards once, then their reward balance appears and remains claimable in My Positions.
+
+The cirBTC campaign pays the same USYC token used by every current reward card. Claiming transfers USYC directly to the connected wallet. Removing activated liquidity checkpoints earned rewards before returning cirBTC and USDC.
 
 **USYCRewards contract:** `0x3454fB11Ead7a10806434daE0A7EfFd289ABb908`
 Funded with **4,000,000 USYC**.
@@ -87,6 +90,7 @@ npm run dev
 NEXT_PUBLIC_PRODUCTION_MODE=false
 NEXT_PUBLIC_HUB_AMM_ADDRESS_5042002=0x5794a8284A29493871Fbfa3c4f343D42001424D6
 NEXT_PUBLIC_USYC_REWARDS_ADDRESS=0x3454fB11Ead7a10806434daE0A7EfFd289ABb908
+NEXT_PUBLIC_CIRBTC_REWARDS_ADDRESS=your_deployed_cirbtc_rewards_contract
 NEXT_PUBLIC_PRESTO_MARKETS_URL=https://presto-markets.vercel.app
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 SYNTHRA_API_KEY=your_synthra_api_key
@@ -110,6 +114,7 @@ npm start
 npm run compile
 npx hardhat run scripts/deploy-arc.ts --network arc
 npx hardhat run scripts/deploy-usyc-rewards.ts --network arc   # deploy + fund 2M USYC
+npx hardhat run scripts/deploy-cirbtc-liquidity-rewards.ts --network arc
 npx hardhat run scripts/fund-usyc-rewards.ts --network arc     # top up existing contract
 npx hardhat run scripts/seed-arc-liquidity.ts --network arc
 npx hardhat run scripts/seed-usyc-liquidity.ts --network arc
