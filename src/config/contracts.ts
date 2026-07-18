@@ -58,8 +58,39 @@ export const UNISWAP_V2_FACTORY_ABI = parseAbi([
 export const UNISWAP_V2_PAIR_ABI = parseAbi([
   "function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
   "function token0() external view returns (address)",
+  "function token1() external view returns (address)",
   "function totalSupply() external view returns (uint256)",
   "function balanceOf(address owner) external view returns (uint256)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function name() external view returns (string)",
+  "function nonces(address owner) external view returns (uint256)",
+  "function DOMAIN_SEPARATOR() external view returns (bytes32)",
+]);
+
+export const CIRBTC_LIQUIDITY_REWARDS_ABI = parseAbi([
+  "function usyc() external view returns (address)",
+  "function cirBtc() external view returns (address)",
+  "function usdc() external view returns (address)",
+  "function pair() external view returns (address)",
+  "function router() external view returns (address)",
+  "function rewardRateBps() external view returns (uint256)",
+  "function principalPerLpX18() external view returns (uint256)",
+  "function stakedLp(address provider) external view returns (uint256)",
+  "function principalUsdc(address provider) external view returns (uint256)",
+  "function pendingRewards(address provider) external view returns (uint256)",
+  "function lastCheckpoint(address provider) external view returns (uint256)",
+  "function claimableOf(address provider) external view returns (uint256)",
+  "function contractBalance() external view returns (uint256)",
+  "function activate(uint256 lpAmount) external",
+  "function activateWithPermit(uint256 lpAmount, uint256 permitDeadline, uint8 v, bytes32 r, bytes32 s) external",
+  "function addLiquidity(uint256 cirBtcDesired, uint256 usdcDesired, uint256 cirBtcMin, uint256 usdcMin, uint256 deadline) external returns (uint256 cirBtcUsed, uint256 usdcUsed, uint256 lpMinted)",
+  "function removeLiquidity(uint256 lpAmount, uint256 cirBtcMin, uint256 usdcMin, uint256 deadline) external returns (uint256 cirBtcOut, uint256 usdcOut)",
+  "function claim() external returns (uint256 amount)",
+  "event PositionActivated(address indexed provider, uint256 lpAmount, uint256 principalAdded)",
+  "event LiquidityAdded(address indexed provider, uint256 cirBtcAmount, uint256 usdcAmount, uint256 lpAmount, uint256 principalAdded)",
+  "event LiquidityRemoved(address indexed provider, uint256 lpAmount, uint256 cirBtcAmount, uint256 usdcAmount, uint256 principalRemoved)",
+  "event RewardClaimed(address indexed provider, uint256 amount)",
 ]);
 
 export const STABLE_VAULT_ABI = [
@@ -306,4 +337,8 @@ export const DEFAULT_USYC_REWARDS_ADDRESS = '0x3454fB11Ead7a10806434daE0A7EfFd28
 
 export const USYC_REWARDS_ADDRESS: `0x${string}` = (
   process.env.NEXT_PUBLIC_USYC_REWARDS_ADDRESS ?? DEFAULT_USYC_REWARDS_ADDRESS
+) as `0x${string}`;
+
+export const CIRBTC_REWARDS_ADDRESS: `0x${string}` = (
+  process.env.NEXT_PUBLIC_CIRBTC_REWARDS_ADDRESS ?? ZERO_ADDRESS
 ) as `0x${string}`;

@@ -42,3 +42,17 @@ test('does not let stale URL state overwrite a selected bridge source', () => {
   assert.match(workspace, /\}, \[searchParams\]\);/);
   assert.doesNotMatch(workspace, /\[destinationKey, searchParams, sourceKey\]/);
 });
+
+test('configures automatic cirBTC LP rewards without changing the swap fee', () => {
+  const contracts = read('src/config/contracts.ts');
+  const pools = read('src/components/liquidity/UniswapForkPools.tsx');
+
+  assert.match(contracts, /CIRBTC_LIQUIDITY_REWARDS_ABI/);
+  assert.match(contracts, /NEXT_PUBLIC_CIRBTC_REWARDS_ADDRESS/);
+  assert.match(contracts, /activateWithPermit/);
+  assert.match(contracts, /claimableOf/);
+  assert.match(pools, /Activate 1% Rewards/);
+  assert.match(pools, /0\.3% swap fee/);
+  assert.match(pools, /1% USYC APR/);
+  assert.match(pools, /Claim USYC/);
+});

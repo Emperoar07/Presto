@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatUnits, parseUnits, type Abi, type Address, type PublicClient } from 'viem';
+import { formatUnits, parseSignature, parseUnits, type Abi, type Address, type PublicClient } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
 import { getHubToken, getTokens, isHubToken, type Token } from '@/config/tokens';
 import { approveCall, contractCall, sendAtomicBatch, walletSupportsAtomicBatch } from '@/lib/batchCalls';
 import {
+  CIRBTC_LIQUIDITY_REWARDS_ABI,
+  CIRBTC_REWARDS_ADDRESS,
   getUniswapV2Addresses,
   UNISWAP_V2_FACTORY_ABI,
   UNISWAP_V2_PAIR_ABI,
@@ -36,6 +38,9 @@ type ForkPool = {
   reserveHub: bigint;
   totalSupply: bigint;
   userLp: bigint;
+  stakedLp: bigint;
+  principalUsdc: bigint;
+  claimableUsyc: bigint;
   userTokenBal: bigint;
   userHubBal: bigint;
 };
@@ -52,6 +57,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
 
   const fork = getUniswapV2Addresses(chainId);
   const hub = getHubToken(chainId);
+  const rewardsConfigured = chainId === 5042002 && CIRBTC_REWARDS_ADDRESS.toLowerCase() !== ZERO;
 
   // Known synchronously, so rows can render instantly while reserves hydrate.
   const candidates = useMemo(
@@ -85,11 +91,19 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
           })) as Address;
           if (!pair || pair.toLowerCase() === ZERO) return null;
 
-          const [reserves, token0, totalSupply, userLp] = await Promise.all([
+          const rewardReads = address && rewardsConfigured
+            ? Promise.all([
+                publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'stakedLp', args: [address] }) as Promise<bigint>,
+                publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'principalUsdc', args: [address] }) as Promise<bigint>,
+                publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'claimableOf', args: [address] }) as Promise<bigint>,
+              ])
+            : Promise.resolve([0n, 0n, 0n] as const);
+          const [reserves, token0, totalSupply, userLp, [stakedLp, principalUsdc, claimableUsyc]] = await Promise.all([
             publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' }) as Promise<readonly [bigint, bigint, number]>,
             publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' }) as Promise<Address>,
             publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
             address ? (publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'balanceOf', args: [address] }) as Promise<bigint>) : Promise.resolve(0n),
+            rewardReads,
           ]);
           const tokenIsToken0 = token0.toLowerCase() === token.address.toLowerCase();
           const reserveToken = tokenIsToken0 ? reserves[0] : reserves[1];
@@ -105,7 +119,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
             userTokenBal = parseUnits(tb || '0', token.decimals);
             userHubBal = parseUnits(hb || '0', hub.decimals);
           }
-          return { token, hub, pair, reserveToken, reserveHub, totalSupply, userLp, userTokenBal, userHubBal };
+          return { token, hub, pair, reserveToken, reserveHub, totalSupply, userLp, stakedLp, principalUsdc, claimableUsyc, userTokenBal, userHubBal };
         })
       );
       if (id !== reqId.current) return; // a newer load superseded this one
@@ -115,9 +129,15 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
       // Keep the last good rows on transient RPC errors (e.g. rate limits).
       console.error('Failed to load fork pools', e);
     }
-  }, [publicClient, fork, hub, chainId, address]);
+  }, [publicClient, fork, hub, chainId, address, rewardsConfigured]);
 
-  useEffect(() => { loadPools(); }, [loadPools, refreshKey]);
+  useEffect(() => {
+    loadPools();
+    const interval = rewardsConfigured ? window.setInterval(loadPools, 30_000) : undefined;
+    return () => {
+      if (interval) window.clearInterval(interval);
+    };
+  }, [loadPools, refreshKey, rewardsConfigured]);
 
   if (!fork || !hub) return null;
 
@@ -142,6 +162,84 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     setAddToken(Number.isFinite(n) && n > 0 && r > 0 ? (n / r).toFixed(Math.min(pool.token.decimals, 8)) : '');
   };
 
+  const handleActivateRewards = async (pool: ForkPool) => {
+    if (!walletClient || !publicClient || !address || !rewardsConfigured || pool.userLp <= 0n) return;
+    setBusy(true);
+    try {
+      const nonce = await publicClient.readContract({
+        address: pool.pair,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: 'nonces',
+        args: [address],
+      }) as bigint;
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+      const signature = await walletClient.signTypedData({
+        account: address,
+        domain: {
+          name: 'Tempo LPs',
+          version: '1',
+          chainId,
+          verifyingContract: pool.pair,
+        },
+        types: {
+          Permit: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+          ],
+        },
+        primaryType: 'Permit',
+        message: {
+          owner: address,
+          spender: CIRBTC_REWARDS_ADDRESS,
+          value: pool.userLp,
+          nonce,
+          deadline,
+        },
+      });
+      const parsed = parseSignature(signature);
+      const v = parsed.v ?? BigInt(27 + (parsed.yParity ?? 0));
+      const hash = await walletClient.writeContract({
+        address: CIRBTC_REWARDS_ADDRESS,
+        abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
+        functionName: 'activateWithPermit',
+        args: [pool.userLp, deadline, Number(v), parsed.r, parsed.s],
+        account: address,
+        chain: null,
+      });
+      toast.custom(() => <TxToast hash={hash} title="Rewards activated" />);
+      await publicClient.waitForTransactionReceipt({ hash });
+      setRefreshKey((key) => key + 1);
+    } catch (error) {
+      if (!isUserCancellation(error)) toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to activate rewards');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleClaimRewards = async (pool: ForkPool) => {
+    if (!walletClient || !publicClient || !address || !rewardsConfigured || pool.claimableUsyc <= 0n) return;
+    setBusy(true);
+    try {
+      const hash = await walletClient.writeContract({
+        address: CIRBTC_REWARDS_ADDRESS,
+        abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
+        functionName: 'claim',
+        account: address,
+        chain: null,
+      });
+      toast.custom(() => <TxToast hash={hash} title="USYC claimed" />);
+      await publicClient.waitForTransactionReceipt({ hash });
+      setRefreshKey((key) => key + 1);
+    } catch (error) {
+      if (!isUserCancellation(error)) toast.error(error instanceof Error ? error.message.slice(0, 100) : 'Failed to claim USYC');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleAdd = async (pool: ForkPool) => {
     if (!walletClient || !publicClient || !address) return;
     if (!addToken || Number(addToken) <= 0 || !addHub || Number(addHub) <= 0) return toast.error('Enter an amount');
@@ -152,24 +250,45 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     const tokenMin = tokenDesired - (tokenDesired * SLIPPAGE_BPS) / 10000n;
     const hubMin = hubDesired - (hubDesired * SLIPPAGE_BPS) / 10000n;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    const addArgs = [pool.token.address, pool.hub.address, tokenDesired, hubDesired, tokenMin, hubMin, address, deadline] as const;
     setBusy(true);
     try {
       let hash: `0x${string}`;
-      // Batch [approve, approve, addLiquidity] into one confirmation when the wallet supports it.
-      if (await walletSupportsAtomicBatch(walletClient, address, chainId)) {
-        hash = await sendAtomicBatch(walletClient, address, [
-          approveCall(pool.token.address, fork.router, tokenDesired),
-          approveCall(pool.hub.address, fork.router, hubDesired),
-          contractCall(fork.router, UNISWAP_V2_ROUTER_LIQUIDITY_ABI as Abi, 'addLiquidity', addArgs),
-        ]);
+      if (rewardsConfigured) {
+        const rewardArgs = [tokenDesired, hubDesired, tokenMin, hubMin, deadline] as const;
+        if (await walletSupportsAtomicBatch(walletClient, address, chainId)) {
+          hash = await sendAtomicBatch(walletClient, address, [
+            approveCall(pool.token.address, CIRBTC_REWARDS_ADDRESS, tokenDesired),
+            approveCall(pool.hub.address, CIRBTC_REWARDS_ADDRESS, hubDesired),
+            contractCall(CIRBTC_REWARDS_ADDRESS, CIRBTC_LIQUIDITY_REWARDS_ABI as Abi, 'addLiquidity', rewardArgs),
+          ]);
+        } else {
+          await approveToken(walletClient, publicClient, address, pool.token.address, CIRBTC_REWARDS_ADDRESS, tokenDesired);
+          await approveToken(walletClient, publicClient, address, pool.hub.address, CIRBTC_REWARDS_ADDRESS, hubDesired);
+          hash = await walletClient.writeContract({
+            address: CIRBTC_REWARDS_ADDRESS,
+            abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
+            functionName: 'addLiquidity',
+            args: rewardArgs,
+            account: address,
+            chain: null,
+          });
+        }
       } else {
-        await approveToken(walletClient, publicClient, address, pool.token.address, fork.router, tokenDesired);
-        await approveToken(walletClient, publicClient, address, pool.hub.address, fork.router, hubDesired);
-        hash = await walletClient.writeContract({
-          address: fork.router, abi: UNISWAP_V2_ROUTER_LIQUIDITY_ABI, functionName: 'addLiquidity',
-          args: addArgs, account: address, chain: null,
-        });
+        const addArgs = [pool.token.address, pool.hub.address, tokenDesired, hubDesired, tokenMin, hubMin, address, deadline] as const;
+        if (await walletSupportsAtomicBatch(walletClient, address, chainId)) {
+          hash = await sendAtomicBatch(walletClient, address, [
+            approveCall(pool.token.address, fork.router, tokenDesired),
+            approveCall(pool.hub.address, fork.router, hubDesired),
+            contractCall(fork.router, UNISWAP_V2_ROUTER_LIQUIDITY_ABI as Abi, 'addLiquidity', addArgs),
+          ]);
+        } else {
+          await approveToken(walletClient, publicClient, address, pool.token.address, fork.router, tokenDesired);
+          await approveToken(walletClient, publicClient, address, pool.hub.address, fork.router, hubDesired);
+          hash = await walletClient.writeContract({
+            address: fork.router, abi: UNISWAP_V2_ROUTER_LIQUIDITY_ABI, functionName: 'addLiquidity',
+            args: addArgs, account: address, chain: null,
+          });
+        }
       }
       toast.custom(() => <TxToast hash={hash} title="Liquidity added" />);
       await publicClient.waitForTransactionReceipt({ hash });
@@ -184,7 +303,8 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     if (!walletClient || !publicClient || !address) return;
     if (!removeLp || Number(removeLp) <= 0) return toast.error('Enter an LP amount');
     let liquidity = parseUnits(removeLp, 18);
-    if (liquidity > pool.userLp) liquidity = pool.userLp;
+    const availableLp = pool.stakedLp > 0n ? pool.stakedLp : pool.userLp;
+    if (liquidity > availableLp) liquidity = availableLp;
     if (liquidity <= 0n) return toast.error('No LP position');
     if (pool.totalSupply <= 0n) return toast.error('Pool has no liquidity');
     const expectedTokenOut = (pool.reserveToken * liquidity) / pool.totalSupply;
@@ -194,12 +314,24 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
     setBusy(true);
     try {
-      await approveToken(walletClient, publicClient, address, pool.pair, fork.router, liquidity);
-      const hash = await walletClient.writeContract({
-        address: fork.router, abi: UNISWAP_V2_ROUTER_LIQUIDITY_ABI, functionName: 'removeLiquidity',
-        args: [pool.token.address, pool.hub.address, liquidity, tokenMin, hubMin, address, deadline],
-        account: address, chain: null,
-      });
+      let hash: `0x${string}`;
+      if (rewardsConfigured && pool.stakedLp > 0n) {
+        hash = await walletClient.writeContract({
+          address: CIRBTC_REWARDS_ADDRESS,
+          abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
+          functionName: 'removeLiquidity',
+          args: [liquidity, tokenMin, hubMin, deadline],
+          account: address,
+          chain: null,
+        });
+      } else {
+        await approveToken(walletClient, publicClient, address, pool.pair, fork.router, liquidity);
+        hash = await walletClient.writeContract({
+          address: fork.router, abi: UNISWAP_V2_ROUTER_LIQUIDITY_ABI, functionName: 'removeLiquidity',
+          args: [pool.token.address, pool.hub.address, liquidity, tokenMin, hubMin, address, deadline],
+          account: address, chain: null,
+        });
+      }
       toast.custom(() => <TxToast hash={hash} title="Liquidity removed" />);
       await publicClient.waitForTransactionReceipt({ hash });
       setRemoveLp('');
@@ -210,11 +342,12 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   };
 
   const computeDerived = (pool: ForkPool) => {
-    const sharePct = pool.totalSupply > 0n ? (Number(pool.userLp) / Number(pool.totalSupply)) * 100 : 0;
+    const totalUserLp = pool.userLp + pool.stakedLp;
+    const sharePct = pool.totalSupply > 0n ? (Number(totalUserLp) / Number(pool.totalSupply)) * 100 : 0;
     const reserveTokenDisp = Number(formatUnits(pool.reserveToken, pool.token.decimals));
     const reserveHubDisp = Number(formatUnits(pool.reserveHub, pool.hub.decimals));
     const tvl = reserveHubDisp * 2;
-    const lpBalance = Number(formatUnits(pool.userLp, 18));
+    const lpBalance = Number(formatUnits(totalUserLp, 18));
     const posValue = (tvl * sharePct) / 100;
     const rate = reserveTokenDisp > 0 ? reserveHubDisp / reserveTokenDisp : 0;
     return { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate };
@@ -226,6 +359,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   // Shared add/remove manager body used by both the All Pools row and the My Positions card.
   const renderManager = (pool: ForkPool) => {
     const { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate } = computeDerived(pool);
+    const removableLp = Number(formatUnits(pool.stakedLp > 0n ? pool.stakedLp : pool.userLp, 18));
 
     let estLp = '--';
     if (addToken && Number(addToken) > 0 && pool.reserveToken > 0n && pool.totalSupply > 0n) {
@@ -239,7 +373,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
       const hOut = (liq * pool.reserveHub) / pool.totalSupply;
       recvSummary = `${trimNum(Number(formatUnits(tOut, pool.token.decimals)))} ${pool.token.symbol} · ${trimNum(Number(formatUnits(hOut, pool.hub.decimals)), 2)} ${pool.hub.symbol}`;
     }
-    const presetRemove = (f: number) => setRemoveLp(trimNum(lpBalance * f, 8));
+    const presetRemove = (f: number) => setRemoveLp(trimNum(removableLp * f, 8));
 
     const statItems = [
       { label: 'Value', value: fmtUsd(posValue) },
@@ -264,12 +398,27 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
               </div>
               <div className="min-w-0">
                 <p className="text-[13px] font-extrabold text-slate-50">{pool.token.symbol} / {pool.hub.symbol}</p>
-                <p className="text-[10px] text-slate-500">Uniswap V2 · 0.3%</p>
+                <p className="text-[10px] text-slate-500">Uniswap V2 · 0.3% swap fee · 1% USYC APR</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="inline-flex rounded-full bg-[#153b37] px-2 py-0.5 text-[10px] font-bold text-emerald-400">LP {lpBalance.toFixed(4)}</span>
+              {pool.stakedLp > 0n && (
+                <span className="inline-flex rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                  {Number(formatUnits(pool.stakedLp, 18)).toFixed(4)} earning
+                </span>
+              )}
               <span className="inline-flex rounded-full bg-[#16384b] px-2 py-0.5 text-[10px] font-bold text-[#25c0f4]">{sharePct.toFixed(2)}%</span>
+              {rewardsConfigured && pool.userLp > 0n && (
+                <button
+                  type="button"
+                  onClick={() => handleActivateRewards(pool)}
+                  disabled={busy}
+                  className="rounded-[6px] bg-emerald-500 px-2.5 py-1 text-[10px] font-extrabold text-[#071a14] disabled:opacity-50"
+                >
+                  Activate 1% Rewards
+                </button>
+              )}
               <div className="flex rounded-[8px] border border-white/[0.08] bg-[#1e293b] p-0.5">
                 {(['add', 'remove'] as const).map((m) => (
                   <button key={m} type="button" onClick={() => setMode(m)}
@@ -352,7 +501,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
               </div>
               <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_140px_100px_130px] xl:items-end">
                 <div>
-                  <p className="mb-1 text-[10px] text-slate-500">LP amount · current {lpBalance.toFixed(4)}</p>
+                  <p className="mb-1 text-[10px] text-slate-500">LP amount · available {removableLp.toFixed(4)}</p>
                   <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
                     <input type="number" value={removeLp} onChange={(e) => setRemoveLp(e.target.value)} placeholder="0.0"
                       className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
@@ -366,7 +515,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
                   <p className="mb-1 text-[10px] text-slate-500">You receive</p>
                   <div className="rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2 text-[11px] font-bold text-slate-100">{recvSummary}</div>
                 </div>
-                <button type="button" onClick={() => handleRemove(pool)} disabled={busy || pool.userLp <= 0n || !removeLp}
+                <button type="button" onClick={() => handleRemove(pool)} disabled={busy || removableLp <= 0 || !removeLp}
                   className="rounded-[8px] border border-red-400/20 bg-[rgba(127,29,29,0.18)] px-3 py-2 text-[12px] font-extrabold text-red-300 transition-all disabled:cursor-not-allowed disabled:opacity-50">
                   {busy ? 'Removing...' : 'Remove'}
                 </button>
@@ -407,7 +556,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
           </div>
           <div className="hidden md:block">
             <p className="text-[13px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
-            <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3%</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3% swap fee · 1% USYC APR</p>
           </div>
           <div className="hidden md:block">
             <p className="text-[13px] font-semibold text-slate-100">{fmtUsd(tvl)}</p>
@@ -429,11 +578,13 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     );
   };
 
-  // Rich card used in My Positions — matches the Hub MyPositionRow layout (minus rewards).
+  // Rich card used in My Positions, including the fork reward position.
   const renderPositionCard = (pool: ForkPool) => {
     const isOpen = openPair === pool.pair;
     const { sharePct, tvl, lpBalance, posValue } = computeDerived(pool);
     const volume = volumeDisplay(pool);
+    const claimableUsyc = Number(formatUnits(pool.claimableUsyc, 6));
+    const activatedLp = Number(formatUnits(pool.stakedLp, 18));
     return (
       <div
         key={pool.pair}
@@ -453,7 +604,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
               </div>
               <div>
                 <p className="text-[16px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
-                <p className="mt-0.5 text-[12px] text-slate-500">Uniswap V2 liquidity position</p>
+                <p className="mt-0.5 text-[12px] text-slate-500">Uniswap V2 · 0.3% swap fee · 1% USYC APR</p>
               </div>
             </div>
           </div>
@@ -476,17 +627,48 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>{volume} 24h volume</span>
-            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>Uniswap V2 · 0.3%</span>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>0.3% swap fee</span>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-emerald-400" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>1% USYC APR</span>
+            {activatedLp > 0 && (
+              <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-emerald-400" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
+                {activatedLp.toFixed(4)} LP activated
+              </span>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => { setOpenPair(isOpen ? null : pool.pair); setMode('add'); setAddToken(''); setAddHub(''); setRemoveLp(''); }}
-            className="w-9 h-9 flex items-center justify-center rounded-[10px] transition-colors"
-            style={{ background: '#25c0f4', color: '#0f172a' }}
-            title={isOpen ? 'Hide Manager' : 'Manage Position'}
-          >
-            <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>expand_more</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {rewardsConfigured && pool.userLp > 0n && (
+              <button
+                type="button"
+                onClick={() => handleActivateRewards(pool)}
+                disabled={busy}
+                className="rounded-[8px] bg-emerald-500 px-3 py-2 text-[11px] font-extrabold text-[#071a14] disabled:opacity-50"
+              >
+                Activate 1% Rewards
+              </button>
+            )}
+            {rewardsConfigured && (
+              <div className="flex items-center rounded-[8px] border border-emerald-400/15 bg-emerald-400/[0.06]">
+                <span className="px-3 py-2 text-[11px] font-semibold text-emerald-400">{claimableUsyc.toFixed(4)} USYC claimable</span>
+                <button
+                  type="button"
+                  onClick={() => handleClaimRewards(pool)}
+                  disabled={busy || pool.claimableUsyc <= 0n}
+                  className="rounded-[7px] bg-emerald-500 px-3 py-2 text-[11px] font-extrabold text-[#071a14] disabled:bg-emerald-500/20 disabled:text-emerald-400"
+                >
+                  Claim USYC
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => { setOpenPair(isOpen ? null : pool.pair); setMode('add'); setAddToken(''); setAddHub(''); setRemoveLp(''); }}
+              className="flex h-9 w-9 items-center justify-center rounded-[8px] transition-colors"
+              style={{ background: '#25c0f4', color: '#0f172a' }}
+              title={isOpen ? 'Hide Manager' : 'Manage Position'}
+            >
+              <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>expand_more</span>
+            </button>
+          </div>
         </div>
 
         {isOpen ? renderManager(pool) : null}
@@ -511,7 +693,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
         </div>
         <div className="hidden md:block">
           <p className="text-[13px] font-bold text-slate-100">{token.symbol} / {hub.symbol}</p>
-          <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3%</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">Uniswap V2 · 0.3% swap fee · 1% USYC APR</p>
         </div>
         <div className="hidden md:block"><p className="text-[13px] font-semibold text-slate-500">—</p><p className="text-[11px] text-slate-500">Liquidity</p></div>
         <div className="hidden md:block"><p className="text-[13px] font-semibold text-slate-500">—</p><p className="text-[11px] text-slate-500">24h Vol</p></div>
@@ -522,7 +704,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
 
   // My Positions only shows pools where the user actually has LP — as a rich card.
   if (variant === 'positions') {
-    const pos = pools.filter((p) => p.userLp > 0n);
+    const pos = pools.filter((p) => p.userLp + p.stakedLp > 0n || p.claimableUsyc > 0n);
     if (pos.length === 0) return null;
     return <>{pos.map(renderPositionCard)}</>;
   }
