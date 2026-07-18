@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createPublicClient, defineChain, http, parseAbiItem, parseAbi } from 'viem';
+import { createPublicClient, defineChain, http, parseAbi } from 'viem';
 import { getArcTestnetRpcUrls, raceRpcUrls } from '@/lib/rpc';
 import { getClientIp, rateLimit } from '@/lib/rateLimit';
 import {
@@ -12,14 +12,14 @@ import {
 import { getTokens, getHubToken } from '@/config/tokens';
 import { getPoolStatsRequestMode, mergeForkPoolStats } from '@/lib/forkPoolStats';
 import { scanUniswapV2Volume } from '@/lib/uniswapV2Volume';
+import { scanHubPoolVolume } from '@/lib/hubPoolVolume';
 import { readPoolPathReserves } from '@/lib/poolReserves';
 
 const ARC_CHAIN_ID = 5042002;
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 5 * 60_000;
 const FORK_CACHE_TTL_MS = 5 * 60_000;
-const FULL_SCAN_START_BLOCK = 32_600_000n; // HubAMM deployed ~block 32,655,000
-const LOG_CHUNK_SIZE = 9_999n;
-const MAX_PARALLEL_CHUNKS = 6;
+
+export const maxDuration = 300;
 
 const ARC_TESTNET = defineChain({
   id: ARC_CHAIN_ID,
@@ -34,13 +34,6 @@ const HUB_AMM_ABI = parseAbi([
   'function pathReserves(address token) external view returns (uint256)',
   'function totalShares(address token) external view returns (uint256)',
 ]);
-
-const ARC_SWAP_EVENT = parseAbiItem(
-  'event Swap(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut)'
-);
-const ARC_LIQUIDITY_ADDED_EVENT = parseAbiItem(
-  'event LiquidityAdded(address indexed provider, address indexed token, uint256 tokenAmount, uint256 pathAmount, uint256 shares)'
-);
 
 const TOKEN_META: Record<string, { color: string; label: string }> = {
   EURC: { color: '#3b82f6', label: 'EU' },
@@ -128,12 +121,6 @@ function formatUsdc(raw: bigint, decimals = USDC_DECIMALS): string {
   return `$${whole}`;
 }
 
-function normalizeToUsdcRaw(amount: bigint, decimals: number): bigint {
-  if (decimals === USDC_DECIMALS) return amount;
-  if (decimals > USDC_DECIMALS) return amount / 10n ** BigInt(decimals - USDC_DECIMALS);
-  return amount * 10n ** BigInt(USDC_DECIMALS - decimals);
-}
-
 function toPublicResponse(snapshot: PoolStatsSnapshot): PoolStatsResponse {
   return {
     pools: (snapshot.pools as PoolStatSnapshot[]).map(({ snapshot: _snapshot, ...pool }) => pool),
@@ -150,46 +137,6 @@ function toPublicPool(pool: PoolStatSnapshot): PoolStat {
   return publicPool;
 }
 
-async function getLogsInChunks(
-  client: ReturnType<typeof createPublicClient>,
-  address: `0x${string}`,
-  fromBlock: bigint,
-  toBlock: bigint
-) {
-  if (fromBlock > toBlock) return { swapLogs: [], addLogs: [] };
-
-  // Build chunk ranges
-  const ranges: { start: bigint; end: bigint }[] = [];
-  let s = fromBlock;
-  while (s <= toBlock) {
-    const e = s + LOG_CHUNK_SIZE - 1n > toBlock ? toBlock : s + LOG_CHUNK_SIZE - 1n;
-    ranges.push({ start: s, end: e });
-    s = e + 1n;
-  }
-
-  const swapLogs: Awaited<ReturnType<typeof client.getLogs>>[] = [];
-  const addLogs: Awaited<ReturnType<typeof client.getLogs>>[] = [];
-
-  // Process chunks in parallel batches of MAX_PARALLEL_CHUNKS
-  for (let i = 0; i < ranges.length; i += MAX_PARALLEL_CHUNKS) {
-    const batch = ranges.slice(i, i + MAX_PARALLEL_CHUNKS);
-    const results = await Promise.all(
-      batch.map(({ start, end }) =>
-        Promise.all([
-          client.getLogs({ address, event: ARC_SWAP_EVENT, fromBlock: start, toBlock: end }),
-          client.getLogs({ address, event: ARC_LIQUIDITY_ADDED_EVENT, fromBlock: start, toBlock: end }),
-        ])
-      )
-    );
-    for (const [swapChunk, addChunk] of results) {
-      swapLogs.push(swapChunk);
-      addLogs.push(addChunk);
-    }
-  }
-
-  return { swapLogs: swapLogs.flat(), addLogs: addLogs.flat() };
-}
-
 function buildPoolBaseStats(): PoolStatSnapshot[] {
   return ARC_TOKENS.map((token) => ({
     pair: `${token.symbol} / USDC`,
@@ -199,11 +146,11 @@ function buildPoolBaseStats(): PoolStatSnapshot[] {
     label: token.label,
     liquidity: '$0',
     liquidityRaw: '0',
-    vol24h: '$0',
+    vol24h: '--',
     vol24hRaw: '0',
     swapCount: 0,
     hasLiquidity: false,
-    volumeAvailable: token.symbol.toLowerCase() !== 'cirbtc',
+    volumeAvailable: false,
     snapshot: {
       volRaw: '0',
       swapCount: 0,
@@ -313,7 +260,6 @@ async function enrichWithReserves(
 }
 
 async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
-  const urls = getArcTestnetRpcUrls();
   const hubAmm = getContractAddresses(ARC_CHAIN_ID).HUB_AMM_ADDRESS;
 
   if (hubAmm === ZERO_ADDRESS) {
@@ -329,108 +275,48 @@ async function fetchPoolStats(): Promise<PoolStatsSnapshot> {
     };
   }
 
-  let lastError: unknown;
-  const usdcLower = USDC_ADDRESS.toLowerCase();
+  return raceRpcUrls(getArcTestnetRpcUrls(), async (url) => {
+    const client = createPublicClient({ chain: ARC_TESTNET, transport: http(url, { timeout: 12_000 }) });
+    const latestBlock = await client.getBlockNumber();
+    const latest = await client.getBlock({ blockNumber: latestBlock });
+    const cutoffTimestamp = latest.timestamp > 86_400n ? latest.timestamp - 86_400n : 0n;
+    const activity = await scanHubPoolVolume(
+      client,
+      hubAmm,
+      USDC_ADDRESS,
+      TOKEN_DECIMALS_BY_ADDRESS,
+      latestBlock,
+      cutoffTimestamp,
+    );
+    let totalVolumeRaw = 0n;
+    let totalSwaps = 0;
+    const pools = buildPoolBaseStats().map((pool) => {
+      const metrics = activity.pools.get(pool.tokenAddress.toLowerCase());
+      const volumeRaw = metrics?.volumeRaw ?? 0n;
+      const swapCount = metrics?.swapCount ?? 0;
+      totalVolumeRaw += volumeRaw;
+      totalSwaps += swapCount;
+      return {
+        ...pool,
+        vol24h: formatUsdc(volumeRaw, USDC_DECIMALS),
+        vol24hRaw: volumeRaw.toString(),
+        swapCount,
+        volumeAvailable: pool.token.toLowerCase() !== 'cirbtc',
+        snapshot: { volRaw: volumeRaw.toString(), swapCount },
+      };
+    });
 
-  for (const url of urls) {
-    try {
-      const client = createPublicClient({ chain: ARC_TESTNET, transport: http(url, { timeout: 12_000 }) });
-      const latestBlock = await client.getBlockNumber();
-      const cached = g.__poolStatsCache?.data;
-
-      const basePools = cached?.pools ?? buildPoolBaseStats();
-      const poolMap = new Map<string, PoolStatSnapshot>(
-        basePools.map((pool) => [pool.tokenAddress.toLowerCase(), { ...pool }])
-      );
-      let totalVolumeRaw = BigInt(cached?.totalVolumeRaw ?? (cached ? '0' : '1842000000000'));
-      let totalSwaps = cached?.totalSwaps ?? (cached ? 0 : 15482);
-
-      const MAX_COLD_START_BLOCKS = 50000n;
-      let fromBlock = cached ? BigInt(cached.latestBlock) + 1n : (latestBlock > 44000000n ? 44000001n : latestBlock);
-      if (!cached && latestBlock - fromBlock > MAX_COLD_START_BLOCKS) {
-        fromBlock = latestBlock - MAX_COLD_START_BLOCKS;
-      }
-      const { swapLogs, addLogs } = await getLogsInChunks(client, hubAmm, fromBlock, latestBlock);
-
-      for (const log of swapLogs) {
-      const args = (log as { args?: {
-        tokenIn: `0x${string}`;
-        tokenOut: `0x${string}`;
-        amountIn: bigint;
-        amountOut: bigint;
-      } }).args;
-      if (!args) continue;
-      const { tokenIn, tokenOut, amountIn, amountOut } = args;
-
-        let poolKey: string | null = null;
-        let volumeDelta = 0n;
-
-        if (tokenIn?.toLowerCase() === usdcLower) {
-          poolKey = tokenOut?.toLowerCase() ?? null;
-          volumeDelta = amountIn ?? 0n;
-        } else if (tokenOut?.toLowerCase() === usdcLower) {
-          poolKey = tokenIn?.toLowerCase() ?? null;
-          volumeDelta = amountOut ?? 0n;
-        } else {
-          // Token-to-token swap through the hub — attribute to tokenIn pool
-          poolKey = tokenIn?.toLowerCase() ?? null;
-          const inDecimals = TOKEN_DECIMALS_BY_ADDRESS.get(poolKey ?? '') ?? USDC_DECIMALS;
-          volumeDelta = normalizeToUsdcRaw(amountIn ?? 0n, inDecimals);
-        }
-
-        if (!poolKey) continue;
-        const pool = poolMap.get(poolKey);
-        if (!pool) continue;
-
-        pool.snapshot = {
-          volRaw: (BigInt(pool.snapshot.volRaw) + volumeDelta).toString(),
-          swapCount: pool.snapshot.swapCount + 1,
-        };
-        totalVolumeRaw += volumeDelta;
-        totalSwaps += 1;
-      }
-
-      for (const log of addLogs) {
-        const args = (log as { args?: {
-          provider: `0x${string}`;
-          token: `0x${string}`;
-          tokenAmount: bigint;
-          pathAmount: bigint;
-          shares: bigint;
-        } }).args;
-        if (!args) continue;
-        const { token, tokenAmount, pathAmount } = args;
-        const tokenDecimals = TOKEN_DECIMALS_BY_ADDRESS.get(token?.toLowerCase() ?? '') ?? USDC_DECIMALS;
-        const liquidityDelta =
-          normalizeToUsdcRaw(tokenAmount ?? 0n, tokenDecimals) +
-          normalizeToUsdcRaw(pathAmount ?? 0n, USDC_DECIMALS);
-
-        const poolKey = token?.toLowerCase() ?? null;
-        if (!poolKey) continue;
-        const pool = poolMap.get(poolKey);
-        if (!pool) continue;
-
-        pool.snapshot = {
-          volRaw: (BigInt(pool.snapshot.volRaw) + liquidityDelta).toString(),
-          swapCount: pool.snapshot.swapCount,
-        };
-        totalVolumeRaw += liquidityDelta;
-      }
-
-      return await enrichWithReserves(
-        client,
-        hubAmm,
-        latestBlock,
-        Array.from(poolMap.values()),
-        totalVolumeRaw,
-        totalSwaps
-      );
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  throw lastError ?? new Error('All RPCs failed');
+    return {
+      pools,
+      totalLiquidityUsdc: '$0',
+      totalSwaps,
+      totalVolumeRaw: totalVolumeRaw.toString(),
+      totalVolumeUsdc: formatUsdc(totalVolumeRaw, USDC_DECIMALS),
+      scannedBlocks: Number(latestBlock - activity.fromBlock + 1n),
+      latestBlock: latestBlock.toString(),
+      updatedAt: Date.now(),
+    };
+  });
 }
 
 async function fetchPoolBaseStats(): Promise<PoolStatsSnapshot> {
@@ -459,30 +345,24 @@ async function fetchForkPoolStats(): Promise<ForkPoolStatsResponse> {
   const cirbtc = buildPoolBaseStats().find((pool) => pool.token.toLowerCase() === 'cirbtc');
   if (!cirbtc) throw new Error('cirBTC pool is not configured');
 
-  let lastError: unknown;
-  for (const url of getArcTestnetRpcUrls()) {
-    try {
-      const client = createPublicClient({ chain: ARC_TESTNET, transport: http(url, { timeout: 12_000 }) });
-      const latestBlock = await client.getBlockNumber();
-      const emptySnapshot: PoolStatsSnapshot = {
-        pools: [cirbtc],
-        totalLiquidityUsdc: '$0',
-        totalSwaps: 0,
-        totalVolumeRaw: '0',
-        totalVolumeUsdc: '$0',
-        scannedBlocks: Number(latestBlock),
-        latestBlock: latestBlock.toString(),
-        updatedAt: Date.now(),
-      };
-      const enriched = await enrichWithForkPool(client, latestBlock, emptySnapshot);
-      const pool = enriched.pools.find((candidate) => candidate.tokenAddress.toLowerCase() === cirbtc.tokenAddress.toLowerCase());
-      if (!pool?.volumeAvailable) throw new Error('Fork pool volume is unavailable');
-      return { pool: toPublicPool(pool), updatedAt: enriched.updatedAt };
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError ?? new Error('All fork pool RPCs failed');
+  return raceRpcUrls(getArcTestnetRpcUrls(), async (url) => {
+    const client = createPublicClient({ chain: ARC_TESTNET, transport: http(url, { timeout: 12_000 }) });
+    const latestBlock = await client.getBlockNumber();
+    const emptySnapshot: PoolStatsSnapshot = {
+      pools: [cirbtc],
+      totalLiquidityUsdc: '$0',
+      totalSwaps: 0,
+      totalVolumeRaw: '0',
+      totalVolumeUsdc: '$0',
+      scannedBlocks: Number(latestBlock),
+      latestBlock: latestBlock.toString(),
+      updatedAt: Date.now(),
+    };
+    const enriched = await enrichWithForkPool(client, latestBlock, emptySnapshot);
+    const pool = enriched.pools.find((candidate) => candidate.tokenAddress.toLowerCase() === cirbtc.tokenAddress.toLowerCase());
+    if (!pool?.volumeAvailable) throw new Error('Fork pool volume is unavailable');
+    return { pool: toPublicPool(pool), updatedAt: enriched.updatedAt };
+  });
 }
 
 export async function GET(request: Request) {
@@ -518,14 +398,14 @@ export async function GET(request: Request) {
   if (mode === 'activity') {
     if (g.__poolStatsCache && Date.now() - g.__poolStatsCache.ts < CACHE_TTL_MS) {
       return NextResponse.json(toPublicResponse(g.__poolStatsCache.data), {
-        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=86400' },
       });
     }
     try {
       const data = await fetchPoolStats();
       g.__poolStatsCache = { ts: Date.now(), data };
       return NextResponse.json(toPublicResponse(data), {
-        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=86400' },
       });
     } catch (error) {
       console.error('pool activity-stats error:', error);
