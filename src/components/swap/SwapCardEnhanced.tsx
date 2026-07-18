@@ -659,7 +659,7 @@ export function SwapCardEnhanced() {
             const raw = BigInt(q.amountOut ?? safeParseUnits(q.amountOutDecimals ?? '0', outputToken.decimals));
             options.push({
               source: 'synroute',
-              label: q.routeString || 'SynRoute',
+              label: 'Synthra Route',
               raw,
               display: q.amountOutDecimals ?? formatUnits(raw, outputToken.decimals),
               isBest: false,
@@ -770,7 +770,7 @@ export function SwapCardEnhanced() {
             const raw = BigInt(q.amountIn ?? safeParseUnits(q.amountInDecimals ?? '0', inputToken.decimals));
             outOptions.push({
               source: 'synroute',
-              label: q.routeString || 'SynRoute',
+              label: 'Synthra Route',
               raw,
               display: inDec,
               isBest: false,
@@ -1182,7 +1182,7 @@ export function SwapCardEnhanced() {
   const routeLabel = quoteSource === 'uniswap'
     ? (synRouteRoute || 'Uniswap')
     : quoteSource === 'synroute'
-      ? (synRouteRoute || 'SynRoute')
+      ? (synRouteRoute || 'Synthra Route')
       : isStableSwapRoute
         ? 'Arc StableSwap'
         : isTempoChain
