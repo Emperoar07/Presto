@@ -97,6 +97,8 @@ The release check includes contract tests, focused application tests, TypeScript
 
 ## Deployment
 
+The Arc Testnet deployment is `0x735C744F459f9E19E5061dA46FAe417b87Cb22B2`. It uses the existing USYC token and was funded with 100,000 USYC.
+
 1. Deploy `CirBtcLiquidityRewards` with the current USYC, cirBTC, USDC, pair, and router addresses.
 2. Fund it with the existing USYC token.
 3. Verify the immutable addresses and the 100 basis point reward rate on Arc.

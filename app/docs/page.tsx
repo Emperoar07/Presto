@@ -315,7 +315,9 @@ export default function DocsPage() {
                     Hub rewards use the standalone USYCRewards contract, funded with{' '}
                     <strong>4,000,000 USYC</strong>. Contract address:{' '}
                     <code className="text-[11px] text-slate-400">0x3454fB11Ead7a10806434daE0A7EfFd289ABb908</code>
-                    . The cirBTC campaign uses a dedicated liquidity rewards contract and pays the same USYC token.
+                    . The cirBTC campaign uses a dedicated liquidity rewards contract at{' '}
+                    <code className="text-[11px] text-slate-400">0x735C744F459f9E19E5061dA46FAe417b87Cb22B2</code>
+                    , funded with <strong>100,000 USYC</strong>, and pays the same USYC token.
                   </p>
                 </div>
               </div>

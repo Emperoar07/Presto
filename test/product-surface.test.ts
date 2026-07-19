@@ -49,6 +49,7 @@ test('configures automatic cirBTC LP rewards without changing the swap fee', () 
 
   assert.match(contracts, /CIRBTC_LIQUIDITY_REWARDS_ABI/);
   assert.match(contracts, /NEXT_PUBLIC_CIRBTC_REWARDS_ADDRESS/);
+  assert.match(contracts, /0x735C744F459f9E19E5061dA46FAe417b87Cb22B2/);
   assert.match(contracts, /activateWithPermit/);
   assert.match(contracts, /claimableOf/);
   assert.match(pools, /Activate 1% Rewards/);
