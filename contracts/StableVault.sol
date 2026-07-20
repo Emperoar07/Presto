@@ -2,14 +2,18 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title StableVault
- * @notice A vault for swapping whitelisted stablecoins at 1:1 rate
- * @dev SECURITY: Only whitelisted tokens can be swapped to prevent drain attacks
+ * @notice A vault for swapping whitelisted stablecoins at a 1:1 *value* rate
+ * @dev SECURITY: Only whitelisted tokens can be swapped, and amounts are scaled by each
+ *      token's decimals so different-decimal stablecoins (e.g. USDC 6dp / USDT 18dp)
+ *      cannot be used to drain the vault.
  */
-contract StableVault {
+contract StableVault is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public owner;
@@ -117,20 +121,34 @@ contract StableVault {
         address _tokenIn,
         address _tokenOut,
         uint256 _amount
-    ) external onlyWhitelisted(_tokenIn) onlyWhitelisted(_tokenOut) {
+    ) external nonReentrant onlyWhitelisted(_tokenIn) onlyWhitelisted(_tokenOut) {
         if (_tokenIn == _tokenOut) revert SameToken();
         if (_amount == 0) revert ZeroAmount();
 
+        // 1:1 by VALUE: convert the input amount (in tokenIn's decimals) into the output
+        // token's decimals. Without this, swapping a tiny amount of an 18-decimal token
+        // for a 6-decimal token (or vice versa) would drain the vault.
+        uint8 decIn = IERC20Metadata(_tokenIn).decimals();
+        uint8 decOut = IERC20Metadata(_tokenOut).decimals();
+        uint256 amountOut;
+        if (decOut >= decIn) {
+            amountOut = _amount * (10 ** (decOut - decIn));
+        } else {
+            // Truncates in the vault's favour (user pays slightly more than they receive).
+            amountOut = _amount / (10 ** (decIn - decOut));
+        }
+        if (amountOut == 0) revert ZeroAmount();
+
         // Check if contract has enough liquidity for the output token
         uint256 contractBalance = IERC20(_tokenOut).balanceOf(address(this));
-        if (contractBalance < _amount) revert InsufficientLiquidity();
+        if (contractBalance < amountOut) revert InsufficientLiquidity();
 
         // Transfer tokenIn from user to contract
         // User must have approved this contract to spend _amount of _tokenIn
         IERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amount);
 
-        // Transfer tokenOut from contract to user
-        IERC20(_tokenOut).safeTransfer(msg.sender, _amount);
+        // Transfer the decimal-scaled tokenOut amount to the user
+        IERC20(_tokenOut).safeTransfer(msg.sender, amountOut);
 
         emit Swap(msg.sender, _tokenIn, _tokenOut, _amount);
     }

@@ -6,8 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract ArcStableSwapPool is Ownable, Pausable {
+contract ArcStableSwapPool is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint8 public constant NORMALIZED_DECIMALS = 18;
@@ -30,6 +31,7 @@ contract ArcStableSwapPool is Ownable, Pausable {
     address[] private _supportedTokens;
     mapping(address => bool) public isSupportedToken;
     mapping(address => uint8) public tokenDecimals;
+    mapping(address => uint256) private _tokenIndex;
     mapping(address => uint256) public reserves;
     mapping(address => uint256) public lpBalanceOf;
 
@@ -61,6 +63,7 @@ contract ArcStableSwapPool is Ownable, Pausable {
 
             isSupportedToken[token] = true;
             tokenDecimals[token] = decimals_;
+            _tokenIndex[token] = i;
             _supportedTokens.push(token);
 
             emit StableTokenRegistered(token, decimals_);
@@ -75,7 +78,7 @@ contract ArcStableSwapPool is Ownable, Pausable {
         return _supportedTokens.length;
     }
 
-    function addLiquidity(uint256[] calldata amounts, uint256 minLpOut, uint256 deadline) external whenNotPaused returns (uint256 lpOut) {
+    function addLiquidity(uint256[] calldata amounts, uint256 minLpOut, uint256 deadline) external nonReentrant whenNotPaused returns (uint256 lpOut) {
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (amounts.length != _supportedTokens.length) revert InvalidAmountsLength();
 
@@ -112,7 +115,7 @@ contract ArcStableSwapPool is Ownable, Pausable {
         emit LiquidityAdded(msg.sender, lpOut);
     }
 
-    function removeLiquidity(uint256 lpAmount, uint256[] calldata minAmountsOut, uint256 deadline) external whenNotPaused returns (uint256[] memory amountsOut) {
+    function removeLiquidity(uint256 lpAmount, uint256[] calldata minAmountsOut, uint256 deadline) external nonReentrant whenNotPaused returns (uint256[] memory amountsOut) {
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (lpAmount == 0) revert ZeroAmount();
         if (minAmountsOut.length != _supportedTokens.length) revert InvalidAmountsLength();
@@ -139,7 +142,7 @@ contract ArcStableSwapPool is Ownable, Pausable {
         emit LiquidityRemoved(msg.sender, lpAmount);
     }
 
-    function removeLiquidityOneToken(uint256 lpAmount, address tokenOut, uint256 minAmountOut, uint256 deadline) external whenNotPaused returns (uint256 amountOut) {
+    function removeLiquidityOneToken(uint256 lpAmount, address tokenOut, uint256 minAmountOut, uint256 deadline) external nonReentrant whenNotPaused returns (uint256 amountOut) {
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (!isSupportedToken[tokenOut]) revert InvalidToken();
         if (lpAmount == 0) revert ZeroAmount();
@@ -159,28 +162,23 @@ contract ArcStableSwapPool is Ownable, Pausable {
         emit LiquidityRemoved(msg.sender, lpAmount);
     }
 
-    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external whenNotPaused returns (uint256 amountOut) {
+    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external nonReentrant whenNotPaused returns (uint256 amountOut) {
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (!isSupportedToken[tokenIn] || !isSupportedToken[tokenOut] || tokenIn == tokenOut) revert InvalidToken();
         if (amountIn == 0) revert ZeroAmount();
 
-        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
-
         uint256 reserveInBefore = reserves[tokenIn];
         uint256 reserveOutBefore = reserves[tokenOut];
-        if (reserveOutBefore == 0) revert InsufficientLiquidity();
+        if (reserveInBefore == 0 || reserveOutBefore == 0) revert InsufficientLiquidity();
 
-        uint256 amountInNormalized = _normalizeAmount(tokenIn, amountIn);
-        uint256 reserveInNormalized = _normalizeAmount(tokenIn, reserveInBefore);
-        uint256 reserveOutNormalized = _normalizeAmount(tokenOut, reserveOutBefore);
+        // Pull input first; reserves[] is a separate accounting mapping (not the raw
+        // balance), so the output is computed from the pre-swap reserves below.
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-        uint256 feeAdjusted = (amountInNormalized * (MAX_FEE_BPS - feeBps)) / MAX_FEE_BPS;
-        uint256 imbalancePenalty = (feeAdjusted * ampFactor) / (ampFactor + reserveInNormalized + reserveOutNormalized);
-        uint256 rawOutNormalized = feeAdjusted > imbalancePenalty ? feeAdjusted - imbalancePenalty : 0;
-        uint256 cappedOutNormalized = rawOutNormalized > reserveOutNormalized ? reserveOutNormalized : rawOutNormalized;
-        amountOut = _denormalizeAmount(tokenOut, cappedOutNormalized);
-
+        uint256 outNormalized = _computeSwapOutput(tokenIn, tokenOut, amountIn);
+        amountOut = _denormalizeAmount(tokenOut, outNormalized);
         if (amountOut == 0 || amountOut < minAmountOut) revert InsufficientOutput();
+        if (amountOut > reserveOutBefore) revert InsufficientLiquidity();
 
         reserves[tokenIn] = reserveInBefore + amountIn;
         reserves[tokenOut] = reserveOutBefore - amountOut;
@@ -193,19 +191,83 @@ contract ArcStableSwapPool is Ownable, Pausable {
     function getQuote(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256) {
         if (!isSupportedToken[tokenIn] || !isSupportedToken[tokenOut] || tokenIn == tokenOut) revert InvalidToken();
         if (amountIn == 0) return 0;
+        if (reserves[tokenIn] == 0 || reserves[tokenOut] == 0) return 0;
 
-        uint256 reserveIn = reserves[tokenIn];
+        uint256 out = _denormalizeAmount(tokenOut, _computeSwapOutput(tokenIn, tokenOut, amountIn));
         uint256 reserveOut = reserves[tokenOut];
-        if (reserveOut == 0) return 0;
+        return out > reserveOut ? reserveOut : out;
+    }
 
-        uint256 amountInNormalized = _normalizeAmount(tokenIn, amountIn);
-        uint256 reserveInNormalized = _normalizeAmount(tokenIn, reserveIn);
-        uint256 reserveOutNormalized = _normalizeAmount(tokenOut, reserveOut);
-        uint256 feeAdjusted = (amountInNormalized * (MAX_FEE_BPS - feeBps)) / MAX_FEE_BPS;
-        uint256 imbalancePenalty = (feeAdjusted * ampFactor) / (ampFactor + reserveInNormalized + reserveOutNormalized);
-        uint256 rawOutNormalized = feeAdjusted > imbalancePenalty ? feeAdjusted - imbalancePenalty : 0;
-        uint256 cappedOutNormalized = rawOutNormalized > reserveOutNormalized ? reserveOutNormalized : rawOutNormalized;
-        return _denormalizeAmount(tokenOut, cappedOutNormalized);
+    /**
+     * @dev Curve StableSwap output for `amountIn` of `tokenIn` -> `tokenOut`, in normalized
+     *      (18-dec) units and net of fee. Uses the constant-`D` invariant so price impact
+     *      rises as the output reserve is drawn down (fixing the prior no-slippage formula).
+     */
+    function _computeSwapOutput(address tokenIn, address tokenOut, uint256 amountIn) internal view returns (uint256 outNormalized) {
+        uint256 n = _supportedTokens.length;
+        uint256[] memory xp = new uint256[](n);
+        for (uint256 k = 0; k < n; k++) {
+            xp[k] = _normalizeAmount(_supportedTokens[k], reserves[_supportedTokens[k]]);
+        }
+
+        uint256 i = _tokenIndex[tokenIn];
+        uint256 j = _tokenIndex[tokenOut];
+
+        uint256 x = xp[i] + _normalizeAmount(tokenIn, amountIn);
+        uint256 y = _getY(i, j, x, xp);
+        // -1 rounds the output down in the pool's favour.
+        uint256 dy = xp[j] > y + 1 ? xp[j] - y - 1 : 0;
+        uint256 fee = (dy * feeBps) / MAX_FEE_BPS;
+        outNormalized = dy - fee;
+    }
+
+    /// @dev StableSwap invariant D via Newton's method (all balances must be > 0).
+    function _getD(uint256[] memory xp) internal view returns (uint256) {
+        uint256 n = xp.length;
+        uint256 s;
+        for (uint256 i = 0; i < n; i++) s += xp[i];
+        if (s == 0) return 0;
+
+        uint256 d = s;
+        uint256 ann = ampFactor * n;
+        for (uint256 iter = 0; iter < 255; iter++) {
+            uint256 dP = d;
+            for (uint256 i = 0; i < n; i++) {
+                dP = (dP * d) / (xp[i] * n);
+            }
+            uint256 dPrev = d;
+            d = ((ann * s + dP * n) * d) / ((ann - 1) * d + (n + 1) * dP);
+            if (d > dPrev ? d - dPrev <= 1 : dPrev - d <= 1) break;
+        }
+        return d;
+    }
+
+    /// @dev Given new balance `x` of coin `i`, solve for balance `y` of coin `j` that holds D.
+    function _getY(uint256 i, uint256 j, uint256 x, uint256[] memory xp) internal view returns (uint256) {
+        uint256 n = xp.length;
+        uint256 d = _getD(xp);
+        uint256 ann = ampFactor * n;
+
+        uint256 c = d;
+        uint256 sum;
+        for (uint256 k = 0; k < n; k++) {
+            uint256 xk;
+            if (k == i) xk = x;
+            else if (k != j) xk = xp[k];
+            else continue;
+            sum += xk;
+            c = (c * d) / (xk * n);
+        }
+        c = (c * d) / (ann * n);
+        uint256 b = sum + d / ann;
+
+        uint256 y = d;
+        for (uint256 iter = 0; iter < 255; iter++) {
+            uint256 yPrev = y;
+            y = (y * y + c) / (2 * y + b - d);
+            if (y > yPrev ? y - yPrev <= 1 : yPrev - y <= 1) break;
+        }
+        return y;
     }
 
     function getVirtualPrice() external view returns (uint256) {
