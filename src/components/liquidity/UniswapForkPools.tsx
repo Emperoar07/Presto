@@ -603,6 +603,8 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     const volume = volumeDisplay(pool);
     const claimableUsyc = Number(formatUnits(pool.claimableUsyc, 6));
     const activatedLp = Number(formatUnits(pool.stakedLp, 18));
+    const aprPercent = 1.0;
+    const dailyRewardUsyc = posValue > 0 ? (posValue * (aprPercent / 100)) / 365 : 0;
     return (
       <div
         key={pool.pair}
@@ -622,7 +624,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
               </div>
               <div>
                 <p className="text-[16px] font-bold text-slate-100">{pool.token.symbol} / {pool.hub.symbol}</p>
-                <p className="mt-0.5 text-[12px] text-slate-500">Uniswap V2 · 0.3% swap fee · 1% USYC APR</p>
+                <p className="mt-0.5 text-[12px] text-slate-500">Stable liquidity position</p>
               </div>
             </div>
           </div>
@@ -645,8 +647,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>{volume} 24h volume</span>
-            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>0.3% swap fee</span>
-            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-emerald-400" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>1% USYC APR</span>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>1.0% APR</span>
             {activatedLp > 0 && (
               <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-emerald-400" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
                 {activatedLp.toFixed(4)} LP activated
@@ -654,33 +655,46 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {rewardsConfigured && pool.userLp > 0n && (
-              <button
-                type="button"
-                onClick={() => handleActivateRewards(pool)}
-                disabled={busy}
-                className="rounded-[8px] bg-emerald-500 px-3 py-2 text-[11px] font-extrabold text-[#071a14] disabled:opacity-50"
-              >
-                Activate 1% Rewards
-              </button>
-            )}
             {rewardsConfigured && (
-              <div className="flex items-center rounded-[8px] border border-emerald-400/15 bg-emerald-400/[0.06]">
-                <span className="px-3 py-2 text-[11px] font-semibold text-emerald-400">{claimableUsyc.toFixed(4)} USYC claimable</span>
+              <>
+                <div className="flex items-center h-9 rounded-[10px] px-3 text-[11px]" style={{ background: 'rgba(0,184,122,0.08)', border: '1px solid rgba(0,184,122,0.18)' }}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-[#00b87a]">
+                      {claimableUsyc > 0 ? `${claimableUsyc.toFixed(4)} USYC` : '0.0000 USYC'}
+                    </span>
+                    <span className="text-slate-500">claimable</span>
+                  </div>
+                  {dailyRewardUsyc > 0 && (
+                    <span className="ml-2 pl-2 border-l border-white/[0.08] text-[9.5px] text-slate-500">
+                      ~{dailyRewardUsyc.toFixed(4)} / day
+                    </span>
+                  )}
+                </div>
+                {pool.userLp > 0n && (
+                  <button
+                    type="button"
+                    onClick={() => handleActivateRewards(pool)}
+                    disabled={busy}
+                    className="h-9 rounded-[10px] bg-emerald-500 px-3 text-[11px] font-extrabold text-[#071a14] disabled:opacity-50"
+                  >
+                    Activate Rewards
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleClaimRewards(pool)}
                   disabled={busy || pool.claimableUsyc <= 0n}
-                  className="rounded-[7px] bg-emerald-500 px-3 py-2 text-[11px] font-extrabold text-[#071a14] disabled:bg-emerald-500/20 disabled:text-emerald-400"
+                  className="h-9 rounded-[10px] px-4 text-[12px] font-bold text-[#071a14] transition-all disabled:opacity-40"
+                  style={{ background: '#00b87a' }}
                 >
                   Claim USYC
                 </button>
-              </div>
+              </>
             )}
             <button
               type="button"
               onClick={() => { setOpenPair(isOpen ? null : pool.pair); setMode('add'); setAddToken(''); setAddHub(''); setRemoveLp(''); }}
-              className="flex h-9 w-9 items-center justify-center rounded-[8px] transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors"
               style={{ background: '#25c0f4', color: '#0f172a' }}
               title={isOpen ? 'Hide Manager' : 'Manage Position'}
             >
