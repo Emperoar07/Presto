@@ -238,7 +238,12 @@ const DEFAULT_CHAIN_CONTRACTS: Record<number, ContractAddresses> = {
     FACTORY_ADDRESS: ZERO_ADDRESS,
     STABLE_VAULT_ADDRESS: ZERO_ADDRESS,
     HUB_AMM_ADDRESS: "0x5794a8284A29493871Fbfa3c4f343D42001424D6",
-    ARC_STABLESWAP_ADDRESS: "0xcA61d269A05526270c3eB905A4a24283c6630134", // deploy-stableswap.ts (D-accounting fix)
+    // ArcStableSwapPool (D-accounting fix) is deployed at
+    // 0xcA61d269A05526270c3eB905A4a24283c6630134 but holds NO liquidity yet.
+    // Wiring it in makes isStableSwapRoute true, which sends stable-pair quotes
+    // to an empty pool (getQuote returns 0) and silently drops the Presto route.
+    // Keep it zero until the pool is seeded, then flip to the address above.
+    ARC_STABLESWAP_ADDRESS: ZERO_ADDRESS,
     WETH_ADDRESS: "0x911b4000D3422F482F4062a913885f7b035382Df", // WUSDC (wrapped native)
     // Uniswap V2 fork deployed via scripts/deploy-uniswap-arc.ts
     UNISWAP_V2_FACTORY: "0xd70dd32d5Ee254F92ed1B259B6a8c22dA5CCb754",
