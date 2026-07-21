@@ -18,7 +18,7 @@ import {
   CIRBTC_LIQUIDITY_REWARDS_ABI,
   CIRBTC_REWARDS_ADDRESS,
 } from '@/config/contracts';
-import { contractCall, walletSupportsAtomicBatch, sendAtomicBatch } from '@/lib/batchCalls';
+import { contractCall, sendBatchCalls } from '@/lib/batchCalls';
 import { usePoolStats } from '@/hooks/useApiQueries';
 import {
   createLocalActivityItem,
@@ -176,16 +176,31 @@ function ClaimAllBar({
   const handleClaimAll = async () => {
     setIsClaiming(true);
     try {
-      let usedBatch = false;
-      if (walletClient && walletAddress && (await walletSupportsAtomicBatch(walletClient, walletAddress, chainId))) {
-        const calls = claims.map((c) => contractCall(c.address, c.abi, c.functionName, c.args));
-        await sendAtomicBatch(walletClient, walletAddress, calls);
-        usedBatch = true;
-      } else {
+      const claimSequentially = async () => {
         for (const c of claims) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await writeContractAsync({ address: c.address, abi: c.abi, functionName: c.functionName, args: c.args } as any);
         }
+      };
+
+      let usedBatch = false;
+      if (walletClient && walletAddress) {
+        try {
+          // Claims are independent, so atomicity isn't required — a plain
+          // EIP-5792 sendCalls gives a single wallet confirmation and is
+          // supported by far more wallets (incl. MetaMask EOAs) than the
+          // forceAtomic path, which needs a smart account / EIP-7702.
+          const calls = claims.map((c) => contractCall(c.address, c.abi, c.functionName, c.args));
+          await sendBatchCalls(walletClient, walletAddress, calls);
+          usedBatch = true;
+        } catch (batchError: unknown) {
+          // Don't re-prompt if the user rejected the batch themselves.
+          if (isUserCancellation(batchError)) throw batchError;
+          // Wallet has no wallet_sendCalls support — one tx per claim.
+          await claimSequentially();
+        }
+      } else {
+        await claimSequentially();
       }
       toast.success(
         `Claimed ${totalUsyc.toFixed(4)} USYC from ${count} position${count > 1 ? 's' : ''}${usedBatch ? ' in one transaction' : ''}`,

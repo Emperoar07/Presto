@@ -49,6 +49,30 @@ export async function walletSupportsAtomicBatch(
 }
 
 /**
+ * Send a batch of calls via EIP-5792 `wallet_sendCalls` WITHOUT requiring atomic
+ * execution, resolving to the final tx hash. Use for independent actions (e.g.
+ * claiming rewards from several pools) where partial success is acceptable but a
+ * single wallet confirmation is still wanted. Works on any wallet that implements
+ * `wallet_sendCalls` — including MetaMask EOAs — not just smart accounts.
+ *
+ * Throws if the wallet doesn't support the method; callers should catch and fall
+ * back to sequential writes.
+ */
+export async function sendBatchCalls(
+  walletClient: WalletClient,
+  account: `0x${string}`,
+  calls: BatchCall[],
+): Promise<`0x${string}`> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wc = walletClient as any;
+  const { id } = await wc.sendCalls({ account, chain: null, calls });
+  const { receipts } = await wc.waitForCallsStatus({ id });
+  const hash = receipts?.[receipts.length - 1]?.transactionHash as `0x${string}` | undefined;
+  if (!hash) throw new Error('Batched calls returned no transaction hash');
+  return hash;
+}
+
+/**
  * Send a batch of calls atomically (one confirmation) and resolve to the final tx hash.
  * Only call this after `walletSupportsAtomicBatch` returned true.
  */
