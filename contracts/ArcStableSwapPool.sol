@@ -80,31 +80,56 @@ contract ArcStableSwapPool is Ownable, Pausable, ReentrancyGuard {
 
     function addLiquidity(uint256[] calldata amounts, uint256 minLpOut, uint256 deadline) external nonReentrant whenNotPaused returns (uint256 lpOut) {
         if (block.timestamp > deadline) revert DeadlineExpired();
-        if (amounts.length != _supportedTokens.length) revert InvalidAmountsLength();
+        uint256 n = _supportedTokens.length;
+        if (amounts.length != n) revert InvalidAmountsLength();
+
+        // LP is minted against the change in the StableSwap invariant D — the
+        // same invariant swaps price against — not the raw sum of balances. An
+        // imbalanced deposit therefore mints fewer shares, and the imbalance
+        // fee below makes "imbalanced add + balanced remove" no cheaper than a
+        // taxed swap (closes the fee-light rebalance path).
+        uint256[] memory oldBalances = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            oldBalances[i] = _normalizeAmount(_supportedTokens[i], reserves[_supportedTokens[i]]);
+        }
+        uint256 d0 = totalLpSupply == 0 ? 0 : _getD(oldBalances);
 
         uint256 addedNormalized;
-        uint256 currentInvariant = _getTotalNormalizedLiquidity();
-
-        for (uint256 i = 0; i < amounts.length; i++) {
+        uint256[] memory newBalances = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
             uint256 amount = amounts[i];
-            if (amount == 0) continue;
-
-            address token = _supportedTokens[i];
-            IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-            reserves[token] += amount;
-            addedNormalized += _normalizeAmount(token, amount);
+            if (amount > 0) {
+                address token = _supportedTokens[i];
+                IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+                reserves[token] += amount;
+                addedNormalized += _normalizeAmount(token, amount);
+            }
+            newBalances[i] = _normalizeAmount(_supportedTokens[i], reserves[_supportedTokens[i]]);
         }
-
         if (addedNormalized == 0) revert ZeroAmount();
 
+        uint256 d1 = _getD(newBalances);
+
         if (totalLpSupply == 0) {
-            if (addedNormalized <= MINIMUM_LIQUIDITY) revert InsufficientLpOut();
-            totalLpSupply = addedNormalized;
+            // First provider seeds every coin; LP == D of the initial deposit.
+            if (d1 <= MINIMUM_LIQUIDITY) revert InsufficientLpOut();
+            totalLpSupply = d1;
             lpBalanceOf[address(0)] = MINIMUM_LIQUIDITY;
-            lpOut = addedNormalized - MINIMUM_LIQUIDITY;
+            lpOut = d1 - MINIMUM_LIQUIDITY;
             lpBalanceOf[msg.sender] += lpOut;
         } else {
-            lpOut = (addedNormalized * totalLpSupply) / currentInvariant;
+            // Charge the Curve imbalance fee on each coin's deviation from the
+            // ideal balanced deposit. The fee stays in the pool (reserves keep
+            // the full amounts) and only reduces the D used to size the mint.
+            uint256 fee = (feeBps * n) / (4 * (n - 1));
+            for (uint256 i = 0; i < n; i++) {
+                uint256 ideal = (d1 * oldBalances[i]) / d0;
+                uint256 diff = newBalances[i] > ideal ? newBalances[i] - ideal : ideal - newBalances[i];
+                newBalances[i] -= (fee * diff) / MAX_FEE_BPS;
+            }
+            uint256 d2 = _getD(newBalances);
+            if (d2 <= d0) revert InsufficientLpOut();
+            lpOut = (totalLpSupply * (d2 - d0)) / d0;
             if (lpOut == 0) revert InsufficientLpOut();
             totalLpSupply += lpOut;
             lpBalanceOf[msg.sender] += lpOut;
@@ -150,8 +175,14 @@ contract ArcStableSwapPool is Ownable, Pausable, ReentrancyGuard {
         uint256 providerBalance = lpBalanceOf[msg.sender];
         if (providerBalance < lpAmount) revert InsufficientLpBalance();
 
-        amountOut = (reserves[tokenOut] * lpAmount) / totalLpSupply;
-        if (amountOut < minAmountOut) revert InsufficientOutput();
+        // Single-coin withdrawals are priced off the D invariant (with the
+        // imbalance fee) rather than a raw proportional slice of one reserve —
+        // so exiting entirely into one coin costs the same slippage a swap
+        // would, and cannot be used as a fee-light rebalance.
+        uint256 outNormalized = _calcWithdrawOneToken(lpAmount, tokenOut);
+        amountOut = _denormalizeAmount(tokenOut, outNormalized);
+        if (amountOut == 0 || amountOut < minAmountOut) revert InsufficientOutput();
+        if (amountOut > reserves[tokenOut]) revert InsufficientLiquidity();
 
         lpBalanceOf[msg.sender] = providerBalance - lpAmount;
         totalLpSupply -= lpAmount;
@@ -160,6 +191,38 @@ contract ArcStableSwapPool is Ownable, Pausable, ReentrancyGuard {
         IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
 
         emit LiquidityRemoved(msg.sender, lpAmount);
+    }
+
+    /// @dev Curve calc_withdraw_one_coin: normalized amount of `tokenOut` for
+    ///      burning `lpAmount`, net of the imbalance fee.
+    function _calcWithdrawOneToken(uint256 lpAmount, address tokenOut) internal view returns (uint256) {
+        uint256 n = _supportedTokens.length;
+        uint256 j = _tokenIndex[tokenOut];
+
+        uint256[] memory xp = new uint256[](n);
+        for (uint256 k = 0; k < n; k++) {
+            xp[k] = _normalizeAmount(_supportedTokens[k], reserves[_supportedTokens[k]]);
+        }
+
+        uint256 d0 = _getD(xp);
+        uint256 d1 = d0 - (lpAmount * d0) / totalLpSupply;
+        uint256 newY = _getYD(j, xp, d1);
+
+        uint256 fee = (feeBps * n) / (4 * (n - 1));
+        uint256[] memory xpReduced = new uint256[](n);
+        for (uint256 k = 0; k < n; k++) {
+            uint256 dxExpected;
+            if (k == j) {
+                dxExpected = (xp[k] * d1) / d0 - newY;
+            } else {
+                dxExpected = xp[k] - (xp[k] * d1) / d0;
+            }
+            xpReduced[k] = xp[k] - (fee * dxExpected) / MAX_FEE_BPS;
+        }
+
+        uint256 dy = xpReduced[j] - _getYD(j, xpReduced, d1);
+        // -1 rounds the output down in the pool's favour.
+        return dy > 0 ? dy - 1 : 0;
     }
 
     function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external nonReentrant whenNotPaused returns (uint256 amountOut) {
@@ -255,6 +318,33 @@ contract ArcStableSwapPool is Ownable, Pausable, ReentrancyGuard {
             if (k == i) xk = x;
             else if (k != j) xk = xp[k];
             else continue;
+            sum += xk;
+            c = (c * d) / (xk * n);
+        }
+        c = (c * d) / (ann * n);
+        uint256 b = sum + d / ann;
+
+        uint256 y = d;
+        for (uint256 iter = 0; iter < 255; iter++) {
+            uint256 yPrev = y;
+            y = (y * y + c) / (2 * y + b - d);
+            if (y > yPrev ? y - yPrev <= 1 : yPrev - y <= 1) break;
+        }
+        return y;
+    }
+
+    /// @dev Given a target invariant `d`, solve for balance `y` of coin `j`
+    ///      holding the other balances in `xp` fixed. Used by single-coin
+    ///      withdrawal (D is supplied rather than derived from `xp`).
+    function _getYD(uint256 j, uint256[] memory xp, uint256 d) internal view returns (uint256) {
+        uint256 n = xp.length;
+        uint256 ann = ampFactor * n;
+
+        uint256 c = d;
+        uint256 sum;
+        for (uint256 k = 0; k < n; k++) {
+            if (k == j) continue;
+            uint256 xk = xp[k];
             sum += xk;
             c = (c * d) / (xk * n);
         }

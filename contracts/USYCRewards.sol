@@ -42,6 +42,13 @@ contract USYCRewards is Ownable, ReentrancyGuard {
     // user => token => last checkpoint timestamp
     mapping(address => mapping(address => uint256)) public lastSnapshot;
 
+    // user => token => LP shares recorded at the last checkpoint.
+    // Accrual credits only min(currentShares, snapshotShares) so that shares
+    // added AFTER a checkpoint (without re-snapshotting) are not paid rewards
+    // for the whole elapsed window. Prevents reward-treasury inflation via the
+    // "snapshot small/zero -> wait -> add large -> claim" path.
+    mapping(address => mapping(address => uint256)) public snapshotShares;
+
     // user => token => accrued but unclaimed rewards (6 decimals, matches USYC)
     mapping(address => mapping(address => uint256)) public pendingRewards;
 
@@ -94,6 +101,7 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         require(firstDepositTimestamp < block.timestamp, "timestamp in future");
         require(lastSnapshot[user][token] == 0, "snapshot already set");
         lastSnapshot[user][token] = firstDepositTimestamp;
+        snapshotShares[user][token] = hubAmm.shares(token, user);
         emit OwnerSnapshotSet(user, token, firstDepositTimestamp);
     }
 
@@ -106,6 +114,7 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < users.length; i++) {
             if (lastSnapshot[users[i]][tokens[i]] == 0 && timestamps[i] < block.timestamp) {
                 lastSnapshot[users[i]][tokens[i]] = timestamps[i];
+                snapshotShares[users[i]][tokens[i]] = hubAmm.shares(tokens[i], users[i]);
                 emit OwnerSnapshotSet(users[i], tokens[i], timestamps[i]);
             }
         }
@@ -174,8 +183,11 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         }
 
         // Set snapshot to now whether or not they had a position. This marks
-        // the start of their accrual window on first call.
+        // the start of their accrual window on first call. Record the share
+        // balance at this instant so the next window cannot credit shares that
+        // were added after this checkpoint.
         lastSnapshot[user][token] = block.timestamp;
+        snapshotShares[user][token] = hubAmm.shares(token, user);
     }
 
     function _computeAccrued(address user, address token) internal view returns (uint256) {
@@ -187,16 +199,24 @@ contract USYCRewards is Ownable, ReentrancyGuard {
         uint256 elapsed = block.timestamp - snapshotTime;
         if (elapsed == 0) return 0;
 
-        uint256 userShares = hubAmm.shares(token, user);
+        uint256 currentShares = hubAmm.shares(token, user);
         uint256 total = hubAmm.totalShares(token);
-        if (userShares == 0 || total == 0) return 0;
+        if (currentShares == 0 || total == 0) return 0;
+
+        // Credit only the lesser of the shares held now and the shares recorded
+        // at the last checkpoint. Shares added after the checkpoint (e.g. an
+        // un-snapshotted addLiquidity right before claim) are not paid for the
+        // elapsed window; they only begin accruing from the next checkpoint.
+        uint256 snapped = snapshotShares[user][token];
+        uint256 effectiveShares = currentShares < snapped ? currentShares : snapped;
+        if (effectiveShares == 0) return 0;
 
         // ArcHubAMMNormalized mints LP shares in 18-decimal normalized units.
         // A balanced stable LP position has roughly one side of USD value in
         // shares, so rewards use shares * 2 as the full stablecoin position.
         // This avoids current reserves because reserves can move inside one
         // block and must not retroactively inflate rewards.
-        uint256 userTvl = (userShares * 2) / 1e12;
+        uint256 userTvl = (effectiveShares * 2) / 1e12;
         if (userTvl == 0) return 0;
 
         uint256 rate = _effectiveRewardRate(token);

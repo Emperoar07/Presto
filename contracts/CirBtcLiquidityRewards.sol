@@ -249,7 +249,20 @@ contract CirBtcLiquidityRewards is Ownable, ReentrancyGuard {
         return (principal * rewardRateBps * (block.timestamp - checkpoint)) / (10000 * SECONDS_PER_YEAR);
     }
 
+    /**
+     * USDC-equivalent principal for `lpAmount` valued at the LIVE pair state,
+     * matching how addLiquidity() values freshly minted LP (usdcUsed * 2).
+     *
+     * The immutable `principalPerLpX18` snapshot taken at construction is kept
+     * only for reference/ABI compatibility: using it here would let activate()
+     * value LP at a stale pre-move reserve ratio, so a cirBTC price move made
+     * activated LPs accrue 1% APR on a principal that no longer matched TVL.
+     */
     function _principalForLp(uint256 lpAmount) private view returns (uint256) {
-        return (lpAmount * principalPerLpX18) / 1e18;
+        uint256 supply = pair.totalSupply();
+        if (supply == 0) return 0;
+        (uint112 reserve0, uint112 reserve1,) = pair.getReserves();
+        uint256 usdcReserve = pair.token0() == address(usdc) ? uint256(reserve0) : uint256(reserve1);
+        return (lpAmount * usdcReserve * 2) / supply;
     }
 }

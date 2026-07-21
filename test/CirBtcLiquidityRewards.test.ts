@@ -137,10 +137,11 @@ describe("CirBtcLiquidityRewards", function () {
     );
   });
 
-  it("uses the deployment valuation for existing LP after reserves move", async function () {
+  // Regression for issue #1 follow-up, finding #2: activate() must value LP at
+  // the LIVE pool ratio, not the frozen constructor-time principalPerLpX18.
+  it("values existing LP at the live pool ratio after reserves move", async function () {
     const { existingProvider, newProvider, usdc, cirBtc, router, pair, rewards } = await loadFixture(deployFixture);
     const lpAmount = await pair.balanceOf(existingProvider.address);
-    const principalPerLp = await rewards.principalPerLpX18();
     const swapAmount = ethers.parseUnits("10000", 6);
     await usdc.mint(newProvider.address, swapAmount);
     await usdc.connect(newProvider).approve(await router.getAddress(), swapAmount);
@@ -151,11 +152,23 @@ describe("CirBtcLiquidityRewards", function () {
       newProvider.address,
       BigInt(await time.latest()) + 3600n,
     );
-    await pair.connect(existingProvider).approve(await rewards.getAddress(), lpAmount);
 
+    // Live USDC-side valuation AFTER the swap has shifted the reserves.
+    const token0 = await pair.token0();
+    const usdcIsToken0 = token0.toLowerCase() === (await usdc.getAddress()).toLowerCase();
+    const reserves = await pair.getReserves();
+    const usdcReserve = usdcIsToken0 ? reserves[0] : reserves[1];
+    const totalSupply = await pair.totalSupply();
+    const expectedLive = (lpAmount * usdcReserve * 2n) / totalSupply;
+    const frozen = (lpAmount * (await rewards.principalPerLpX18())) / 10n ** 18n;
+
+    await pair.connect(existingProvider).approve(await rewards.getAddress(), lpAmount);
     await rewards.connect(existingProvider).activate(lpAmount);
 
-    expect(await rewards.principalUsdc(existingProvider.address)).to.equal(lpAmount * principalPerLp / 10n ** 18n);
+    expect(await rewards.principalUsdc(existingProvider.address)).to.equal(expectedLive);
+    // The reserves moved, so live valuation must differ from the frozen one —
+    // proving activate() no longer relies on the stale snapshot.
+    expect(expectedLive).to.not.equal(frozen);
   });
 
   it("accrues and claims the configured USYC token", async function () {
