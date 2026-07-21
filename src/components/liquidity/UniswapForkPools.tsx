@@ -56,6 +56,20 @@ type ForkPool = {
 const fmtUsd = (n: number) => (n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}`);
 const trimNum = (n: number, max = 6) => Number(n.toFixed(max)).toString();
 
+/**
+ * LP amounts on the cirBTC pair are tiny — an 8-decimal token paired with
+ * 6-decimal USDC yields LP around 1e-12 — so fixed 4/8-dp rounding collapses a
+ * real balance to "0" and made the position impossible to remove. Render the
+ * exact value (trailing zeros trimmed) whenever it's too small for 6 dp.
+ */
+const fmtLpAmount = (raw: bigint) => {
+  if (raw === 0n) return '0';
+  const exact = formatUnits(raw, 18);
+  const asNumber = Number(exact);
+  if (asNumber >= 0.0001) return trimNum(asNumber, 6);
+  return exact.replace(/0+$/, '');
+};
+
 export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'positions' } = {}) {
   const { address } = useAccount();
   const chainId = useChainId();
@@ -390,7 +404,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
 
   // Shared add/remove manager body used by both the All Pools row and the My Positions card.
   const renderManager = (pool: ForkPool) => {
-    const { sharePct, reserveTokenDisp, reserveHubDisp, tvl, lpBalance, posValue, rate } = computeDerived(pool);
+    const { sharePct, reserveTokenDisp, reserveHubDisp, tvl, posValue, rate } = computeDerived(pool);
     const useRewardLp = removeSource === 'rewards' && pool.stakedLp > 0n;
     const removableLp = Number(formatUnits(useRewardLp ? pool.stakedLp : pool.userLp, 18));
 
@@ -406,7 +420,13 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
       const hOut = (liq * pool.reserveHub) / pool.totalSupply;
       recvSummary = `${trimNum(Number(formatUnits(tOut, pool.token.decimals)))} ${pool.token.symbol} · ${trimNum(Number(formatUnits(hOut, pool.hub.decimals)), 2)} ${pool.hub.symbol}`;
     }
-    const presetRemove = (f: number) => setRemoveLp(trimNum(removableLp * f, 8));
+    // Derive presets from the raw bigint — never from the rounded display value,
+    // or tiny LP balances (cirBTC) round to "0" and removal becomes impossible.
+    const removableRaw = useRewardLp ? pool.stakedLp : pool.userLp;
+    const presetRemove = (f: number) => {
+      const raw = f >= 1 ? removableRaw : (removableRaw * BigInt(Math.round(f * 10_000))) / 10_000n;
+      setRemoveLp(formatUnits(raw, 18));
+    };
 
     const statItems = [
       { label: 'Value', value: fmtUsd(posValue) },
@@ -435,7 +455,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex rounded-full bg-[#153b37] px-2 py-0.5 text-[10px] font-bold text-emerald-400">LP {lpBalance.toFixed(4)}</span>
+              <span className="inline-flex rounded-full bg-[#153b37] px-2 py-0.5 text-[10px] font-bold text-emerald-400">LP {fmtLpAmount(pool.userLp + pool.stakedLp)}</span>
               {pool.stakedLp > 0n && (
                 <span className="inline-flex rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
                   {Number(formatUnits(pool.stakedLp, 18)).toFixed(4)} earning
@@ -549,7 +569,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
               </div>
               <div className="grid gap-2 px-3 py-2 xl:grid-cols-[minmax(0,1fr)_140px_100px_130px] xl:items-end">
                 <div>
-                  <p className="mb-1 text-[10px] text-slate-500">{useRewardLp ? 'Rewards LP' : 'Wallet LP'} amount · available {removableLp.toFixed(4)}</p>
+                  <p className="mb-1 text-[10px] text-slate-500">{useRewardLp ? 'Rewards LP' : 'Wallet LP'} amount · available {fmtLpAmount(removableRaw)}</p>
                   <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-[#101827] px-3 py-2">
                     <input type="number" value={removeLp} onChange={(e) => setRemoveLp(e.target.value)} placeholder="0.0"
                       className="w-full bg-transparent text-[14px] font-extrabold text-slate-100 outline-none placeholder:text-slate-700" />
@@ -629,7 +649,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
   // Rich card used in My Positions, including the fork reward position.
   const renderPositionCard = (pool: ForkPool) => {
     const isOpen = openPair === pool.pair;
-    const { sharePct, tvl, lpBalance, posValue } = computeDerived(pool);
+    const { sharePct, tvl, posValue } = computeDerived(pool);
     const volume = volumeDisplay(pool);
     const claimableUsyc = Number(formatUnits(pool.claimableUsyc, 6));
     const activatedLp = Number(formatUnits(pool.stakedLp, 18));
@@ -661,7 +681,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
           <div className="grid gap-3 text-left sm:grid-cols-3 sm:text-right">
             <div>
               <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">LP Balance</p>
-              <p className="mt-1 text-[18px] font-extrabold tracking-tight text-slate-100">{lpBalance.toFixed(4)}</p>
+              <p className="mt-1 text-[18px] font-extrabold tracking-tight text-slate-100">{fmtLpAmount(pool.userLp + pool.stakedLp)}</p>
             </div>
             <div>
               <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-500">Pool Share</p>
@@ -680,7 +700,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
             <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>1.0% APR</span>
             {activatedLp > 0 && (
               <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-emerald-400" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
-                {activatedLp.toFixed(4)} LP activated
+                {fmtLpAmount(pool.stakedLp)} LP activated
               </span>
             )}
           </div>
