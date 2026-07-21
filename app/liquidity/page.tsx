@@ -2,15 +2,23 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatUnits, parseUnits, type PublicClient } from 'viem';
-import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
+import { formatUnits, parseUnits, type PublicClient, type Abi } from 'viem';
+import { useAccount, useChainId, usePublicClient, useWalletClient, useReadContract, useReadContracts, useWriteContract } from 'wagmi';
 import toast from 'react-hot-toast';
 import { Token, getHubToken, getTokens, isHubToken } from '@/config/tokens';
 import { isUserCancellation } from '@/lib/errorHandling';
 import { Hooks } from '@/lib/tempo';
 import { addFeeLiquidity, getTokenBalance, quoteHubLiquidityPathAmount } from '@/lib/tempoClient';
 import { TxToast } from '@/components/common/TxToast';
-import { isTempoNativeChain } from '@/config/contracts';
+import {
+  isTempoNativeChain,
+  ZERO_ADDRESS,
+  USYC_REWARDS_ABI,
+  USYC_REWARDS_ADDRESS,
+  CIRBTC_LIQUIDITY_REWARDS_ABI,
+  CIRBTC_REWARDS_ADDRESS,
+} from '@/config/contracts';
+import { contractCall, walletSupportsAtomicBatch, sendAtomicBatch } from '@/lib/batchCalls';
 import { usePoolStats } from '@/hooks/useApiQueries';
 import {
   createLocalActivityItem,
@@ -74,6 +82,142 @@ function formatEditableAmount(value: number, decimals: number) {
   return value
     .toFixed(Math.min(decimals, 6))
     .replace(/\.?0+$/, '');
+}
+
+type ClaimRequest = {
+  address: `0x${string}`;
+  abi: Abi;
+  functionName: string;
+  args: readonly unknown[];
+  amount: bigint;
+};
+
+/**
+ * Aggregates every claimable USYC reward across the user's stable positions
+ * (USYCRewards.claim(token)) plus the cirBTC position (CirBtcLiquidityRewards.claim()),
+ * and settles them in a single wallet confirmation via EIP-5792 batching — falling
+ * back to sequential claims on wallets without atomic batch support.
+ */
+function ClaimAllBar({
+  tokens,
+  walletAddress,
+}: {
+  tokens: Token[];
+  walletAddress?: `0x${string}`;
+}) {
+  const chainId = useChainId();
+  const isArc = chainId === 5042002;
+  const { data: walletClient } = useWalletClient();
+  const { writeContractAsync } = useWriteContract();
+  const [isClaiming, setIsClaiming] = useState(false);
+
+  const rewardTokens = useMemo(
+    () => tokens.filter((t) => !isSynthraRoutedLiquidityToken(t)),
+    [tokens],
+  );
+  const rewardsReady = isArc && !!walletAddress && USYC_REWARDS_ADDRESS !== ZERO_ADDRESS;
+  const cirBtcReady = isArc && !!walletAddress && CIRBTC_REWARDS_ADDRESS !== ZERO_ADDRESS;
+
+  const { data: stableReads, refetch: refetchStable } = useReadContracts({
+    contracts: rewardTokens.flatMap((t) => [
+      {
+        address: USYC_REWARDS_ADDRESS,
+        abi: USYC_REWARDS_ABI,
+        functionName: 'claimableOf',
+        args: [walletAddress ?? ZERO_ADDRESS, t.address as `0x${string}`],
+      },
+      {
+        address: USYC_REWARDS_ADDRESS,
+        abi: USYC_REWARDS_ABI,
+        functionName: 'poolEnabled',
+        args: [t.address as `0x${string}`],
+      },
+    ]),
+    query: { enabled: rewardsReady, refetchInterval: 30000, staleTime: 10_000 },
+  });
+
+  const { data: cirBtcClaimableRaw, refetch: refetchCirBtc } = useReadContract({
+    address: CIRBTC_REWARDS_ADDRESS,
+    abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
+    functionName: 'claimableOf',
+    args: walletAddress ? [walletAddress] : undefined,
+    query: { enabled: cirBtcReady, refetchInterval: 30000, staleTime: 10_000 },
+  });
+
+  const claims: ClaimRequest[] = [];
+  rewardTokens.forEach((t, i) => {
+    const amount = (stableReads?.[i * 2]?.result as bigint | undefined) ?? 0n;
+    const enabled = (stableReads?.[i * 2 + 1]?.result as boolean | undefined) ?? false;
+    if (enabled && amount > 0n) {
+      claims.push({
+        address: USYC_REWARDS_ADDRESS,
+        abi: USYC_REWARDS_ABI as unknown as Abi,
+        functionName: 'claim',
+        args: [t.address as `0x${string}`],
+        amount,
+      });
+    }
+  });
+  const cirBtcAmount = (cirBtcClaimableRaw as bigint | undefined) ?? 0n;
+  if (cirBtcAmount > 0n) {
+    claims.push({
+      address: CIRBTC_REWARDS_ADDRESS,
+      abi: CIRBTC_LIQUIDITY_REWARDS_ABI as unknown as Abi,
+      functionName: 'claim',
+      args: [],
+      amount: cirBtcAmount,
+    });
+  }
+
+  const totalUsyc = claims.reduce((sum, c) => sum + Number(c.amount) / 1e6, 0);
+  const count = claims.length;
+  if (!rewardsReady || count === 0) return null;
+
+  const handleClaimAll = async () => {
+    setIsClaiming(true);
+    try {
+      let usedBatch = false;
+      if (walletClient && walletAddress && (await walletSupportsAtomicBatch(walletClient, walletAddress, chainId))) {
+        const calls = claims.map((c) => contractCall(c.address, c.abi, c.functionName, c.args));
+        await sendAtomicBatch(walletClient, walletAddress, calls);
+        usedBatch = true;
+      } else {
+        for (const c of claims) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await writeContractAsync({ address: c.address, abi: c.abi, functionName: c.functionName, args: c.args } as any);
+        }
+      }
+      toast.success(
+        `Claimed ${totalUsyc.toFixed(4)} USYC from ${count} position${count > 1 ? 's' : ''}${usedBatch ? ' in one transaction' : ''}`,
+      );
+      refetchStable();
+      refetchCirBtc();
+    } catch (e: unknown) {
+      if (!isUserCancellation(e)) toast.error('Claim all failed');
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClaimAll}
+      disabled={isClaiming}
+      className="flex items-center gap-2 h-9 rounded-[10px] px-3.5 text-[12px] font-bold disabled:opacity-50 transition-colors btn-press"
+      style={{ background: '#00b87a', color: '#0f172a' }}
+      title={`Claim ${totalUsyc.toFixed(4)} USYC across ${count} position${count > 1 ? 's' : ''} in one transaction`}
+    >
+      <span className="material-symbols-outlined text-[16px]">bolt</span>
+      <span>{isClaiming ? 'Claiming…' : `Claim All · ${totalUsyc.toFixed(4)} USYC`}</span>
+      <span
+        className="rounded-full px-1.5 py-0.5 text-[10px] font-extrabold"
+        style={{ background: 'rgba(15,23,42,0.18)' }}
+      >
+        {count}
+      </span>
+    </button>
+  );
 }
 
 function MyPositionRow({
@@ -1543,6 +1687,7 @@ export default function LiquidityPage() {
           <div className="overflow-hidden rounded-[16px]" style={{ background: SURF, border: BDR }}>
             <div className="flex items-center justify-between px-5 py-[14px]" style={{ borderBottom: BDR }}>
               <p className="text-[14px] font-bold text-slate-100">My Positions</p>
+              <ClaimAllBar tokens={availablePositionTokens} walletAddress={address} />
             </div>
 
             <div className="space-y-3 px-5 py-5">

@@ -30,6 +30,11 @@ const SLIPPAGE_BPS = 100n; // 1%
 // local market lives in the Uniswap fork and is surfaced here.
 const FORK_LIQUIDITY_SYMBOLS = new Set(['cirbtc']);
 
+// Superseded cirBTC rewards deployments. They still custody users' staked LP
+// after a rewards-contract migration, so we read positions/claimables from them
+// too — otherwise a migrated stake silently disappears from "My Positions".
+const PRIOR_CIRBTC_REWARDS: Address[] = ['0x735C744F459f9E19E5061dA46FAe417b87Cb22B2'];
+
 type ForkPool = {
   token: Token;
   hub: Token;
@@ -43,6 +48,9 @@ type ForkPool = {
   claimableUsyc: bigint;
   userTokenBal: bigint;
   userHubBal: bigint;
+  // Rewards contract that actually custodies this user's stake/claimable —
+  // usually the current one, but a prior deployment for migrated positions.
+  rewardsContract: Address;
 };
 
 const fmtUsd = (n: number) => (n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}`);
@@ -92,20 +100,42 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
           })) as Address;
           if (!pair || pair.toLowerCase() === ZERO) return null;
 
-          const rewardReads = address && rewardsConfigured
-            ? Promise.all([
-                publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'stakedLp', args: [address] }) as Promise<bigint>,
-                publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'principalUsdc', args: [address] }) as Promise<bigint>,
-                publicClient.readContract({ address: CIRBTC_REWARDS_ADDRESS, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'claimableOf', args: [address] }) as Promise<bigint>,
-              ]).catch(() => [0n, 0n, 0n] as const)
-            : Promise.resolve([0n, 0n, 0n] as const);
-          const [reserves, token0, totalSupply, userLp, [stakedLp, principalUsdc, claimableUsyc]] = await Promise.all([
+          const [reserves, token0, totalSupply, userLp] = await Promise.all([
             publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' }) as Promise<readonly [bigint, bigint, number]>,
             publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' }) as Promise<Address>,
             publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
             address ? (publicClient.readContract({ address: pair, abi: UNISWAP_V2_PAIR_ABI, functionName: 'balanceOf', args: [address] }) as Promise<bigint>) : Promise.resolve(0n),
-            rewardReads,
           ]);
+
+          // Resolve which rewards contract holds this user's stake: prefer the
+          // current (fixed) one, then fall back to superseded deployments so a
+          // pre-migration stake still shows up as a position.
+          const readRewards = (rewardsAddr: Address) =>
+            Promise.all([
+              publicClient.readContract({ address: rewardsAddr, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'stakedLp', args: [address!] }) as Promise<bigint>,
+              publicClient.readContract({ address: rewardsAddr, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'principalUsdc', args: [address!] }) as Promise<bigint>,
+              publicClient.readContract({ address: rewardsAddr, abi: CIRBTC_LIQUIDITY_REWARDS_ABI, functionName: 'claimableOf', args: [address!] }) as Promise<bigint>,
+            ]).catch(() => [0n, 0n, 0n] as [bigint, bigint, bigint]);
+
+          let rewardsContract = CIRBTC_REWARDS_ADDRESS as Address;
+          let stakedLp = 0n;
+          let principalUsdc = 0n;
+          let claimableUsyc = 0n;
+          if (address && rewardsConfigured) {
+            [stakedLp, principalUsdc, claimableUsyc] = await readRewards(CIRBTC_REWARDS_ADDRESS as Address);
+            if (stakedLp === 0n && claimableUsyc === 0n) {
+              for (const prior of PRIOR_CIRBTC_REWARDS) {
+                const [s, p, c] = await readRewards(prior);
+                if (s > 0n || c > 0n) {
+                  rewardsContract = prior;
+                  stakedLp = s;
+                  principalUsdc = p;
+                  claimableUsyc = c;
+                  break;
+                }
+              }
+            }
+          }
           const tokenIsToken0 = token0.toLowerCase() === token.address.toLowerCase();
           const reserveToken = tokenIsToken0 ? reserves[0] : reserves[1];
           const reserveHub = tokenIsToken0 ? reserves[1] : reserves[0];
@@ -120,7 +150,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
             userTokenBal = parseUnits(tb || '0', token.decimals);
             userHubBal = parseUnits(hb || '0', hub.decimals);
           }
-          return { token, hub, pair, reserveToken, reserveHub, totalSupply, userLp, stakedLp, principalUsdc, claimableUsyc, userTokenBal, userHubBal };
+          return { token, hub, pair, reserveToken, reserveHub, totalSupply, userLp, stakedLp, principalUsdc, claimableUsyc, userTokenBal, userHubBal, rewardsContract };
         })
       );
       if (id !== reqId.current) return; // a newer load superseded this one
@@ -225,7 +255,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
     setBusy(true);
     try {
       const hash = await walletClient.writeContract({
-        address: CIRBTC_REWARDS_ADDRESS,
+        address: pool.rewardsContract,
         abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
         functionName: 'claim',
         account: address,
@@ -319,7 +349,7 @@ export function UniswapForkPools({ variant = 'all' }: { variant?: 'all' | 'posit
       let hash: `0x${string}`;
       if (rewardsConfigured && useRewardLp) {
         hash = await walletClient.writeContract({
-          address: CIRBTC_REWARDS_ADDRESS,
+          address: pool.rewardsContract,
           abi: CIRBTC_LIQUIDITY_REWARDS_ABI,
           functionName: 'removeLiquidity',
           args: [liquidity, tokenMin, hubMin, deadline],
