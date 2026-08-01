@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build --webpack && node -e \"const fs=require('fs'); fs.rmSync('.next/cache', { recursive: true, force: true }); if (fs.existsSync('.next/static') && fs.existsSync('.next/server/app')) { fs.mkdirSync('.next/server/app/_next', { recursive: true }); fs.cpSync('.next/static', '.next/server/app/_next/static', { recursive: true }); if (fs.existsSync('public/_redirects')) { fs.copyFileSync('public/_redirects', '.next/server/app/_redirects'); } }\"",
+    "build": "next build --webpack && node -e \"const fs=require('fs'); fs.rmSync('.next/cache', { recursive: true, force: true }); if (fs.existsSync('.next/static') && fs.existsSync('.next/server/app')) { fs.mkdirSync('.next/server/app/_next', { recursive: true }); fs.cpSync('.next/static', '.next/server/app/_next/static', { recursive: true }); if (fs.existsSync('public/icon.svg')) { fs.copyFileSync('public/icon.svg', '.next/server/app/icon.svg'); fs.copyFileSync('public/icon.svg', '.next/server/app/favicon.ico'); } if (fs.existsSync('public/_redirects')) { fs.copyFileSync('public/_redirects', '.next/server/app/_redirects'); } }\"",
     "start": "next start",
     "lint": "node -e \"process.exit(require('child_process').spawnSync('npx', ['eslint', '.'], { stdio: 'inherit', env: { ...process.env, ESLINT_USE_FLAT_CONFIG: 'false' } }).status)\"",
     "test:api": "tsx --test test/synroute-utils.test.ts test/uniswap-v2-volume.test.ts test/hub-pool-volume.test.ts test/pool-stats-fork.test.ts test/bridge-config.test.ts test/product-surface.test.ts",
