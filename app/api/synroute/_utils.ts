@@ -93,6 +93,20 @@ async function readPool(client: PublicClient, factory: Address, a: Address, b: A
 
 type Candidate = { path: Address[]; hops: Hop[]; amountIn: bigint; amountOut: bigint };
 
+const KNOWN_DECIMALS: Record<string, number> = {
+  '0x3600000000000000000000000000000000000000': 6, // USDC
+  '0x89b50855aa3be2f677cd6303cec089b5f319d72a': 6, // EURC
+  '0x825ae482558415310c71b7e03d2bbe409345903': 6, // USYC
+  '0xf0c4a4ce82a5746abaad9425360ab04fbba432bf': 8, // cirBTC
+  '0x175cdb1d338945f0d851a741ccf787d343e57952': 18, // USDT
+  '0x911b4000d3422f482f4062a913885f7b035382df': 18, // WUSDC
+};
+
+function resolveTokenDecimals(addr: string, provided?: unknown): number {
+  if (typeof provided === 'number' && provided > 0) return provided;
+  return KNOWN_DECIMALS[addr.toLowerCase()] ?? 18;
+}
+
 async function fallbackArcSynRouteQuote(bodyRecord: Record<string, unknown>, endpoint: SynRouteEndpoint) {
   const uni = getUniswapV2Addresses(ARC_CHAIN_ID);
   if (!uni) return NextResponse.json({ error: 'Arc router not configured' }, { status: 503 });
@@ -102,8 +116,8 @@ async function fallbackArcSynRouteQuote(bodyRecord: Record<string, unknown>, end
   const amountStr = String(bodyRecord.amount);
   const tradeType = bodyRecord.tradeType ?? 'EXACT_INPUT';
 
-  const tokenInDecimals = typeof bodyRecord.tokenInDecimals === 'number' ? bodyRecord.tokenInDecimals : 18;
-  const tokenOutDecimals = typeof bodyRecord.tokenOutDecimals === 'number' ? bodyRecord.tokenOutDecimals : 18;
+  const tokenInDecimals = resolveTokenDecimals(tokenIn, bodyRecord.tokenInDecimals);
+  const tokenOutDecimals = resolveTokenDecimals(tokenOut, bodyRecord.tokenOutDecimals);
 
   const useHop = tokenIn.toLowerCase() !== BASE_TOKEN.toLowerCase() && tokenOut.toLowerCase() !== BASE_TOKEN.toLowerCase();
   const rpcUrls = getArcTestnetRpcUrls();

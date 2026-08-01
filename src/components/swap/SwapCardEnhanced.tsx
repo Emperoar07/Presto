@@ -621,6 +621,8 @@ export function SwapCardEnhanced() {
                   tokenIn: inputToken.address,
                   tokenOut: outputToken.address,
                   amount: amount.toString(),
+                  tokenInDecimals: inputToken.decimals,
+                  tokenOutDecimals: outputToken.decimals,
                   tradeType: 'EXACT_INPUT',
                 })
               : Promise.reject(new Error('synroute disabled')),
@@ -728,6 +730,8 @@ export function SwapCardEnhanced() {
                 tokenIn: inputToken.address,
                 tokenOut: outputToken.address,
                 amount: desiredOut.toString(),
+                tokenInDecimals: inputToken.decimals,
+                tokenOutDecimals: outputToken.decimals,
                 tradeType: 'EXACT_OUTPUT',
               })
             : Promise.reject(new Error('synroute disabled')),

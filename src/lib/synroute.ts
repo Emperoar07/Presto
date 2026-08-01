@@ -60,6 +60,8 @@ type SynRouteBaseRequest = {
   tokenIn: string;
   tokenOut: string;
   amount: string;
+  tokenInDecimals?: number;
+  tokenOutDecimals?: number;
   tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
 };
 
