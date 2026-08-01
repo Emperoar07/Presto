@@ -16,6 +16,43 @@ const nextConfig = {
       'clsx',
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'prestodex-arc.vercel.app',
+          },
+        ],
+        destination: 'https://presto-42o.pages.dev/:path*',
+        permanent: false,
+      },
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'prestodex-b-a3ca.vercel.app',
+          },
+        ],
+        destination: 'https://presto-42o.pages.dev/:path*',
+        permanent: false,
+      },
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'prestodex.vercel.app',
+          },
+        ],
+        destination: 'https://presto-42o.pages.dev/:path*',
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

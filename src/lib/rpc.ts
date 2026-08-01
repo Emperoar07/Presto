@@ -64,9 +64,10 @@ export const getBaseSepoliaRpcUrls = () => {
 };
 
 export const ARC_TESTNET_RPC_DEFAULTS = [
-  // Original Arc public RPC + public smart-fallback providers (Thirdweb, dRPC).
-  // Multiple endpoints spread load and survive a single provider rate-limiting.
   'https://rpc.testnet.arc.network',
+  'https://lb.drpc.live/arc-testnet/AnoWcrk25EjskCuotT6VxB5OPJKjZ0cR8ZkcVjewFaCJ',
+  'https://cool-wild-tab.arc-testnet.quiknode.pro/dc4a22aad48ea73ae5a6755dbf32fa28210d2403/',
+  'https://arc-testnet.g.alchemy.com/v2/Nbazz1j8QfREnu7ryGLtGI03ubwKJJtt',
   'https://5042002.rpc.thirdweb.com',
   'https://arc-testnet.drpc.org',
   'https://rpc.blockdaemon.testnet.arc.network',

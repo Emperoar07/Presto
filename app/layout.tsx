@@ -12,6 +12,13 @@ import { LayoutContent } from "./LayoutContent";
 export const metadata: Metadata = {
   title: "Presto | Arc Testnet",
   description: "Instant swaps, stable liquidity pools, and cross-chain USDC transfers on Arc Testnet.",
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/presto-icon.png' },
+    ],
+    apple: [{ url: '/presto-icon.png' }],
+  },
 };
 
 export default function RootLayout({
