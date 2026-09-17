@@ -1,5 +1,8 @@
 # Presto
 
+> **STATUS: DEPRECATED & OFFLINE**
+> The live web deployments for **Presto DEX** (`presto-three-nu.vercel.app`) and **Presto Markets** (`presto-markets.vercel.app`) on Vercel/Cloudflare have been deprecated and taken offline. The repository remains preserved here for code reference and local development.
+
 Presto is a testnet DEX for Arc with a live normalized hub AMM, Circle powered USDC bridge flows, and full liquidity management.
 
 ## Features
